@@ -656,7 +656,8 @@ async function createEstate(){
     intake, ruleset_version:RULESET_VERSION
   }).select().single();
   if(error){ toast(error.message); return goHome(); }
-  await sb.from("estate_members").insert({estate_id:est.id,user_id:S.session.user.id,role:"owner"});
+  const {error:memErr} = await sb.from("estate_members").insert({estate_id:est.id,user_id:S.session.user.id,role:"owner"});
+  if(memErr){ toast("Couldn't finish setup: "+memErr.message); return goHome(); }
 
   // Rules engine → tasks
   const dod = intake.date_of_death ? new Date(intake.date_of_death+"T00:00:00") : new Date();
@@ -668,7 +669,8 @@ async function createEstate(){
   // "I'm not sure" answers generate finder tasks
   if(intake.will==="unsure") rows.push({estate_id:est.id,rule_id:"findwill",phase:"first24",category:"Documents",title:"Find out whether a will exists",why:"The will decides who is in charge and who inherits — everything downstream depends on it.",how:"Search the desk, safe, and fireproof box. Call any attorney they used. Check the county probate court (some hold wills for safekeeping). Ask family who might know.",sort_order:5});
   if(intake.lifeInsurance==="unsure") rows.push({estate_id:est.id,rule_id:"findpolicy",phase:"week1",category:"Insurance",title:"Search for life insurance policies",why:"Unknown policies are common — and unclaimed benefits eventually go to the state.",how:"Check bank statements for premium payments, ask their employer about group life, search files and email, and submit a free request to the NAIC Life Insurance Policy Locator.",sort_order:40});
-  await sb.from("tasks").insert(rows);
+  const {error:taskErr} = await sb.from("tasks").insert(rows);
+  if(taskErr){ toast("Roadmap error: "+taskErr.message); }
   await loadEstates();
   await logActivityFor(est.id, "created estate", intake.decedent_name);
   openEstate(est.id);
@@ -1037,7 +1039,8 @@ async function createPlan(){
   const subject_name=$("npName").value.trim(); if(!subject_name) return toast("A name helps us personalize the plan.");
   const {data:p,error}=await sb.from("plans").insert({created_by:S.session.user.id,subject_name,relationship:$("npRel").value,state_code:($("npState").value||"").toUpperCase()||null}).select().single();
   if(error) return toast(error.message);
-  await sb.from("plan_members").insert({plan_id:p.id,user_id:S.session.user.id,role:"owner"});
+  const {error:pmErr} = await sb.from("plan_members").insert({plan_id:p.id,user_id:S.session.user.id,role:"owner"});
+  if(pmErr){ toast("Couldn't finish setup: "+pmErr.message); return; }
   S.plans.unshift(p); closeModal(); openPlan(p.id);
 }
 
