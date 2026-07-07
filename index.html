@@ -3,8 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>LegacyHQ — Estate Settlement, Guided</title>
+<title>HomegoingHQ — Estate Settlement, Guided</title>
 <meta name="description" content="A calm, guided system for settling an estate and planning ahead — every task, deadline, and document in one place.">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#26332E">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -14,8 +17,9 @@
   --ink-soft:#3D4B45;
   --parchment:#F6F2EA;    /* warm paper */
   --card:#FFFDF9;
-  --brass:#A67C2E;        /* heirloom brass */
-  --brass-deep:#8A651F;
+  --brass:#8F6A24;        /* heirloom brass — deepened for engraved contrast */
+  --brass-deep:#75561D;
+  --brass-soft:#C9A24B;   /* decorative only */
   --slate:#5B7183;        /* river slate */
   --clay:#9C4A3C;         /* urgent only */
   --sage:#6E8273;
@@ -93,7 +97,8 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
 .phase-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
 .phase-head h2{font-size:20px}
 .progress{height:6px;background:#EBE4D6;border-radius:99px;overflow:hidden;margin:6px 0 12px}
-.progress i{display:block;height:100%;background:var(--brass);border-radius:99px;transition:width .3s}
+.progress i{display:block;height:100%;background:var(--brass);border-radius:99px;transition:width .3s,background .3s}
+.progress i.full{background:var(--sage)}
 .task-row{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:8px;cursor:pointer}
 .task-row:hover{border-color:var(--brass)}
 .task-row.done .t-title{text-decoration:line-through;color:var(--slate)}
@@ -155,9 +160,10 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
 <body>
 
 <header class="topbar"><div class="wrap topbar-inner">
-  <a class="logo" href="#" onclick="goHome();return false"><span class="mark">L</span>LegacyHQ</a>
+  <a class="logo" href="#" onclick="goHome();return false"><span class="mark">H</span>HomegoingHQ</a>
   <div style="display:flex;gap:10px;align-items:center">
     <span class="who" id="whoami"></span>
+    <button class="btn btn-ghost btn-sm hidden" id="btnAdmin" onclick="openAdmin()">Admin</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnSignOut" onclick="signOut()">Sign out</button>
   </div>
 </div></header>
@@ -165,10 +171,11 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
 <!-- AUTH -->
 <section id="view-auth">
   <div class="auth-hero">
-    <div class="seal">L</div>
+    <div class="seal">H</div>
     <h1>When it matters most,<br>know exactly what to do.</h1>
-    <p>LegacyHQ turns the hardest weeks of life into a clear, guided path — every task, deadline, letter, and document in one calm place.</p>
+    <p>HomegoingHQ turns the hardest weeks of life into a clear, guided path — every task, deadline, letter, and document in one calm place.</p>
   </div>
+  <div id="partnerBannerAuth" class="hidden" style="max-width:440px;margin:0 auto 16px;text-align:center"></div>
   <div class="auth-card card">
     <div class="eyebrow" id="authModeLabel">Sign in</div>
     <label>Email</label><input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com">
@@ -180,11 +187,14 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
     </div>
     <p class="muted" id="authMsg" style="margin-top:12px"></p>
   </div>
-  <p class="footer-note">LegacyHQ provides organizational tools and general legal information, not legal, tax, or financial advice. For advice about your specific situation, consult a licensed attorney, CPA, or financial professional.</p>
+  <p style="text-align:center;margin-top:18px"><a href="#" onclick="openGiftModal();return false" style="font-size:14px">🎁 Give HomegoingHQ as a gift — a helping hand for a grieving family</a></p>
+  <p class="footer-note">HomegoingHQ provides organizational tools and general legal information, not legal, tax, or financial advice. For advice about your specific situation, consult a licensed attorney, CPA, or financial professional.</p>
 </section>
 
 <!-- HOME -->
 <section id="view-home" class="hidden"><div class="wrap">
+  <div id="partnerBannerHome"></div>
+  <div id="clientsSection"></div>
   <div class="estate-head"><div class="eyebrow">Your workspace</div><h1 class="name" style="font-size:26px">Welcome<span id="homeName"></span></h1></div>
   <div class="grid" id="estateList"></div>
   <div class="card" style="margin-top:14px">
@@ -199,7 +209,11 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
     <div class="eyebrow">Your plan</div>
     <h3 style="margin:6px 0">Free plan — 1 estate, core roadmap</h3>
     <p class="muted">Settle ($249 one-time per estate) unlocks unlimited family members, the full notification letter library, document vault, and unlimited AI guidance.</p>
-    <div style="margin-top:12px"><button class="btn btn-brass" onclick="startCheckout('settle')">Upgrade to Settle</button></div>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-brass" onclick="startCheckout('settle')">Upgrade to Settle</button>
+      <button class="btn btn-ghost" onclick="openGiftModal()">🎁 Give as a gift</button>
+      <button class="btn btn-ghost" onclick="openRedeemModal()">Redeem a gift code</button>
+    </div>
   </div>
 </div></section>
 
@@ -221,6 +235,7 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
     <button data-tab="next" class="active" onclick="setTab('next')">Next</button>
     <button data-tab="roadmap" onclick="setTab('roadmap')">Roadmap</button>
     <button data-tab="funeral" onclick="setTab('funeral')">Funeral</button>
+    <button data-tab="claims" onclick="setTab('claims')">Insurance</button>
     <button data-tab="notify" onclick="setTab('notify')">Notify</button>
     <button data-tab="docs" onclick="setTab('docs')">Documents</button>
     <button data-tab="ledger" onclick="setTab('ledger')">Ledger</button>
@@ -232,6 +247,13 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
   <div id="tab-next">
     <div class="stack-zone"><div class="stack" id="nextStack"></div></div>
     <div class="stack-count" id="nextCount"></div>
+    <div class="card" style="margin-top:8px;border-top:3px solid var(--brass)">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+        <div style="flex:1;min-width:230px"><strong>Prefer a person beside you?</strong>
+        <div class="muted" style="font-size:13.5px;margin-top:3px">A dedicated concierge can walk this road with you — from a few calls to get unstuck, to handling the coordination end to end. First conversation is free.</div></div>
+        <button class="btn btn-brass btn-sm" onclick="conciergeModal()">Talk to a person</button>
+      </div>
+    </div>
     <div class="banner">A note for right now: don't pay the deceased's bills from your own money, don't distribute belongings yet, and don't announce dates the home will be empty. The roadmap will tell you when each of those is safe.</div>
   </div>
 
@@ -248,6 +270,8 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
       </div>
     </div>
     <div class="grid" id="notifList" style="margin-top:14px"></div>
+    <h2 style="margin:26px 0 12px;font-size:20px">Government agencies</h2>
+    <div class="grid" id="govList"></div>
     <h2 style="margin:26px 0 12px;font-size:20px">Letter & script templates</h2>
     <div class="grid" id="tplList"></div>
   </div>
@@ -266,6 +290,7 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
   </div>
 
   <div id="tab-funeral" class="hidden"></div>
+  <div id="tab-claims" class="hidden"></div>
   <div id="tab-ledger" class="hidden"></div>
   <div id="tab-probate" class="hidden"></div>
   <div id="tab-memories" class="hidden"></div>
@@ -276,7 +301,7 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
       <p class="muted" style="margin:8px 0 14px">Invite the people helping settle this estate. They'll see the roadmap, claim tasks, and everything is logged.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <input id="invEmail" type="email" placeholder="their-email@example.com" style="flex:1;min-width:200px">
-        <select id="invRole" style="width:auto"><option value="member">Member</option><option value="executor">Executor</option><option value="viewer">Viewer</option></select>
+        <select id="invRole" style="width:auto"><option value="member">Member</option><option value="executor">Executor</option><option value="viewer">Viewer</option><option value="attorney">Attorney</option><option value="cpa">CPA</option><option value="advisor">Financial advisor</option></select>
         <button class="btn btn-primary btn-sm" onclick="sendInvite()">Invite</button>
       </div>
     </div>
@@ -291,6 +316,8 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
   <div class="estate-head" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px">
     <div><div class="eyebrow">Life plan for</div><h1 class="name" id="pName"></h1><div class="sub" id="pSub"></div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="openWitness()">🎥 Last wishes</button>
+      <button class="btn btn-ghost btn-sm" id="btnE2EE" onclick="openE2EE()">🔒 Sensitive lock</button>
       <button class="btn btn-ghost btn-sm" onclick="openEmergencySettings()">Emergency access</button>
       <button class="btn btn-ghost btn-sm" onclick="openPlanShare()">Share</button>
       <button class="btn btn-brass btn-sm" onclick="buildPacket()">Executor Packet</button>
@@ -300,13 +327,51 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
   <div id="planBody"></div>
 </div></section>
 
+<!-- ADMIN -->
+<section id="view-admin" class="hidden"><div class="wrap">
+  <div class="estate-head"><div class="eyebrow">HomegoingHQ</div><h1 class="name" style="font-size:26px">Admin console</h1></div>
+  <div class="grid" id="adminStats" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))"></div>
+  <div class="card" style="margin-top:16px">
+    <div class="eyebrow">Users</div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <input id="admSearch" placeholder="Search email or name" onkeydown="if(event.key==='Enter')admLoadUsers()">
+      <button class="btn btn-primary btn-sm" onclick="admLoadUsers()">Search</button>
+    </div>
+    <div id="admUsers" style="margin-top:12px"></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div class="eyebrow">Partners (white-label)</div>
+      <button class="btn btn-primary btn-sm" onclick="admPartnerModal()">+ Add partner</button></div>
+    <div id="admPartners" style="margin-top:8px"></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div class="eyebrow">State packs (probate content — live edits, no redeploy)</div>
+      <button class="btn btn-primary btn-sm" onclick="admEditPack('')">+ New state</button></div>
+    <div id="admPacks" style="margin-top:8px"></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div class="eyebrow">County court directory</div>
+      <div style="display:flex;gap:8px"><input id="admCtyState" value="MI" maxlength="2" style="width:64px" onchange="admLoadCounties()">
+      <button class="btn btn-primary btn-sm" onclick="admCountyModal()">+ Add county</button></div></div>
+    <div id="admCounties" style="margin-top:8px"></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="eyebrow">Recent activity across all estates</div>
+    <div id="admActivity" class="muted" style="font-size:13.5px;margin-top:8px"></div>
+  </div>
+  <p class="footer-note" style="padding:20px 0">For anything deeper — resetting a password, deleting an account, inspecting data — use the Supabase dashboard: Authentication → Users, and Database → Tables. This console never displays vault contents; respect that boundary even when debugging.</p>
+</div></section>
+
 <!-- PUBLIC MEMORIAL -->
 <section id="view-memorial" class="hidden"><div class="wrap" style="max-width:680px" id="memorialBody"></div></section>
 
 <!-- Guide -->
 <button class="guide-fab hidden" id="guideFab" onclick="openGuide()">✦ Ask the Guide</button>
 <div class="guide-drawer hidden" id="guideDrawer">
-  <div class="guide-head"><div><div class="eyebrow">LegacyHQ Guide</div><strong>Here to help, one step at a time</strong></div>
+  <div class="guide-head"><div><div class="eyebrow">HomegoingHQ Guide</div><strong>Here to help, one step at a time</strong></div>
   <button class="btn btn-ghost btn-sm" onclick="closeGuide()">Close</button></div>
   <div class="guide-msgs" id="guideMsgs"><div class="gm ai">I'm here whenever you need something explained — a legal term, a letter drafted, or simply what to do next. What can I help with?</div></div>
   <div class="guide-input"><input id="guideText" placeholder="Ask anything…" onkeydown="if(event.key==='Enter')sendGuide()"><button class="btn btn-primary" onclick="sendGuide()">Send</button></div>
@@ -317,6 +382,34 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
 <div id="toast" class="hidden"></div>
 
 <script>
+/* ================= BRANDS — one app, four front doors ================= */
+const BRANDS={
+ homegoing:{name:"HomegoingHQ",mark:"H",tagline:"Aftercare · Estate Guidance · Memorial",
+   hero:"When it matters most,<br>know exactly what to do.",
+   sub:"HomegoingHQ turns the hardest weeks of life into a clear, guided path — every task, deadline, letter, and document in one calm place.",
+   tradition:"homegoing",memorialBy:"HomegoingHQ",accent:"#8F6A24",accentDeep:"#75561D"},
+ kinkeeper:{name:"KinKeeper",mark:"K",tagline:"Plan Ahead · Settle With Care · Remember",
+   hero:"For the one who<br>holds the family together.",
+   sub:"KinKeeper guides your family through everything before and after a loss — every task, deadline, letter, and document in one calm place.",
+   tradition:"general",memorialBy:"KinKeeper",accent:"#4A6B57",accentDeep:"#3B5646"},
+ chesed:{name:"Chesed",mark:"ח",tagline:"Levaya · Shiva · Estate · Remembrance",
+   hero:"A guide through the days<br>and the year that follow.",
+   sub:"Chesed walks your family from the first call through sheloshim, the estate, and the unveiling — every task, deadline, and document in one calm place.",
+   tradition:"jewish",memorialBy:"Chesed",accent:"#34457E",accentDeep:"#283763"},
+ requiem:{name:"Requiem",mark:"R",tagline:"Vigil · Funeral Mass · Estate · Remembrance",
+   hero:"Grant them rest.<br>We'll guide the rest.",
+   sub:"Requiem walks your family from the vigil through the funeral Mass, the estate, and remembrance — every task, deadline, and document in one calm place.",
+   tradition:"catholic",memorialBy:"Requiem",accent:"#55346B",accentDeep:"#432A55"}
+};
+// Brand is chosen by (1) ?brand= link, (2) saved choice, (3) hostname mapping, (4) default.
+const HOSTNAME_BRANDS={ /* "kinkeeper.com":"kinkeeper", "chesedhq.com":"chesed" */ };
+(function(){
+  const q=new URLSearchParams(location.search).get("brand");
+  if(q&&BRANDS[q]) localStorage.setItem("lhq_brand",q);
+})();
+const BRAND_KEY=localStorage.getItem("lhq_brand")||HOSTNAME_BRANDS[location.hostname]||"homegoing";
+const BRAND=BRANDS[BRAND_KEY];
+
 /* ================= CONFIG — fill these two in ================= */
 const SUPABASE_URL = "https://vohqgmnurnkgbwpvrakp.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvaHFnbW51cm5rZ2J3cHZyYWtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNjc0NTYsImV4cCI6MjA5ODk0MzQ1Nn0.fXDBbljOS_p49FS9vU4smAWxyn4STYuLRGFf9rJgp-Q";
@@ -384,6 +477,18 @@ const RULES = [
 {id:"finaltax",phase:"longterm",cat:"Taxes",due:270,title:"File the final tax returns",why:"The final personal return (1040) and, if the estate earned income, the estate return (1041) are the executor's legal duty.",how:"The final 1040 is due the usual April deadline for the year of death. The 1041 applies if the estate earns $600+ after death. Let the CPA drive; give them the inventory and the estate account records."},
 {id:"distribute",phase:"longterm",cat:"Closing",due:300,title:"Make final distributions — with receipts",why:"Distributing before debts and taxes are settled is the classic executor mistake; documented distributions protect you from later disputes.",how:"Only after claims and taxes are resolved. Pay per the will/trust, and have each beneficiary sign a receipt and release. Keep copies with the estate records."},
 {id:"closeestate",phase:"longterm",cat:"Closing",due:330,title:"Close the estate",why:"Formal closure ends the executor's liability and duties.",how:"File the final accounting with the court (or trust records to beneficiaries), obtain the order of discharge, close the estate bank account last, after every check clears."},
+// ---- TRADITION-SPECIFIC STEPS ----
+{id:"jw_chevra",phase:"first24",cat:"Tradition",due:1,cond:i=>i.tradition==="jewish",title:"Call the synagogue / chevra kadisha right away",why:"Jewish tradition seeks burial as soon as possible — often within a day or two, and not on Shabbat or holidays — so the community's sacred burial society begins immediately.",how:"Call your synagogue or a Jewish funeral home first. They coordinate tahara (the ritual preparation), a shomer to stay with your loved one, and timing around the calendar. Questions about autopsy or organ donation are matters to bring to your rabbi."},
+{id:"jw_shiva",phase:"first24",cat:"Tradition",due:3,cond:i=>i.tradition==="jewish",title:"Arrange shiva",why:"The seven days of shiva give the family a held, structured space to grieve — and the community a way to care for you.",how:"Choose the shiva home, let the synagogue and community know visiting times, arrange the meal of consolation (traditionally provided by the community, not the mourners), cover mirrors per your custom, and designate someone to coordinate meals and minyan times."},
+{id:"jw_sheloshim",phase:"week1",cat:"Tradition",due:7,cond:i=>i.tradition==="jewish",title:"Plan for kaddish and sheloshim",why:"Kaddish is said in a minyan; sheloshim closes the first thirty days. Knowing the plan brings steadiness to the weeks ahead.",how:"Coordinate minyan times with the synagogue (many offer daily services or can help find one). Mark the end of sheloshim on the calendar. For a parent, kaddish traditionally continues for eleven months — your rabbi can guide your family's practice."},
+{id:"jw_unveiling",phase:"longterm",cat:"Tradition",due:300,cond:i=>i.tradition==="jewish",title:"Plan the unveiling",why:"The dedication of the headstone gathers the family once more within the first year (customs vary by community).",how:"Order the monument early — engraving and cemetery scheduling take months. Coordinate the date with the rabbi and cemetery; a brief service with kaddish is customary."},
+{id:"jw_yahrzeit",phase:"longterm",cat:"Tradition",due:330,cond:i=>i.tradition==="jewish",title:"Record the yahrzeit (Hebrew date)",why:"The yahrzeit follows the Hebrew calendar, so it falls on a different English date each year.",how:"Ask the synagogue or funeral home for the Hebrew date of death and add it to the family calendar; many synagogues send annual reminders and read the name at services. Light the yahrzeit candle at sunset the evening before."},
+{id:"ca_parish",phase:"first24",cat:"Tradition",due:2,cond:i=>i.tradition==="catholic",title:"Contact the parish to schedule the funeral Mass",why:"The Mass is the heart of a Catholic funeral, and the priest's and church's availability set the timeline for everything else.",how:"Call the parish office; ask for the priest or funeral coordinator. Discuss dates for the vigil and Mass, readings and music (the parish can suggest what's permitted in the liturgy), and who will deliver the words of remembrance."},
+{id:"ca_vigil",phase:"week1",cat:"Tradition",due:5,cond:i=>i.tradition==="catholic",title:"Plan the vigil (wake) and rosary",why:"The vigil is the community's evening of prayer and remembrance before the Mass.",how:"Choose the location (funeral home or church), ask who will lead the rosary or vigil prayers, and let the funeral director coordinate timing with the parish."},
+{id:"ca_committal",phase:"week1",cat:"Tradition",due:7,cond:i=>i.tradition==="catholic",title:"Plan the Rite of Committal — including for cremation",why:"The Church asks that a loved one's remains be laid to rest in a sacred place. If cremation is chosen, the remains are interred — not scattered or kept at home.",how:"Arrange the committal at the cemetery or a columbarium; many Catholic cemeteries have chapels for the rite. Your parish or funeral director will guide the details."},
+{id:"ca_monthsmind",phase:"month1",cat:"Tradition",due:25,cond:i=>i.tradition==="catholic",title:"Arrange a memorial (Month's Mind) Mass",why:"A Mass offered about a month after death is a long tradition of continued prayer for the departed.",how:"Call the parish office to request a Mass intention; a small stipend is customary. Invite family — it's often a gentler gathering than the funeral itself."},
+{id:"ca_anniv",phase:"longterm",cat:"Tradition",due:330,cond:i=>i.tradition==="catholic",title:"Plan the anniversary Mass and All Souls' remembrance",why:"Anniversary Masses and All Souls' Day (November 2) carry remembrance forward in the life of the parish.",how:"Request the anniversary Mass intention a couple of months ahead; add All Souls' Day to the family calendar. Many parishes inscribe names in a book of remembrance each November."},
+{id:"hg_church",phase:"week1",cat:"Tradition",due:5,cond:i=>i.tradition==="homegoing",title:"Coordinate the homegoing with the church",why:"The choir, the program, the officiant, and the repast are the heart of the celebration — and the church family will want to help carry it.",how:"Meet with the pastor about the order of service, speakers, and scripture. Confirm the choir or soloists and their selections. Arrange the repast (church kitchen or caterer) and who's coordinating the hospitality ministry."},
 {id:"records",phase:"longterm",cat:"Closing",due:360,title:"Archive the records (keep 7 years)",why:"Tax questions and beneficiary disputes can surface years later; the file is your protection.",how:"Keep the will, letters, inventory, accountings, tax returns, receipts/releases, and the estate account statements together — one physical folder plus scans in the vault here."}
 ];
 
@@ -497,9 +602,20 @@ let authMode = "signin";
 
 /* ---------- helpers ---------- */
 const $ = id => document.getElementById(id);
+(function applyBrand(){
+  document.title=BRAND.name+" — Estate Settlement, Guided";
+  if(BRAND.accent){
+    document.documentElement.style.setProperty("--brass",BRAND.accent);
+    document.documentElement.style.setProperty("--brass-deep",BRAND.accentDeep||BRAND.accent);
+  }
+  document.querySelectorAll(".logo").forEach(l=>{l.innerHTML=`<span class="mark">${BRAND.mark}</span>${BRAND.name}`;});
+  const seal=document.querySelector(".seal"); if(seal) seal.textContent=BRAND.mark;
+  const h=document.querySelector(".auth-hero h1"); if(h) h.innerHTML=BRAND.hero;
+  const p=document.querySelector(".auth-hero p"); if(p) p.textContent=BRAND.sub;
+})();
 function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.remove("hidden"); clearTimeout(t._x); t._x=setTimeout(()=>t.classList.add("hidden"),3200); }
 function esc(s){ return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-function show(view){ ["view-auth","view-home","view-intake","view-estate","view-plan","view-memorial"].forEach(v=>$(v).classList.add("hidden")); $(view).classList.remove("hidden"); window.scrollTo(0,0); }
+function show(view){ ["view-auth","view-home","view-intake","view-estate","view-plan","view-memorial","view-admin"].forEach(v=>$(v).classList.add("hidden")); $(view).classList.remove("hidden"); window.scrollTo(0,0); }
 function fmtDate(d){ if(!d) return ""; return new Date(d+"T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }
 async function logActivity(action, detail){ if(!S.estate) return; await sb.from("activity_log").insert({estate_id:S.estate.id, user_id:S.session.user.id, action, detail}); }
 
@@ -536,12 +652,19 @@ async function handleSession(session){
     if(lastSessionUser === session.user.id && S.profile) return; // ignore token refreshes
     lastSessionUser = session.user.id;
     $("btnSignOut").classList.remove("hidden");
+    sb.rpc("is_admin").then(({data})=>{ if(data===true) $("btnAdmin").classList.remove("hidden"); }).catch(()=>{});
     try{
       const {data:p} = await sb.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
       S.profile = p;
       $("whoami").textContent = p?.full_name || session.user.email;
       $("homeName").textContent = p?.full_name ? ", "+p.full_name.split(" ")[0] : "";
       await sb.rpc("accept_my_invites");
+      // attribute this account to a partner if they arrived via a partner link
+      const pc=localStorage.getItem("lhq_partner");
+      if(pc && p && !p.partner_code){
+        await sb.from("profiles").update({partner_code:pc}).eq("id",p.id);
+        S.profile.partner_code=pc;
+      }
       await loadEstates();
     }catch(err){ toast("Loading issue: "+err.message); }
     goHome();
@@ -564,6 +687,15 @@ async function loadEstates(){
     sb.from("plans").select("*").order("created_at",{ascending:false})
   ]);
   S.estates = est||[]; S.plans = pl||[];
+  const uid=S.session?.user?.id;
+  if(uid){
+    const [{data:er},{data:pr}]=await Promise.all([
+      sb.from("estate_members").select("estate_id,role").eq("user_id",uid),
+      sb.from("plan_members").select("plan_id,role").eq("user_id",uid)
+    ]);
+    S.myEstateRoles=Object.fromEntries((er||[]).map(m=>[m.estate_id,m.role]));
+    S.myPlanRoles=Object.fromEntries((pr||[]).map(m=>[m.plan_id,m.role]));
+  }
 }
 function goHome(){
   if(!S.session) return show("view-auth");
@@ -583,6 +715,7 @@ function goHome(){
     d.onclick=()=>openEstate(e.id); list.appendChild(d);
   });
   $("upgradeCard").classList.toggle("hidden", S.profile?.plan_tier!=="free");
+  renderClientsSection();
   renderMyEmergencyRequests();
   show("view-home");
 }
@@ -604,6 +737,7 @@ const WIZ = [
  {k:"decedent_name",q:"What is the name of the person who passed?",sub:"We'll use their name gently throughout — never 'the deceased' where it matters.",type:"text",ph:"Full name"},
  {k:"date_of_death",q:"When did they pass?",sub:"An approximate date is fine — you can correct it later.",type:"date"},
  {k:"relationship",q:"What was your relationship to them?",type:"choice",opts:[["spouse","Spouse or partner"],["child","Son or daughter"],["parent","Parent"],["sibling","Sibling"],["family","Other family"],["friend","Friend or helper"]]},
+ {k:"tradition",q:"What tradition will guide the services?",sub:"This shapes the steps we suggest — timing, customs, and remembrance. Choose what fits; you can mix.",type:"choice",opts:[["homegoing","Homegoing (Black church tradition)"],["catholic","Catholic"],["jewish","Jewish"],["general","General / other"]]},
  {k:"state_code",q:"Which state did they live in?",sub:"Some steps vary by state — this helps us point you right.",type:"text",ph:"e.g., MI"},
  {k:"funeralArranged",q:"Were funeral arrangements already made or prepaid?",type:"yn3"},
  {k:"minorChildren",q:"Are there minor children or dependents who relied on them?",type:"yn"},
@@ -629,7 +763,7 @@ function startIntake(){
     toast("The free plan includes one estate. Upgrade to Settle to add another.");
     return;
   }
-  wizStep=0; wizAnswers={}; renderWiz(); show("view-intake");
+  wizStep=0; wizAnswers={tradition:BRAND.tradition}; renderWiz(); show("view-intake");
 }
 function renderWiz(){
   const q=WIZ[wizStep], c=$("wizCard");
@@ -665,7 +799,8 @@ async function createEstate(){
     date_of_death:intake.date_of_death||null,
     state_code:(intake.state_code||"").toUpperCase().slice(0,2)||null,
     relationship:intake.relationship,
-    intake, ruleset_version:RULESET_VERSION
+    intake, ruleset_version:RULESET_VERSION,
+    partner_code: S.profile?.partner_code || localStorage.getItem("lhq_partner") || null
   }).select().single();
   if(error){ toast(error.message); return goHome(); }
   const {error:memErr} = await sb.from("estate_members").insert({estate_id:est.id,user_id:S.session.user.id,role:"owner"});
@@ -683,6 +818,10 @@ async function createEstate(){
   if(intake.lifeInsurance==="unsure") rows.push({estate_id:est.id,rule_id:"findpolicy",phase:"week1",category:"Insurance",title:"Search for life insurance policies",why:"Unknown policies are common — and unclaimed benefits eventually go to the state.",how:"Check bank statements for premium payments, ask their employer about group life, search files and email, and submit a free request to the NAIC Life Insurance Policy Locator.",sort_order:40});
   const {error:taskErr} = await sb.from("tasks").insert(rows);
   if(taskErr){ toast("Roadmap error: "+taskErr.message); }
+  const fh=S.partner?.funeral_home;
+  if(fh && fh.name){
+    await sb.from("funeral_options").insert({estate_id:est.id,option_type:"funeral_home",name:fh.name,phone:fh.phone||null,notes:fh.address||null,chosen:true});
+  }
   await loadEstates();
   await logActivityFor(est.id, "created estate", intake.decedent_name);
   openEstate(est.id);
@@ -695,19 +834,20 @@ async function openEstate(id){
   S.estate = est;
   $("eName").textContent = est.decedent_name;
   $("eSub").textContent = (est.date_of_death?("Passed "+fmtDate(est.date_of_death)):"") + (est.state_code?" · "+est.state_code:"") + (est.relationship?" · You: "+est.relationship:"");
-  await Promise.all([loadTasks(),loadMembers(),loadNotifs(),loadDocs()]);
+  await Promise.all([loadTasks(),loadMembers(),loadNotifs(),loadDocs(),loadStatePack()]);
   setTab("next"); show("view-estate");
 }
 function setTab(t){
-  ["next","roadmap","funeral","notify","docs","ledger","probate","memories","family"].forEach(x=>{
+  ["next","roadmap","funeral","claims","notify","docs","ledger","probate","memories","family"].forEach(x=>{
     $("tab-"+x).classList.toggle("hidden",x!==t);
     document.querySelector(`#eTabs [data-tab="${x}"]`).classList.toggle("active",x===t);
   });
   if(t==="next") renderNext();
   if(t==="roadmap") renderRoadmap();
-  if(t==="notify"){ renderNotifs(); renderTemplates(); }
+  if(t==="notify"){ renderNotifs(); renderGov(); renderTemplates(); }
   if(t==="docs") renderDocs();
   if(t==="funeral") loadFuneral();
+  if(t==="claims") loadClaims();
   if(t==="ledger") loadLedger();
   if(t==="probate") renderProbate();
   if(t==="memories") loadMemories();
@@ -758,7 +898,7 @@ function renderRoadmap(){
     const done=items.filter(t=>t.status==="done"||t.status==="na").length;
     const blk=document.createElement("div"); blk.className="phase-block";
     blk.innerHTML=`<div class="phase-head"><h2>${p.label}</h2><span class="muted">${done}/${items.length}</span></div>
-      <div class="progress"><i style="width:${items.length?Math.round(done/items.length*100):0}%"></i></div>`;
+      <div class="progress"><i class="${done===items.length?"full":""}" style="width:${items.length?Math.round(done/items.length*100):0}%"></i></div>`;
     items.forEach(t=>{
       const r=document.createElement("div"); r.className="task-row"+(t.status==="done"?" done":"");
       r.innerHTML=`<div class="tick">${t.status==="done"?"✓":""}</div>
@@ -1083,7 +1223,7 @@ function renderPlanHome(){
     <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
       <div style="font-family:var(--font-display);font-size:52px;line-height:1">${r.score}<span style="font-size:20px;color:var(--slate)">/100</span></div>
       <div style="flex:1;min-width:220px"><div class="eyebrow">Readiness Score</div>
-      <div class="progress" style="margin:8px 0"><i style="width:${r.score}%"></i></div>
+      <div class="progress" style="margin:8px 0"><i class="${r.score>=85?"full":""}" style="width:${r.score}%"></i></div>
       <div class="muted">${tone}</div></div>
     </div>
     ${r.gaps.length?`<hr class="rule"><div class="eyebrow">Next best steps</div>
@@ -1123,7 +1263,7 @@ function openSection(key){
       <div><strong>${esc(e.title)}</strong>
         ${e.detail?`<div class="muted" style="font-size:13px">${esc(e.detail)}</div>`:""}
         ${e.location?`<div class="muted" style="font-size:12.5px">📍 ${esc(e.location)}</div>`:""}</div>
-      ${e.number?`<span class="pill">•••• ${esc(e.number.slice(-4))}</span>`:""}</div>`;
+      ${e.number?`<span class="pill">${e.number.startsWith("enc1:")?"🔒 locked":"•••• "+esc(e.number.slice(-4))}</span>`:""}</div>`;
     d.onclick=()=>entryModal(key,e.id); list.appendChild(d);
   });
 }
@@ -1171,7 +1311,7 @@ function openPlanShare(){
     <div class="eyebrow">Share this plan</div><h3>Who should have access?</h3>
     <p class="muted" style="margin:8px 0 4px">Your executor and spouse are the usual choices. They'll see everything in the vault.</p>
     <label>Their email</label><input id="psEmail" type="email" placeholder="their-email@example.com">
-    <label>Role</label><select id="psRole"><option value="executor">Executor</option><option value="member">Family member</option><option value="viewer">Viewer</option></select>
+    <label>Role</label><select id="psRole"><option value="executor">Executor</option><option value="member">Family member</option><option value="viewer">Viewer</option><option value="attorney">Attorney</option><option value="cpa">CPA</option><option value="advisor">Financial advisor</option></select>
     <div class="scard-actions" style="margin-top:18px"><button class="btn btn-primary" onclick="sendPlanInvite()">Send invite</button></div>
   </div></div>`;
 }
@@ -1199,7 +1339,7 @@ function buildPacket(){
   <div class="noprint" style="background:#FCF7EC;border:1px solid #E9D9B4;border-radius:8px;padding:12px;margin-bottom:20px">
   Use your browser's Print to save as PDF, then store a copy with your original documents. <button onclick="window.print()">Print / Save PDF</button></div>
   <h1>Executor Packet</h1>
-  <div class="sub">Everything ${esc(S.plan.subject_name)} organized for you · Readiness ${r.score}/100 · Generated ${new Date().toLocaleDateString()} by LegacyHQ</div>`;
+  <div class="sub">Everything ${esc(S.plan.subject_name)} organized for you · Readiness ${r.score}/100 · Generated ${new Date().toLocaleDateString()} by HomegoingHQ</div>`;
   SECTIONS.forEach(s=>{
     const items=S.entries.filter(e=>e.section===s.key);
     if(items.length===0) return;
@@ -1214,7 +1354,7 @@ function buildPacket(){
         ${e.notes?`<div class="m">${esc(e.notes)}</div>`:""}</div>`;
     });
   });
-  html+=`<div class="foot">This packet is an organizational index prepared from information entered in LegacyHQ. It is not a legal document and does not replace a will, trust, or professional advice.${inc?" It contains sensitive account information — store it as securely as the documents it describes.":""}</div></body></html>`;
+  html+=`<div class="foot">This packet is an organizational index prepared from information entered in HomegoingHQ. It is not a legal document and does not replace a will, trust, or professional advice.${inc?" It contains sensitive account information — store it as securely as the documents it describes.":""}</div></body></html>`;
   const w=window.open("","_blank"); w.document.write(html); w.document.close();
 }
 </script>
@@ -1262,7 +1402,8 @@ function renderLedger(){
     const cfg=ledgerCfg(L.sub), rows=L[L.sub];
     h+=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <div><strong>${cfg.title}</strong><div class="muted" style="font-size:13px">${cfg.hint}</div></div>
-      <button class="btn btn-primary btn-sm" onclick="ledgerModal('${L.sub}')">+ Add</button></div></div>
+      <div style="display:flex;gap:8px">${L.sub==="assets"?`<button class="btn btn-ghost btn-sm" onclick="plaidDiscover()">Import from banks</button>`:""}
+      <button class="btn btn-primary btn-sm" onclick="ledgerModal('${L.sub}')">+ Add</button></div></div></div>
       <div class="grid" style="margin-top:12px">`;
     if(rows.length===0) h+=`<div class="muted" style="padding:4px 6px">Nothing recorded yet.</div>`;
     rows.forEach(r=>{
@@ -1348,7 +1489,7 @@ function reportShell(title,body){
   <div class="noprint" style="background:#FCF7EC;border:1px solid #E9D9B4;border-radius:8px;padding:12px;margin-bottom:20px">
   <button onclick="window.print()">Print / Save as PDF</button></div>${body}
   <div class="sig"><div>Personal Representative — Signature & Date</div><div>Prepared by</div></div>
-  <div class="foot">Prepared with LegacyHQ from records entered by the estate's representatives. Figures should be verified against source documents. This report is an organizational aid, not legal or accounting advice.</div>
+  <div class="foot">Prepared with HomegoingHQ from records entered by the estate's representatives. Figures should be verified against source documents. This report is an organizational aid, not legal or accounting advice.</div>
   </body></html>`;
 }
 function gateExports(){
@@ -1422,12 +1563,24 @@ const STATE_PACKS={
   }}
 };
 let probateAnswers={};
-function packFor(){ return STATE_PACKS[S.estate?.state_code] || STATE_PACKS.GENERIC; }
+function packFor(){ return S.statePack || STATE_PACKS[S.estate?.state_code] || STATE_PACKS.GENERIC; }
+async function loadStatePack(){
+  S.statePack=null; S.counties=[];
+  const sc=S.estate?.state_code;
+  try{
+    const {data:packs}=await sb.from("state_packs").select("*").in("state_code",[sc||"GENERIC","GENERIC"]);
+    if(packs&&packs.length){
+      const hit=packs.find(p=>p.state_code===sc)||packs.find(p=>p.state_code==="GENERIC");
+      if(hit){ S.statePack={...hit.content, reviewed: hit.reviewed_by?`Reviewed by ${hit.reviewed_by}`:`content v${hit.version}`, reviewedDate: hit.reviewed_at }; }
+    }
+    if(sc){ const {data:cty}=await sb.from("county_directory").select("*").eq("state_code",sc).order("county"); S.counties=cty||[]; }
+  }catch(e){}
+}
 function renderProbate(){
   const pack=packFor();
   const rec=probateRecommend();
   let h=`<div class="card">
-    <div class="eyebrow">Probate Assistant · ${pack.name} · content reviewed ${pack.reviewed}</div>
+    <div class="eyebrow">Probate Assistant · ${pack.name} · ${pack.reviewed||("content reviewed "+(pack.reviewedDate||"July 2026"))}</div>
     <h2 style="margin:10px 0 6px;font-size:21px">Which path fits this estate?</h2>
     <p class="muted">Three questions. In ${pack.name==="Michigan"?"Michigan":"most states"}, the person in charge is called the <strong>${pack.term}</strong>.</p>
     ${probateQ("q1","Are there assets titled ONLY in their name, with no beneficiary and no co-owner?",[["no","No — everything is joint, in trust, or has beneficiaries"],["yes","Yes"],["unsure","I'm not sure"]])}
@@ -1445,10 +1598,26 @@ function renderProbate(){
         <button class="btn btn-ghost btn-sm" onclick="openGuide()">Ask the Guide about this</button>
       </div></div>`;
   }
+  if((S.counties||[]).length){
+    h+=`<div class="card" style="margin-top:14px"><div class="eyebrow">Find your probate court</div>
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">
+        <select id="ctySel" style="width:auto" onchange="showCounty()">${S.counties.map((c,i)=>`<option value="${i}">${esc(c.county)} County</option>`).join("")}</select>
+      </div><div id="ctyInfo" style="margin-top:10px" class="muted"></div></div>`;
+  }
   h+=`<div class="card" style="margin-top:14px"><div class="eyebrow">${pack.name} — worth knowing</div>
     <ul style="margin:10px 0 0 18px;display:grid;gap:7px;font-size:14.5px">${pack.notes.map(n=>`<li>${n}</li>`).join("")}</ul></div>
     <p class="footer-note" style="padding:20px 0 10px">General information about court procedure, not legal advice. Thresholds, forms, and deadlines change — verify with the county probate court or a licensed attorney. Contested, insolvent, or complex estates need an attorney.</p>`;
   $("tab-probate").innerHTML=h;
+  if((S.counties||[]).length) showCounty();
+}
+function showCounty(){
+  const c=S.counties[Number($("ctySel").value)]; if(!c) return;
+  $("ctyInfo").innerHTML=[
+    c.court_name?`<strong style="color:var(--ink)">${esc(c.court_name)}</strong>`:"",
+    c.address?esc(c.address):"", c.phone?"☎ "+esc(c.phone):"",
+    c.website?`<a href="${esc(c.website)}" target="_blank" rel="noopener">${esc(c.website)}</a>`:"",
+    c.filing_note?`<span style="font-size:12.5px">${esc(c.filing_note)}</span>`:""
+  ].filter(Boolean).join("<br>");
 }
 function probateQ(k,q,opts){
   return `<div style="margin-top:16px"><strong style="font-size:15px">${q}</strong>
@@ -1505,7 +1674,7 @@ async function addEmergencyContact(){
   const email=$("ecEmail").value.trim().toLowerCase(); if(!email.includes("@")) return toast("Enter their email address.");
   const {error}=await sb.from("emergency_contacts").insert({plan_id:S.plan.id,email,name:$("ecName").value.trim(),waiting_hours:Number($("ecHours").value),grant_role:$("ecRole").value});
   if(error) return toast(error.message);
-  toast("Designated. Tell them: if the time comes, they choose 'emergency contact' on the LegacyHQ home screen.");
+  toast("Designated. Tell them: if the time comes, they choose 'emergency contact' on the HomegoingHQ home screen.");
   openEmergencySettings();
 }
 async function removeEmergencyContact(id){
@@ -1522,7 +1691,7 @@ function openEmergencyRequest(){
   $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
     <button class="close" onclick="closeModal()">×</button>
     <div class="eyebrow">Emergency access</div><h3>Request access to a plan</h3>
-    <p class="muted" style="margin:8px 0 4px">If someone designated you as their emergency contact, enter the email address they use for LegacyHQ. They'll be alerted, and access unlocks after their chosen waiting period unless they decline.</p>
+    <p class="muted" style="margin:8px 0 4px">If someone designated you as their emergency contact, enter the email address they use for HomegoingHQ. They'll be alerted, and access unlocks after their chosen waiting period unless they decline.</p>
     <label>Plan owner's email</label><input id="erEmail" type="email" placeholder="their-account-email@example.com">
     <label>Briefly, why you're requesting access</label><textarea id="erWhy" rows="2" placeholder="e.g., They passed away on July 2 / They are incapacitated and I am handling their affairs"></textarea>
     <div class="scard-actions" style="margin-top:18px"><button class="btn btn-primary" onclick="fileEmergencyRequest()">Submit request</button></div>
@@ -1632,6 +1801,15 @@ function renderFuneral(){
       </div></div>`;
   });
   h+=`</div>
+  <h2 style="margin:26px 0 10px;font-size:20px">Music & special tributes</h2>
+  <div class="card" style="border-top:3px solid var(--brass)">
+    <p style="margin-bottom:6px"><strong>A voice that carries the service.</strong> A soloist for the processional, musicians for the repast, a full choir — or a personal tribute video from a beloved gospel, jazz, or R&B artist.</p>
+    <p class="muted" style="font-size:13.5px">Requests go to our booking partner, <strong>VisionWorks Entertainment</strong> — 25 years of direct artist relationships, trusted by churches nationwide. They handle everything: the artist, the contract, travel, and timing. No obligation to inquire.</p>
+    <div class="scard-actions" style="margin-top:12px">
+      <button class="btn btn-brass btn-sm" onclick="talentModal()">Request music or a tribute</button>
+    </div>
+    <div class="grid" id="talentList" style="margin-top:12px"></div>
+  </div>
   <h2 style="margin:26px 0 10px;font-size:20px">Obituary builder</h2>
   <div class="card">
     <p class="muted" style="margin-bottom:6px">Answer what you'd like — the Guide drafts it in your chosen tone, and you edit every word. For safety, we omit the exact birth date and home address.</p>
@@ -1640,7 +1818,7 @@ function renderFuneral(){
     <label>Preceded in death by</label><input id="obPre" placeholder="parents …">
     <label>Service details (optional)</label><input id="obService" placeholder="Saturday July 18, 11 AM, …">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div><label>Tone</label><select id="obTone"><option>Traditional</option><option>Celebratory</option><option>Faith-centered</option><option>Brief (for paid placement)</option></select></div>
+      <div><label>Tone</label><select id="obTone"><option>Traditional</option><option>Celebratory</option><option>Faith-centered</option><option>Homegoing (Black church tradition)</option><option>Jewish tradition</option><option>Catholic</option><option>Brief (for paid placement)</option></select></div>
       <div><label>&nbsp;</label><button class="btn btn-brass" style="width:100%" onclick="draftObituary()">Draft obituary</button></div>
     </div>
     <div id="obOut" class="hidden"><label>Draft — edit freely</label><textarea id="obText" rows="12"></textarea>
@@ -1648,8 +1826,16 @@ function renderFuneral(){
   </div>`;
   $("tab-funeral").innerHTML=h;
 }
+const TRADITION_STARTERS={
+ jewish:[["Tahara & shomer (chevra kadisha)","service"],["Plain wooden casket","disposition"],["Shiva meals & platters","catering"],["Kriah ribbons","service"],["Monument & unveiling","cemetery"]],
+ catholic:[["Vigil / rosary service","service"],["Mass offering & musicians","service"],["Mass cards / prayer cards","printing"],["Committal at Catholic cemetery","cemetery"]],
+ homegoing:[["Choir / musicians","service"],["Repast catering","catering"],["Printed homegoing programs","printing"],["Family cars / processional","transport"]],
+ general:[]
+};
 async function seedFuneralBudget(){
-  const rows=FUNERAL_STARTERS.map(([item,category])=>({estate_id:S.estate.id,item,category,estimated:0}));
+  const trad=S.estate?.intake?.tradition||"general";
+  const items=FUNERAL_STARTERS.concat(TRADITION_STARTERS[trad]||[]);
+  const rows=items.map(([item,category])=>({estate_id:S.estate.id,item,category,estimated:0}));
   await sb.from("funeral_budget").insert(rows);
   loadFuneral();
 }
@@ -1856,12 +2042,876 @@ async function showMemorial(token){
       ${m.author?`<div class="muted" style="font-size:12.5px;margin-top:8px">— ${esc(m.author)}</div>`:""}
     </div>`).join("")||'<div class="muted" style="text-align:center;padding:20px">Tributes from the family will appear here.</div>'}
     </div>
-    <p class="footer-note">Memorial pages by <strong>LegacyHQ</strong></p>`;
+    <p class="footer-note">Memorial pages by <strong>${BRAND.memorialBy}</strong></p>`;
 }
 (function(){
   const tok=new URLSearchParams(location.search).get("memorial");
   if(tok && CONFIGURED) showMemorial(tok);
 })();
+</script>
+<script>
+/* ===================== RELEASE 5 ===================== */
+
+/* ---------- INSURANCE CLAIMS CENTER ---------- */
+const CLAIM_STAGES=[["locating","Locating policy"],["forms_requested","Forms requested"],["submitted","Submitted"],["in_review","In review"],["approved","Approved"],["paid","Paid"],["denied","Denied"]];
+const CLAIM_DOCS=[["death_cert","Certified death certificate"],["claim_form","Completed claim form"],["policy","Policy or policy number"],["beneficiary_id","Beneficiary ID"],["w9","Beneficiary W-9 / tax info"]];
+const CLAIM_TYPES=[["life","Life insurance"],["employer_life","Employer group life"],["ad_d","Accidental death (AD&D)"],["annuity","Annuity death benefit"],["ltc","Long-term care refund"],["va","VA insurance"],["other","Other"]];
+let C={claims:[]};
+async function loadClaims(){
+  $("tab-claims").innerHTML=`<div class="muted" style="padding:10px">Loading…</div>`;
+  const {data}=await sb.from("insurance_claims").select("*").eq("estate_id",S.estate.id).order("created_at");
+  C.claims=data||[]; renderClaims();
+}
+function renderClaims(){
+  const expected=C.claims.filter(c=>c.status!=="denied").reduce((s,c)=>s+Number(c.face_amount||0),0);
+  const received=C.claims.reduce((s,c)=>s+Number(c.paid_amount||0),0);
+  let h=`<div class="card">
+    <div class="eyebrow">Claims overview</div>
+    <div style="display:flex;gap:26px;flex-wrap:wrap;margin-top:8px">
+      <div><div class="muted" style="font-size:12px">Expected benefits</div><div style="font-family:var(--font-display);font-size:26px">${money(expected)}</div></div>
+      <div><div class="muted" style="font-size:12px">Received</div><div style="font-family:var(--font-display);font-size:26px;color:var(--sage)">${money(received)}</div></div>
+      <div><div class="muted" style="font-size:12px">Outstanding</div><div style="font-family:var(--font-display);font-size:26px">${money(Math.max(0,expected-received))}</div></div>
+    </div>
+    <p class="muted" style="margin-top:10px;font-size:13px">Life insurance proceeds are generally income-tax-free to beneficiaries. If a claim takes a long time, insurers typically owe interest on the delay — that interest portion is taxable.</p>
+    <div style="margin-top:12px"><button class="btn btn-primary btn-sm" onclick="claimModal()">+ Add a policy / claim</button></div>
+  </div>`;
+  if(C.claims.length===0){
+    h+=`<div class="card" style="margin-top:14px"><div class="eyebrow">Can't find the policies?</div>
+      <ul style="margin:10px 0 0 18px;display:grid;gap:7px;font-size:14.5px">
+        <li>Search 2–3 months of bank and card statements for premium payments — the carrier name appears there.</li>
+        <li>Ask the employer's HR about group life coverage; ask unions and associations too.</li>
+        <li>Submit a free request to the <strong>NAIC Life Insurance Policy Locator</strong> (naic.org) — carriers must search their records and contact beneficiaries.</li>
+        <li>Check credit cards and travel bookings for built-in accidental death coverage.</li>
+        <li>Look through files, safe deposit box, and email for anything from an insurer.</li>
+      </ul></div>`;
+  }
+  h+=`<div class="grid" style="margin-top:14px">`;
+  C.claims.forEach(c=>{
+    const stage=CLAIM_STAGES.findIndex(x=>x[0]===c.status);
+    const docs=c.docs||{}; const docsDone=CLAIM_DOCS.filter(d=>docs[d[0]]).length;
+    h+=`<div class="card" style="padding:16px;cursor:pointer" onclick="claimModal('${c.id}')">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">
+        <div><strong>${esc(c.carrier)}</strong> <span class="pill">${esc((CLAIM_TYPES.find(t=>t[0]===c.policy_type)||["","?"])[1])}</span>
+          <div class="muted" style="font-size:12.5px">${c.policy_number?"Policy •••• "+esc(String(c.policy_number).slice(-4))+" · ":""}${c.beneficiary?"for "+esc(c.beneficiary):""}</div></div>
+        <div style="text-align:right"><div style="font-weight:700">${c.face_amount!=null?money(c.face_amount):"—"}</div>
+          ${c.status==="paid"?`<div class="muted" style="font-size:12px;color:var(--sage)">paid ${money(c.paid_amount)} ${c.paid_on?fmtDate(c.paid_on):""}</div>`:""}</div></div>
+      <div class="progress" style="margin:12px 0 6px"><i style="width:${c.status==="denied"?100:Math.round((stage)/(CLAIM_STAGES.length-2)*100)}%;${c.status==="denied"?"background:var(--clay)":""}"></i></div>
+      <div style="display:flex;justify-content:space-between;font-size:12.5px" class="muted">
+        <span>${(CLAIM_STAGES[stage]||["",""])[1]}</span><span>${docsDone}/${CLAIM_DOCS.length} documents ready</span></div>
+    </div>`;
+  });
+  h+=`</div>`;
+  $("tab-claims").innerHTML=h;
+}
+function claimModal(id){
+  const c=id?C.claims.find(x=>x.id===id):{docs:{}};
+  const docs=c.docs||{};
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Insurance claim</div><h3>${id?esc(c.carrier):"New policy / claim"}</h3>
+    <label>Carrier</label><input id="clCarrier" value="${esc(c.carrier||"")}" placeholder="e.g., MetLife">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label>Type</label><select id="clType">${CLAIM_TYPES.map(([v,l])=>`<option value="${v}" ${c.policy_type===v?"selected":""}>${l}</option>`).join("")}</select></div>
+      <div><label>Status</label><select id="clStatus">${CLAIM_STAGES.map(([v,l])=>`<option value="${v}" ${c.status===v?"selected":""}>${l}</option>`).join("")}</select></div>
+      <div><label>Policy number</label><input id="clNum" value="${esc(c.policy_number||"")}"></div>
+      <div><label>Face amount ($)</label><input id="clFace" type="number" step="0.01" value="${c.face_amount??""}"></div>
+      <div><label>Paid amount ($)</label><input id="clPaid" type="number" step="0.01" value="${c.paid_amount??""}"></div>
+      <div><label>Paid on</label><input id="clPaidOn" type="date" value="${c.paid_on||""}"></div>
+    </div>
+    <label>Beneficiary</label><input id="clBen" value="${esc(c.beneficiary||"")}">
+    <label>Claims contact</label><input id="clContact" value="${esc(c.contact||"")}" placeholder="phone · email · claim #">
+    <label>Documents ready</label>
+    <div style="display:grid;gap:7px;margin-top:4px">${CLAIM_DOCS.map(([k,l])=>`
+      <label style="display:flex;gap:9px;align-items:center;font-weight:400;font-size:14.5px;margin:0">
+        <input type="checkbox" id="cld_${k}" ${docs[k]?"checked":""} style="width:auto"> ${l}</label>`).join("")}</div>
+    <label>Notes</label><textarea id="clNotes" rows="2">${esc(c.notes||"")}</textarea>
+    <div class="scard-actions" style="margin-top:18px">
+      <button class="btn btn-primary" onclick="saveClaim('${id||""}')">Save</button>
+      ${id?`<button class="btn btn-danger" onclick="deleteClaim('${id}')">Delete</button>`:""}
+    </div></div></div>`;
+}
+async function saveClaim(id){
+  const docs={}; CLAIM_DOCS.forEach(([k])=>docs[k]=$("cld_"+k).checked);
+  const row={estate_id:S.estate.id,carrier:$("clCarrier").value.trim(),policy_type:$("clType").value,
+    status:$("clStatus").value,policy_number:$("clNum").value.trim(),
+    face_amount:$("clFace").value===""?null:Number($("clFace").value),
+    paid_amount:$("clPaid").value===""?null:Number($("clPaid").value),
+    paid_on:$("clPaidOn").value||null,beneficiary:$("clBen").value.trim(),
+    contact:$("clContact").value.trim(),notes:$("clNotes").value.trim(),docs,
+    updated_at:new Date().toISOString()};
+  if(!row.carrier) return toast("Name the carrier.");
+  if(id){delete row.estate_id; await sb.from("insurance_claims").update(row).eq("id",id);}
+  else{ const {error}=await sb.from("insurance_claims").insert(row); if(error) return toast(error.message); }
+  closeModal(); loadClaims(); logActivity(id?"updated claim":"added claim",row.carrier);
+}
+async function deleteClaim(id){
+  if(!confirm("Delete this claim?")) return;
+  await sb.from("insurance_claims").delete().eq("id",id); closeModal(); loadClaims();
+}
+
+/* ---------- GOVERNMENT CHECKLIST ---------- */
+const GOV_AGENCIES=[
+ {k:"ssa",name:"Social Security Administration",phone:"1-800-772-1213",send:"Nothing by mail to start — call or visit. Have both SSNs and the date of death.",why:"Report the death, stop benefits correctly, and apply for survivor benefits and the $255 lump-sum payment."},
+ {k:"irs",name:"IRS",phone:"1-800-829-1040",send:"Final Form 1040 with 'Deceased' notation; estate EIN application is free online at IRS.gov.",why:"The final personal return is required; the estate may need its own returns."},
+ {k:"statetax",name:"State tax agency",phone:"(your state's revenue dept)",send:"Final state return; ask about state estate or inheritance tax.",why:"A handful of states tax estates or inheritances at much lower thresholds than the IRS."},
+ {k:"dmv",name:"DMV / Secretary of State",phone:"(local office)",send:"Death certificate copy, titles, license to cancel.",why:"Cancel the license (identity-theft protection) and transfer vehicle titles and plates."},
+ {k:"passport",name:"U.S. State Department",phone:"1-877-487-2778",send:"The passport + certified death certificate copy + letter requesting cancellation, by mail.",why:"A live passport on file is an identity-theft risk."},
+ {k:"va",name:"Veterans Affairs",phone:"1-800-827-1000",send:"DD-214, death certificate, marriage certificate for survivor claims.",why:"Burial allowance, flag, marker, national cemetery, and survivor benefits (DIC) don't start until you file."},
+ {k:"medicare",name:"Medicare",phone:"1-800-633-4227",send:"Usually handled by the Social Security report; keep the Medicare number for final medical bills.",why:"Ends coverage cleanly and may refund prepaid premiums."},
+ {k:"medicaid",name:"State Medicaid office",phone:"(state office)",send:"Death notification; ask in writing about estate recovery.",why:"States may claim repayment from the estate — know before transferring property."},
+ {k:"nprc",name:"Military Records (NPRC)",phone:"314-801-0800",send:"Standard Form 180 (free) if the DD-214 is missing.",why:"The DD-214 unlocks every veteran benefit."},
+ {k:"pension",name:"Pension systems / PBGC",phone:"(plan administrator)",send:"Death certificate, marriage certificate, beneficiary forms.",why:"Survivor annuities require an application — they don't start automatically."},
+ {k:"licensing",name:"Professional licensing boards",phone:"(each board)",send:"Written notice with death certificate copy.",why:"Closes licenses cleanly (medical, legal, insurance, real estate, etc.)."},
+ {k:"voter",name:"County clerk — voter registration",phone:"(county clerk)",send:"Written notice or the clerk's form; some states remove automatically from vital records.",why:"Prevents mailings and removes a small fraud vector."}
+];
+function renderGov(){
+  const root=$("govList"); if(!root) return;
+  const tracked=Object.fromEntries(S.notifs.filter(n=>n.template_id).map(n=>[n.template_id,n]));
+  root.innerHTML="";
+  GOV_AGENCIES.forEach(a=>{
+    const n=tracked["gov_"+a.k];
+    const d=document.createElement("div"); d.className="card"; d.style.padding="15px 17px";
+    d.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px"><strong>${a.name}</strong> ${n?`<span class="pill ${n.status==="confirmed"?"done":""}">${n.status}</span>`:""}
+        <div class="muted" style="font-size:13px;margin-top:4px">${a.why}</div>
+        <div class="muted" style="font-size:12.5px;margin-top:4px"><strong>Send/have:</strong> ${a.send} · <strong>Phone:</strong> ${a.phone}</div></div>
+      <div>${n
+        ?`<select onchange="notifStatus('${n.id}',this.value);renderGovSoon()" style="width:auto;padding:7px 10px;font-size:13px">${["pending","sent","confirmed"].map(s=>`<option ${n.status===s?"selected":""}>${s}</option>`).join("")}</select>`
+        :`<button class="btn btn-ghost btn-sm" onclick="trackGov('${a.k}')">Track this</button>`}</div></div>`;
+    root.appendChild(d);
+  });
+}
+function renderGovSoon(){ setTimeout(async()=>{await loadNotifs(); renderGov(); renderNotifs();},300); }
+async function trackGov(k){
+  const a=GOV_AGENCIES.find(x=>x.k===k);
+  const {data}=await sb.from("notifications_log").insert({estate_id:S.estate.id,recipient:a.name,category:"government",template_id:"gov_"+k}).select().single();
+  if(data){S.notifs.push(data); renderGov(); renderNotifs(); logActivity("tracking agency",a.name);}
+}
+
+/* ---------- PWA ---------- */
+if("serviceWorker" in navigator && location.protocol==="https:"){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));
+}
+let deferredInstall=null;
+window.addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault(); deferredInstall=e;
+  if(localStorage.getItem("lhq_install_dismissed")) return;
+  setTimeout(()=>{
+    if(!S.session) return;
+    const bar=document.createElement("div");
+    bar.style.cssText="position:fixed;left:50%;transform:translateX(-50%);bottom:76px;z-index:80;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:10px 14px;display:flex;gap:10px;align-items:center;font-size:14px";
+    bar.innerHTML=`<span>Add HomegoingHQ to your home screen?</span>
+      <button class="btn btn-primary btn-sm" id="pwaYes">Install</button>
+      <button class="btn btn-ghost btn-sm" id="pwaNo">Not now</button>`;
+    document.body.appendChild(bar);
+    document.getElementById("pwaYes").onclick=()=>{deferredInstall.prompt(); bar.remove();};
+    document.getElementById("pwaNo").onclick=()=>{localStorage.setItem("lhq_install_dismissed","1"); bar.remove();};
+  },4000);
+});
+</script>
+<script>
+/* ===================== ADMIN CONSOLE ===================== */
+async function openAdmin(){
+  show("view-admin");
+  const {data:stats}=await sb.rpc("admin_stats");
+  if(!stats||stats.error){ $("adminStats").innerHTML='<div class="muted">Not authorized.</div>'; return; }
+  const cards=[["Users",stats.users],["New (7d)",stats.users_7d],["Paid",stats.paid_users],["Estates",stats.estates],["Plans",stats.plans],["Tasks done",stats.tasks_done],["Memorials live",stats.memorials_live]];
+  $("adminStats").innerHTML=cards.map(([l,v])=>`<div class="card" style="padding:14px"><div class="eyebrow">${l}</div><div style="font-family:var(--font-display);font-size:28px;margin-top:2px">${v??0}</div></div>`).join("");
+  admLoadUsers(); admLoadPartners(); admLoadPacks(); admLoadCounties();
+  const {data:act}=await sb.rpc("admin_recent_activity");
+  $("admActivity").innerHTML=(Array.isArray(act)?act:[]).map(a=>{
+    const when=new Date(a.created_at).toLocaleDateString(undefined,{month:"short",day:"numeric"})+" "+new Date(a.created_at).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--line)"><strong>${esc(a.email||"?")}</strong> ${esc(a.action)}${a.detail?" — "+esc(a.detail):""}${a.decedent_name?" · estate of "+esc(a.decedent_name):""} <span style="opacity:.7">· ${when}</span></div>`;
+  }).join("")||"No activity yet.";
+}
+async function admLoadUsers(){
+  const {data}=await sb.rpc("admin_list_users",{search:$("admSearch").value.trim()});
+  const users=Array.isArray(data)?data:[];
+  $("admUsers").innerHTML=users.map(u=>`
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap">
+      <div><strong>${esc(u.full_name||u.email)}</strong><div class="muted" style="font-size:12.5px">${esc(u.email)} · joined ${fmtDate(u.created_at.slice(0,10))} · ${u.estates} estate(s), ${u.plans} plan(s)</div></div>
+      <select onchange="admSetTier('${u.id}',this.value)" style="width:auto;padding:7px 10px;font-size:13px">
+        ${["free","settle","premium"].map(t=>`<option ${u.plan_tier===t?"selected":""}>${t}</option>`).join("")}</select>
+    </div>`).join("")||'<div class="muted">No users found.</div>';
+}
+async function admSetTier(id,tier){
+  const {data}=await sb.rpc("admin_set_tier",{target:id,new_tier:tier});
+  toast(data===true?"Tier updated.":"Couldn't update tier.");
+}
+</script>
+<script>
+/* ===================== RELEASE 7 ===================== */
+
+/* ---------- PARTNER WHITE-LABEL ---------- */
+S.partner=null;
+async function initPartner(){
+  if(!CONFIGURED) return;
+  const q=new URLSearchParams(location.search).get("p");
+  if(q) localStorage.setItem("lhq_partner",q.trim());
+  const code=localStorage.getItem("lhq_partner");
+  if(!code) return;
+  try{
+    const {data}=await sb.rpc("get_partner",{pcode:code});
+    if(!data){ localStorage.removeItem("lhq_partner"); return; }
+    S.partner=data;
+    const badge=(center)=>`<div class="card" style="padding:12px 16px;${center?"":"margin-bottom:14px;"}display:flex;gap:12px;align-items:center;${center?"justify-content:center;":""}${data.brand_color?"border-top:3px solid "+esc(data.brand_color):""}">
+      ${data.logo_url?`<img src="${esc(data.logo_url)}" style="height:34px;border-radius:6px">`:""}
+      <div style="text-align:left"><div class="eyebrow">In partnership with</div><strong>${esc(data.name)}</strong></div></div>`;
+    const a=$("partnerBannerAuth"); if(a){a.innerHTML=badge(true); a.classList.remove("hidden");}
+    const hm=$("partnerBannerHome"); if(hm) hm.innerHTML=badge(false);
+  }catch(e){}
+}
+initPartner();
+
+/* ---------- ADMIN: PARTNERS ---------- */
+async function admLoadPartners(){
+  const {data}=await sb.rpc("admin_list_partners");
+  const rows=Array.isArray(data)?data:[];
+  $("admPartners").innerHTML=rows.map(p=>`
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap">
+      <div><strong>${esc(p.name)}</strong> ${p.active?"":'<span class="pill urgent">inactive</span>'}
+        <div class="muted" style="font-size:12.5px">code: <code>${esc(p.code)}</code> · ${p.signups} signup(s) · ${p.estates} estate(s)
+        · link: ${location.origin}${location.pathname}?p=${esc(p.code)}</div></div>
+      <button class="btn btn-ghost btn-sm" onclick='admPartnerModal(${JSON.stringify(p).replace(/'/g,"&#39;")})'>Edit</button>
+    </div>`).join("")||'<div class="muted">No partners yet. Add your first funeral home below.</div>';
+}
+function admPartnerModal(p){
+  p=p||{};
+  const fh=p.funeral_home||{};
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Partner</div><h3>${p.id?"Edit":"New"} partner</h3>
+    <label>Name</label><input id="paName" value="${esc(p.name||"")}" placeholder="Kilgore Funeral Home">
+    <label>Code (for the link — letters/numbers, no spaces)</label><input id="paCode" value="${esc(p.code||"")}" placeholder="kilgorefh" ${p.id?"readonly style='background:#f2eee6'":""}>
+    <label>Logo URL (optional)</label><input id="paLogo" value="${esc(p.logo_url||"")}" placeholder="https://…/logo.png">
+    <label>Accent color (optional hex)</label><input id="paColor" value="${esc(p.brand_color||"")}" placeholder="#8B0000">
+    <label>Contact email</label><input id="paEmail" value="${esc(p.contact_email||"")}">
+    <div class="eyebrow" style="margin-top:16px">Prefill their funeral home in new estates</div>
+    <label>Funeral home name</label><input id="paFhName" value="${esc(fh.name||"")}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label>Phone</label><input id="paFhPhone" value="${esc(fh.phone||"")}"></div>
+      <div><label>Active</label><select id="paActive"><option value="true" ${p.active!==false?"selected":""}>Yes</option><option value="false" ${p.active===false?"selected":""}>No</option></select></div>
+    </div>
+    <label>Address</label><input id="paFhAddr" value="${esc(fh.address||"")}">
+    <div class="scard-actions" style="margin-top:18px"><button class="btn btn-primary" onclick="admSavePartner('${p.id||""}')">Save partner</button></div>
+  </div></div>`;
+}
+async function admSavePartner(id){
+  const row={name:$("paName").value.trim(),code:$("paCode").value.trim().toLowerCase().replace(/[^a-z0-9-]/g,""),
+    logo_url:$("paLogo").value.trim()||null,brand_color:$("paColor").value.trim()||null,
+    contact_email:$("paEmail").value.trim()||null,active:$("paActive").value==="true",
+    funeral_home:{name:$("paFhName").value.trim(),phone:$("paFhPhone").value.trim(),address:$("paFhAddr").value.trim()}};
+  if(!row.name||!row.code) return toast("Name and code are required.");
+  const {error}=id?await sb.from("partners").update(row).eq("id",id):await sb.from("partners").insert(row);
+  if(error) return toast(error.message);
+  closeModal(); admLoadPartners(); toast("Partner saved. Share the link with them.");
+}
+
+/* ---------- ADMIN: STATE PACKS ---------- */
+async function admLoadPacks(){
+  const {data}=await sb.from("state_packs").select("state_code,version,reviewed_by,reviewed_at,updated_at").order("state_code");
+  $("admPacks").innerHTML=(data||[]).map(p=>`
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
+      <div><strong>${esc(p.state_code)}</strong> <span class="pill">${esc(p.version)}</span>
+        <div class="muted" style="font-size:12.5px">${p.reviewed_by?esc(p.reviewed_by)+" · ":""}reviewed ${p.reviewed_at||"—"}</div></div>
+      <button class="btn btn-ghost btn-sm" onclick="admEditPack('${p.state_code}')">Edit</button>
+    </div>`).join("");
+}
+async function admEditPack(sc){
+  let content, meta={};
+  if(sc){ const {data}=await sb.from("state_packs").select("*").eq("state_code",sc).single(); content=data.content; meta=data; }
+  else { const {data}=await sb.from("state_packs").select("content").eq("state_code","GENERIC").single(); content=data?.content||{}; }
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:760px">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">State pack</div><h3>${sc||"New state (started from GENERIC)"}</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div><label>State code</label><input id="spCode" value="${esc(sc||"")}" maxlength="7" ${sc?"readonly style='background:#f2eee6'":""} placeholder="IN"></div>
+      <div><label>Version</label><input id="spVersion" value="${esc(meta.version||"v1")}"></div>
+      <div><label>Reviewed date</label><input id="spDate" type="date" value="${meta.reviewed_at||""}"></div>
+    </div>
+    <label>Reviewed by (attorney credit — shows in the app)</label><input id="spBy" value="${esc(meta.reviewed_by||"")}" placeholder="Jane Smith, Indiana probate attorney">
+    <label>Content JSON (name, term, smallEstate, notes[], paths{none,small,informal,formal})</label>
+    <textarea id="spJson" rows="16" style="font-family:monospace;font-size:12.5px">${esc(JSON.stringify(content,null,1))}</textarea>
+    <div class="scard-actions" style="margin-top:16px"><button class="btn btn-primary" onclick="admSavePack()">Validate & save</button></div>
+  </div></div>`;
+}
+async function admSavePack(){
+  const sc=$("spCode").value.trim().toUpperCase(); if(!sc) return toast("State code required.");
+  let content;
+  try{ content=JSON.parse($("spJson").value); }catch(e){ return toast("JSON error: "+e.message); }
+  for(const k of ["name","term","smallEstate","notes","paths"]) if(!(k in content)) return toast("Missing required key: "+k);
+  for(const k of ["none","small","informal","formal"]) if(!content.paths[k]||!Array.isArray(content.paths[k].steps)) return toast("paths."+k+".steps must be a list");
+  const row={state_code:sc,content,version:$("spVersion").value.trim()||"v1",
+    reviewed_by:$("spBy").value.trim()||null,reviewed_at:$("spDate").value||null,updated_at:new Date().toISOString()};
+  const {error}=await sb.from("state_packs").upsert(row);
+  if(error) return toast(error.message);
+  closeModal(); admLoadPacks(); toast(sc+" pack saved — live immediately, no redeploy.");
+}
+
+/* ---------- ADMIN: COUNTY DIRECTORY ---------- */
+async function admLoadCounties(){
+  const sc=($("admCtyState").value||"MI").toUpperCase();
+  const {data}=await sb.from("county_directory").select("*").eq("state_code",sc).order("county");
+  $("admCounties").innerHTML=(data||[]).map(c=>`
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)">
+      <div><strong>${esc(c.county)}</strong><div class="muted" style="font-size:12px">${esc(c.court_name||"")}${c.phone?" · "+esc(c.phone):""}${c.website?" · "+esc(c.website):""}</div></div>
+      <button class="btn btn-ghost btn-sm" onclick='admCountyModal(${JSON.stringify(c).replace(/'/g,"&#39;")})'>Edit</button>
+    </div>`).join("")||'<div class="muted">No counties for '+esc(sc)+' yet.</div>';
+}
+function admCountyModal(c){
+  c=c||{};
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">County court</div><h3>${c.id?"Edit":"Add"} county</h3>
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:12px">
+      <div><label>State</label><input id="ccState" value="${esc(c.state_code||$("admCtyState").value||"MI")}" maxlength="2"></div>
+      <div><label>County</label><input id="ccCounty" value="${esc(c.county||"")}" placeholder="Wayne"></div>
+    </div>
+    <label>Court name</label><input id="ccCourt" value="${esc(c.court_name||"")}">
+    <label>Address</label><input id="ccAddr" value="${esc(c.address||"")}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label>Phone</label><input id="ccPhone" value="${esc(c.phone||"")}"></div>
+      <div><label>Website</label><input id="ccWeb" value="${esc(c.website||"")}"></div>
+    </div>
+    <label>Filing note</label><input id="ccNote" value="${esc(c.filing_note||"")}">
+    <div class="scard-actions" style="margin-top:16px"><button class="btn btn-primary" onclick="admSaveCounty('${c.id||""}')">Save</button></div>
+  </div></div>`;
+}
+async function admSaveCounty(id){
+  const row={state_code:$("ccState").value.trim().toUpperCase(),county:$("ccCounty").value.trim(),
+    court_name:$("ccCourt").value.trim()||null,address:$("ccAddr").value.trim()||null,
+    phone:$("ccPhone").value.trim()||null,website:$("ccWeb").value.trim()||null,
+    filing_note:$("ccNote").value.trim()||null,updated_at:new Date().toISOString()};
+  if(!row.state_code||!row.county) return toast("State and county required.");
+  const {error}=id?await sb.from("county_directory").update(row).eq("id",id):await sb.from("county_directory").insert(row);
+  if(error) return toast(error.message);
+  closeModal(); admLoadCounties();
+}
+</script>
+<script>
+/* ===================== RELEASE 8 ===================== */
+
+/* ---------- GIFT FLOW ---------- */
+function openGiftModal(){
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">A gift of a helping hand</div><h3>Give HomegoingHQ Settle — $249</h3>
+    <p class="muted" style="margin:8px 0 4px">For the price of flowers, give a grieving family the full guided system: the roadmap, the paperwork, the family coordination, and the memorial. They receive a code by email.</p>
+    <label>Your email (for the receipt & a copy of the code)</label><input id="gfFrom" type="email" value="${esc(S.session?.user?.email||"")}">
+    <label>Recipient's email</label><input id="gfTo" type="email" placeholder="their-email@example.com">
+    <label>A short message (optional)</label><textarea id="gfMsg" rows="2" placeholder="Thinking of you. I hope this lightens the load, even a little."></textarea>
+    <div class="scard-actions" style="margin-top:18px"><button class="btn btn-brass" onclick="buyGift()">Continue to secure checkout</button></div>
+  </div></div>`;
+}
+async function buyGift(){
+  const email=$("gfFrom").value.trim(), recipientEmail=$("gfTo").value.trim();
+  if(!email.includes("@")) return toast("Your email is needed for the receipt.");
+  if(!recipientEmail.includes("@")) return toast("The recipient's email is needed to deliver the code.");
+  try{
+    const r=await fetch("/.netlify/functions/stripe-checkout",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({tier:"gift_settle",email,recipientEmail,giftMessage:$("gfMsg").value.trim(),userId:S.session?.user?.id||""})});
+    const d=await r.json();
+    if(d.url) location.href=d.url; else toast(d.error||"Checkout isn't configured yet.");
+  }catch(e){ toast("Checkout isn't configured yet."); }
+}
+function openRedeemModal(){
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Gift code</div><h3>Redeem your gift</h3>
+    <label>Code</label><input id="rdCode" placeholder="GIFT-XXXXXXXX" style="font-family:monospace;letter-spacing:1px">
+    <div class="scard-actions" style="margin-top:18px"><button class="btn btn-primary" onclick="redeemGift()">Redeem</button></div>
+  </div></div>`;
+}
+async function redeemGift(){
+  const {data,error}=await sb.rpc("redeem_gift",{gcode:$("rdCode").value});
+  if(error) return toast(error.message);
+  if(data.error) return toast(data.error);
+  S.profile.plan_tier=data.tier;
+  closeModal(); goHome(); toast("Gift redeemed — everything is unlocked. We're sorry for the reason, and glad you're not doing this alone.");
+}
+
+/* ---------- PROFESSIONAL PORTAL (clients view) ---------- */
+const PRO_ROLES=["attorney","cpa","advisor"];
+function renderClientsSection(){
+  const root=$("clientsSection"); if(!root) return; root.innerHTML="";
+  const clientEstates=S.estates.filter(e=>PRO_ROLES.includes(S.myEstateRoles?.[e.id]));
+  const clientPlans=(S.plans||[]).filter(p=>PRO_ROLES.includes(S.myPlanRoles?.[p.id]));
+  if(!clientEstates.length && !clientPlans.length) return;
+  let h=`<div class="card" style="margin-bottom:14px"><div class="eyebrow">Your clients</div>
+    <p class="muted" style="margin:6px 0 10px;font-size:13px">Estates and plans where you serve as a professional. Everything is logged; exports are in each estate's Ledger.</p><div class="grid">`;
+  clientEstates.forEach(e=>{
+    h+=`<div class="card" style="padding:13px 15px;cursor:pointer" onclick="openEstate('${e.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center"><div><strong>Estate of ${esc(e.decedent_name)}</strong>
+      <div class="muted" style="font-size:12.5px">${e.date_of_death?fmtDate(e.date_of_death)+" · ":""}${esc(e.state_code||"")}</div></div>
+      <span class="pill">${esc(S.myEstateRoles[e.id])}</span></div></div>`;
+  });
+  clientPlans.forEach(p=>{
+    h+=`<div class="card" style="padding:13px 15px;cursor:pointer" onclick="openPlan('${p.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center"><div><strong>Plan — ${esc(p.subject_name)}</strong></div>
+      <span class="pill">${esc(S.myPlanRoles[p.id])}</span></div></div>`;
+  });
+  h+=`</div></div>`;
+  root.innerHTML=h;
+}
+
+/* ---------- PLAID DISCOVERY ---------- */
+function loadPlaidScript(){
+  return new Promise((res,rej)=>{
+    if(window.Plaid) return res();
+    const sc=document.createElement("script");
+    sc.src="https://cdn.plaid.com/link/v2/stable/link-initialize.js";
+    sc.onload=res; sc.onerror=()=>rej(new Error("Couldn't load Plaid"));
+    document.head.appendChild(sc);
+  });
+}
+async function plaidDiscover(){
+  if(S.profile?.plan_tier==="free"){ toast("Bank import is part of the Settle plan."); return startCheckout('settle'); }
+  toast("Opening secure bank connection…");
+  try{
+    await loadPlaidScript();
+    const r=await fetch("/.netlify/functions/plaid",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({action:"link_token",userId:S.session.user.id})});
+    const d=await r.json();
+    if(!d.link_token) return toast(d.error||"Plaid isn't configured yet.");
+    const handler=Plaid.create({token:d.link_token,onSuccess:async(public_token)=>{
+      toast("Reading account balances…");
+      const r2=await fetch("/.netlify/functions/plaid",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({action:"discover",public_token})});
+      const d2=await r2.json();
+      if(d2.error) return toast(d2.error);
+      const rows=(d2.accounts||[]).map(a=>({estate_id:S.estate.id,name:a.name,category:"bank",titling:"unknown",
+        probate_asset:true,dod_value:Number(a.balance||0),notes:"Imported via bank connection — adjust to the DATE-OF-DEATH balance from a statement; connection was not stored."}));
+      if(!rows.length) return toast("No accounts returned.");
+      const {error}=await sb.from("estate_assets").insert(rows);
+      if(error) return toast(error.message);
+      logActivity("imported bank accounts",rows.length+" account(s)");
+      toast(rows.length+" account(s) added to Assets. Adjust each to its date-of-death balance.");
+      loadLedger();
+    }});
+    handler.open();
+  }catch(e){ toast(e.message); }
+}
+
+/* ---------- E2EE — client-side lock for sensitive numbers ---------- */
+S.e2eeKeys={};  // planId → CryptoKey, held in memory only
+const E2EE_CHECK="HOMEGOINGHQ-OK";
+const b64=a=>btoa(String.fromCharCode(...new Uint8Array(a)));
+const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function deriveKey(pass,saltB64){
+  const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(pass),"PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt:unb64(saltB64),iterations:310000,hash:"SHA-256"},
+    base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+}
+async function encVal(key,plain){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(plain));
+  return "enc1:"+b64(iv)+":"+b64(ct);
+}
+async function decVal(key,str){
+  const [,ivB,ctB]=str.split(":");
+  const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(ivB)},key,unb64(ctB));
+  return new TextDecoder().decode(pt);
+}
+function planUnlocked(){ return !!S.e2eeKeys[S.plan?.id]; }
+function openE2EE(){
+  if(!S.plan.e2ee_enabled) return e2eeSetupModal();
+  if(planUnlocked()) { toast("Unlocked for this session. Numbers decrypt when you open an entry."); return; }
+  e2eeUnlockModal();
+}
+function e2eeSetupModal(){
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Sensitive lock</div><h3>Lock account & policy numbers</h3>
+    <p class="muted" style="margin:8px 0">Turns on end-to-end encryption for every "number" field in this plan. Encrypted values are scrambled <strong>before</strong> they leave this device — HomegoingHQ's servers, and HomegoingHQ itself, cannot read them.</p>
+    <div class="banner" style="border-color:#E3C4BC;background:#F7E8E4;color:var(--clay)"><strong>The honest trade-off:</strong> if this passphrase is lost, the locked numbers are gone forever. There is no reset, because there is no back door. Write it down and store it with your original documents.</div>
+    <label>Passphrase (long is strong — a sentence works well)</label><input id="e2p1" type="password" autocomplete="new-password">
+    <label>Repeat it</label><input id="e2p2" type="password" autocomplete="new-password">
+    <div class="scard-actions" style="margin-top:18px"><button class="btn btn-primary" onclick="e2eeEnable()">Encrypt this plan's numbers</button></div>
+  </div></div>`;
+}
+async function e2eeEnable(){
+  const p1=$("e2p1").value,p2=$("e2p2").value;
+  if(p1.length<10) return toast("Use at least 10 characters — a short sentence is ideal.");
+  if(p1!==p2) return toast("The passphrases don't match.");
+  toast("Encrypting…");
+  const salt=b64(crypto.getRandomValues(new Uint8Array(16)));
+  const key=await deriveKey(p1,salt);
+  const check=await encVal(key,E2EE_CHECK);
+  // encrypt existing plaintext numbers
+  for(const e of S.entries){
+    if(e.number && !e.number.startsWith("enc1:")){
+      const enc=await encVal(key,e.number);
+      await sb.from("plan_entries").update({number:enc,updated_at:new Date().toISOString()}).eq("id",e.id);
+      e.number=enc;
+    }
+  }
+  await sb.from("plans").update({e2ee_enabled:true,e2ee_salt:salt,e2ee_check:check}).eq("id",S.plan.id);
+  S.plan.e2ee_enabled=true; S.plan.e2ee_salt=salt; S.plan.e2ee_check=check;
+  S.e2eeKeys[S.plan.id]=key;
+  closeModal(); renderPlanHome();
+  toast("Locked. Numbers are now encrypted before they reach the server.");
+}
+function e2eeUnlockModal(next){
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Sensitive lock</div><h3>Enter the passphrase</h3>
+    <label>Passphrase</label><input id="e2pu" type="password" onkeydown="if(event.key==='Enter')e2eeUnlock()">
+    <div class="scard-actions" style="margin-top:18px"><button class="btn btn-primary" onclick="e2eeUnlock()">Unlock for this session</button></div>
+  </div></div>`;
+  S._e2eeNext=next||null;
+  setTimeout(()=>$("e2pu").focus(),100);
+}
+async function e2eeUnlock(){
+  try{
+    const key=await deriveKey($("e2pu").value,S.plan.e2ee_salt);
+    const ok=await decVal(key,S.plan.e2ee_check);
+    if(ok!==E2EE_CHECK) throw 0;
+    S.e2eeKeys[S.plan.id]=key;
+    closeModal(); toast("Unlocked for this session.");
+    if(S._e2eeNext){const f=S._e2eeNext; S._e2eeNext=null; f();}
+  }catch(e){ toast("That passphrase doesn't match."); }
+}
+/* wrap entry save/display to encrypt/decrypt numbers */
+const _saveEntry=saveEntry;
+saveEntry=async function(section,id){
+  if(S.plan.e2ee_enabled){
+    const raw=$("enNumber").value.trim();
+    if(raw && !raw.startsWith("enc1:")){
+      if(!planUnlocked()) return e2eeUnlockModal(()=>saveEntry(section,id));
+      $("enNumber").value=await encVal(S.e2eeKeys[S.plan.id],raw);
+    }
+  }
+  return _saveEntry(section,id);
+};
+const _entryModal=entryModal;
+entryModal=function(section,id,prefill){
+  _entryModal(section,id,prefill);
+  const e=id?S.entries.find(x=>x.id===id):null;
+  if(e && e.number && e.number.startsWith("enc1:")){
+    const inp=$("enNumber");
+    if(planUnlocked()){
+      decVal(S.e2eeKeys[S.plan.id],e.number).then(v=>inp.value=v).catch(()=>{inp.value="";inp.placeholder="(couldn't decrypt)";});
+    } else {
+      inp.value=""; inp.placeholder="🔒 locked — unlock to view or change";
+      inp.onfocus=()=>{inp.blur(); e2eeUnlockModal(()=>entryModal(section,id));};
+    }
+  }
+};
+const _buildPacket=buildPacket;
+buildPacket=function(){
+  if(S.plan.e2ee_enabled && !planUnlocked()){
+    const proceed=confirm("Sensitive numbers are locked. OK = unlock first to include/mask them properly · Cancel = build the packet with locked numbers omitted");
+    if(proceed) return e2eeUnlockModal(()=>buildPacket());
+  }
+  if(S.plan.e2ee_enabled && !planUnlocked()){
+    const saved=S.entries.map(e=>({id:e.id,number:e.number}));
+    S.entries.forEach(e=>{ if(e.number&&e.number.startsWith("enc1:")) e.number=""; });
+    _buildPacket();
+    saved.forEach(s=>{const e=S.entries.find(x=>x.id===s.id); if(e)e.number=s.number;});
+    return;
+  }
+  if(S.plan.e2ee_enabled && planUnlocked()){
+    (async()=>{
+      const saved=S.entries.map(e=>({id:e.id,number:e.number}));
+      for(const e of S.entries){ if(e.number&&e.number.startsWith("enc1:")) e.number=await decVal(S.e2eeKeys[S.plan.id],e.number); }
+      _buildPacket();
+      saved.forEach(s=>{const e=S.entries.find(x=>x.id===s.id); if(e)e.number=s.number;});
+    })();
+    return;
+  }
+  _buildPacket();
+};
+</script>
+<script>
+/* ===================== LAST WISHES WITNESS (Release 10) ===================== */
+let W={stream:null,recorder:null,chunks:[],blob:null,timerId:null,seconds:0};
+const MAX_SECONDS=300; // 5 minutes keeps files well under storage limits
+const hex=buf=>[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+async function sha256Blob(blob){ return hex(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer())); }
+
+async function openWitness(){
+  const {data}=await sb.from("witness_videos").select("*").eq("plan_id",S.plan.id).order("recorded_at",{ascending:false});
+  const vids=data||[];
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)witnessClose()"><div class="modal" style="max-width:680px">
+    <button class="close" onclick="witnessClose()">×</button>
+    <div class="eyebrow">Last Wishes Witness</div><h3>A sealed recording of your wishes</h3>
+    <p class="muted" style="margin:8px 0">Record your wishes on camera. The moment you seal it, the video gets a unique digital fingerprint, the record becomes permanent — it can never be edited or deleted through this app, by anyone — and the fingerprint is emailed to people you choose as independent proof. Anyone can re-verify it here, anytime.</p>
+    <div class="banner">A video like this is <strong>not a will</strong> in most states — it doesn't replace signed legal documents. What it does powerfully is <em>witness</em>: your wishes, your identity, and your clear state of mind, in your own voice. Many attorneys suggest recording it the same week the will is signed. Ask yours.</div>
+    <div id="wStage">
+      <div class="scard-actions" style="margin-top:6px">
+        <button class="btn btn-brass" onclick="witnessStart()">🎥 Record now</button>
+        <label class="btn btn-ghost" style="cursor:pointer">Upload a video<input type="file" id="wFile" accept="video/*" style="display:none" onchange="witnessFromFile()"></label>
+      </div>
+    </div>
+    ${vids.length?`<hr class="rule"><div class="eyebrow">Sealed recordings</div><div class="grid" style="margin-top:10px">`+vids.map(v=>`
+      <div class="card" style="padding:14px 16px">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+          <div><strong>${esc(v.title)}</strong> — ${esc(v.declared_name)}
+            <div class="muted" style="font-size:12px">Sealed ${new Date(v.recorded_at).toLocaleString()} · fingerprint ${esc(v.sha256.slice(0,12))}…</div></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="witnessPlay('${v.id}')">Play</button>
+            <button class="btn btn-ghost btn-sm" onclick="witnessVerify('${v.id}',this)">Verify</button>
+            <button class="btn btn-ghost btn-sm" onclick="witnessCertificate('${v.id}')">Certificate</button>
+          </div></div>
+        <div class="muted" id="wv_${v.id}" style="font-size:12.5px;margin-top:6px"></div>
+      </div>`).join("")+`</div>`:""}
+  </div></div>`;
+  S._witnessVids=vids;
+}
+function witnessClose(){
+  if(W.stream){W.stream.getTracks().forEach(t=>t.stop());W.stream=null;}
+  if(W.timerId){clearInterval(W.timerId);W.timerId=null;}
+  W={stream:null,recorder:null,chunks:[],blob:null,timerId:null,seconds:0};
+  closeModal();
+}
+async function witnessStart(){
+  try{
+    W.stream=await navigator.mediaDevices.getUserMedia({video:{width:1280},audio:true});
+  }catch(e){ return toast("Camera access is needed — check your browser's permission prompt."); }
+  $("wStage").innerHTML=`
+    <video id="wLive" autoplay muted playsinline style="width:100%;border-radius:12px;background:#000;margin-top:10px"></video>
+    <div class="banner" style="margin-top:10px">Suggested opening: <em>"My name is ${esc(S.plan.subject_name)}. Today is ${new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric",year:"numeric"})}. I am of sound mind, no one is directing me, and these are my wishes."</em></div>
+    <div class="scard-actions" style="margin-top:8px">
+      <button class="btn btn-brass" id="wRecBtn" onclick="witnessRecToggle()">● Start recording</button>
+      <span class="muted" id="wTimer" style="align-self:center">0:00 / 5:00</span>
+    </div>`;
+  $("wLive").srcObject=W.stream;
+}
+function witnessRecToggle(){
+  if(!W.recorder||W.recorder.state==="inactive"){
+    W.chunks=[];
+    const opts={mimeType:"video/webm;codecs=vp8,opus",videoBitsPerSecond:1000000,audioBitsPerSecond:64000};
+    try{ W.recorder=new MediaRecorder(W.stream,opts); }catch(e){ W.recorder=new MediaRecorder(W.stream); }
+    W.recorder.ondataavailable=e=>{ if(e.data.size) W.chunks.push(e.data); };
+    W.recorder.onstop=()=>witnessPreview();
+    W.recorder.start(1000);
+    W.seconds=0;
+    $("wRecBtn").textContent="■ Stop & review";
+    W.timerId=setInterval(()=>{
+      W.seconds++;
+      $("wTimer").textContent=Math.floor(W.seconds/60)+":"+String(W.seconds%60).padStart(2,"0")+" / 5:00";
+      if(W.seconds>=MAX_SECONDS) witnessRecToggle();
+    },1000);
+  } else {
+    clearInterval(W.timerId); W.timerId=null;
+    W.recorder.stop();
+    W.stream.getTracks().forEach(t=>t.stop()); W.stream=null;
+  }
+}
+function witnessFromFile(){
+  const f=$("wFile").files[0]; if(!f) return;
+  if(f.size>80*1024*1024) return toast("Please keep the video under 80 MB (about 8–10 minutes).");
+  W.blob=f; witnessSealForm(f.type||"video/webm");
+}
+function witnessPreview(){
+  W.blob=new Blob(W.chunks,{type:"video/webm"});
+  const url=URL.createObjectURL(W.blob);
+  $("wStage").innerHTML=`
+    <video controls playsinline src="${url}" style="width:100%;border-radius:12px;background:#000;margin-top:10px"></video>
+    <div class="scard-actions" style="margin-top:10px">
+      <button class="btn btn-primary" onclick="witnessSealForm('video/webm')">Looks right — seal it</button>
+      <button class="btn btn-ghost" onclick="witnessStart()">Re-record</button>
+    </div>`;
+}
+function witnessSealForm(mime){
+  W.mime=mime;
+  $("wStage").innerHTML=`
+    <div class="eyebrow" style="margin-top:10px">Seal the recording</div>
+    <label>Your full legal name (as stated on camera)</label><input id="wName" value="${esc(S.plan.subject_name)}">
+    <label>Title</label><input id="wTitle" value="Last wishes — ${new Date().toLocaleDateString()}">
+    <label>Send the fingerprint certificate to (comma-separated emails)</label>
+    <input id="wEmails" placeholder="you@…, executor@…, attorney@…" value="${esc(S.session.user.email)}">
+    <div class="banner" style="border-color:#E3C4BC;background:#F7E8E4;color:var(--clay)"><strong>Sealing is permanent.</strong> Once sealed, this recording cannot be edited or deleted through the app — by you, your family, or the administrators. That permanence is the point.</div>
+    <div class="scard-actions" style="margin-top:12px">
+      <button class="btn btn-brass" onclick="witnessSeal()">Seal permanently</button>
+      <button class="btn btn-ghost" onclick="openWitness()">Cancel</button>
+    </div>
+    <div class="muted" id="wProgress" style="margin-top:8px"></div>`;
+}
+async function witnessSeal(){
+  const declared_name=$("wName").value.trim(); if(!declared_name) return toast("State your legal name.");
+  if(!W.blob) return toast("No recording found — please record again.");
+  const prog=$("wProgress");
+  prog.textContent="Computing fingerprint…";
+  const sha256=await sha256Blob(W.blob);
+  prog.textContent="Uploading sealed video…";
+  const ext=(W.mime||"video/webm").includes("mp4")?"mp4":"webm";
+  const path=`${S.plan.id}/${Date.now()}-witness.${ext}`;
+  const {error:upErr}=await sb.storage.from("witness-videos").upload(path,W.blob,{contentType:W.mime||"video/webm"});
+  if(upErr) return toast(upErr.message);
+  const witness_emails=$("wEmails").value.trim();
+  const {data,error}=await sb.from("witness_videos").insert({
+    plan_id:S.plan.id,recorded_by:S.session.user.id,declared_name,
+    title:$("wTitle").value.trim()||"Last wishes",storage_path:path,
+    sha256,byte_size:W.blob.size,mime_type:W.mime||"video/webm",witness_emails
+  }).select().single();
+  if(error) return toast(error.message);
+  // independent anchoring: email the fingerprint to each certificate recipient
+  witness_emails.split(",").map(e=>e.trim()).filter(e=>e.includes("@")).forEach(email=>{
+    fetch("/.netlify/functions/send-invite",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({kind:"witness",email,declaredName:declared_name,sha256,recordedAt:data.recorded_at,
+        inviterName:S.profile?.full_name||"",contextName:S.plan.subject_name})}).catch(()=>{});
+  });
+  W.blob=null;
+  toast("Sealed. The fingerprint certificate is on its way to your witnesses.");
+  openWitness();
+}
+async function witnessPlay(id){
+  const v=S._witnessVids.find(x=>x.id===id);
+  const {data,error}=await sb.storage.from("witness-videos").createSignedUrl(v.storage_path,600);
+  if(error) return toast(error.message);
+  const el=$("wv_"+id);
+  el.innerHTML=`<video controls playsinline src="${data.signedUrl}" style="width:100%;border-radius:10px;background:#000;margin-top:6px"></video>`;
+}
+async function witnessVerify(id,btn){
+  const v=S._witnessVids.find(x=>x.id===id);
+  const el=$("wv_"+id);
+  btn.disabled=true; el.textContent="Downloading and re-computing the fingerprint…";
+  try{
+    const {data,error}=await sb.storage.from("witness-videos").createSignedUrl(v.storage_path,600);
+    if(error) throw error;
+    const blob=await (await fetch(data.signedUrl)).blob();
+    const now=await sha256Blob(blob);
+    if(now===v.sha256){
+      el.innerHTML=`<span style="color:var(--sage);font-weight:700">✓ Verified — unchanged, byte for byte.</span> Fingerprint matches the one sealed ${new Date(v.recorded_at).toLocaleString()}.`;
+    } else {
+      el.innerHTML=`<span style="color:var(--clay);font-weight:700">✗ VERIFICATION FAILED.</span> The file no longer matches its sealed fingerprint. Do not rely on this copy; refer to the certificate emails from the sealing date.`;
+    }
+  }catch(e){ el.textContent="Couldn't verify right now: "+e.message; }
+  btn.disabled=false;
+}
+function witnessCertificate(id){
+  const v=S._witnessVids.find(x=>x.id===id);
+  const w=window.open("","_blank");
+  w.document.write(`<!DOCTYPE html><html><head><title>Recording Certificate</title><style>
+    body{font-family:Georgia,serif;color:#26332E;max-width:680px;margin:50px auto;padding:0 24px;line-height:1.6}
+    h1{font-size:24px} .mono{font-family:monospace;font-size:12px;word-break:break-all;background:#F6F2EA;padding:10px 12px;border-radius:8px}
+    .row{margin:14px 0}.l{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8F6A24;font-weight:bold}
+    .foot{margin-top:40px;font-size:11px;color:#5B7183;border-top:1px solid #E4DDCE;padding-top:12px}
+    @media print{.noprint{display:none}}</style></head><body>
+    <div class="noprint" style="background:#FCF7EC;border:1px solid #E9D9B4;border-radius:8px;padding:12px;margin-bottom:20px"><button onclick="window.print()">Print / Save PDF</button> — store a copy with the original will.</div>
+    <h1>Certificate of Sealed Recording</h1>
+    <div class="row"><div class="l">Declared by</div>${esc(v.declared_name)}</div>
+    <div class="row"><div class="l">Title</div>${esc(v.title)}</div>
+    <div class="row"><div class="l">Sealed (UTC)</div>${new Date(v.recorded_at).toISOString()}</div>
+    <div class="row"><div class="l">File size</div>${Number(v.byte_size).toLocaleString()} bytes · ${esc(v.mime_type)}</div>
+    <div class="row"><div class="l">SHA-256 fingerprint</div><div class="mono">${esc(v.sha256)}</div></div>
+    <div class="row"><div class="l">Certificate copies sent to</div>${esc(v.witness_emails||"—")}</div>
+    <div class="row"><div class="l">How to verify</div>Obtain the video file. Compute its SHA-256 hash with any standard tool (e.g., <span style="font-family:monospace">shasum -a 256 file</span> on a Mac, <span style="font-family:monospace">certutil -hashfile file SHA256</span> on Windows, or the Verify button in the app). The recording is authentic and unaltered if and only if the result matches the fingerprint above exactly. The record of this recording is stored append-only: the application permits no edits or deletions by any user or administrator.</div>
+    <div class="foot">This certificate documents the integrity of a video recording. It is not a legal instrument and does not constitute a will, trust, or testamentary document. Generated by ${esc(BRAND.name)}.</div>
+    </body></html>`);
+  w.document.close();
+}
+</script>
+<script>
+/* ===================== MUSIC & SPECIAL TRIBUTES (Release 11) ===================== */
+const TALENT_TYPES=[["soloist","Soloist / vocalist"],["musicians","Musicians / band"],["choir","Choir"],["tribute_video","Personal tribute video from an artist"],["appearance","Special guest appearance"],["repast_host","Host / comedian for the repast"],["other","Something else"]];
+const TALENT_BUDGETS=["Under $500","$500–$1,500","$1,500–$5,000","$5,000–$15,000","$15,000+","Not sure yet"];
+async function loadTalent(){
+  const {data}=await sb.from("talent_requests").select("*").eq("estate_id",S.estate.id).order("created_at",{ascending:false});
+  S.talent=data||[];
+  const root=$("talentList"); if(!root) return;
+  root.innerHTML=S.talent.map(t=>`
+    <div class="card" style="padding:13px 15px">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+        <div><strong>${esc((TALENT_TYPES.find(x=>x[0]===t.need_type)||["","Request"])[1])}</strong>
+          <div class="muted" style="font-size:12.5px">${t.service_date?fmtDate(t.service_date)+" · ":""}${esc(t.location||"")}${t.artist_wishes?" · hoping for: "+esc(t.artist_wishes):""}</div></div>
+        <select onchange="talentStatus('${t.id}',this.value)" style="width:auto;padding:7px 10px;font-size:13px">
+          ${["requested","contacted","booked","declined"].map(x=>`<option ${t.status===x?"selected":""}>${x}</option>`).join("")}</select>
+      </div></div>`).join("");
+}
+function talentModal(){
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Music & special tributes</div><h3>Tell us what would honor them</h3>
+    <label>What do you need?</label><select id="tlType">${TALENT_TYPES.map(([v,l])=>`<option value="${v}">${l}</option>`).join("")}</select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label>Service date</label><input type="date" id="tlDate" value="${esc(S.estate.date_of_death?"":"")}"></div>
+      <div><label>Budget range</label><select id="tlBudget">${TALENT_BUDGETS.map(b=>`<option>${b}</option>`).join("")}</select></div>
+    </div>
+    <label>Service location (city, venue if known)</label><input id="tlLocation" placeholder="e.g., Detroit — Triumph Church, East Campus">
+    <label>Anyone you're hoping for? (no promises — they'll tell you honestly what's possible)</label><input id="tlWishes" placeholder="e.g., a Kim Burrell-style soloist, or Marvin Sapp if at all possible">
+    <label>Anything else they should know</label><textarea id="tlDetails" rows="2" placeholder="Their favorite song was… · The service is graveside only · We'd love 'His Eye Is on the Sparrow'"></textarea>
+    <div class="eyebrow" style="margin-top:14px">How VisionWorks reaches you</div>
+    <label>Your name</label><input id="tlName" value="${esc(S.profile?.full_name||"")}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label>Phone</label><input id="tlPhone" placeholder="(313) …"></div>
+      <div><label>Email</label><input id="tlEmail" value="${esc(S.session.user.email)}"></div>
+    </div>
+    <p class="muted" style="font-size:12px;margin-top:10px">Your request goes directly to VisionWorks Entertainment, our booking partner. They'll contact you with options and honest pricing — usually within one business day. Inquiring costs nothing.</p>
+    <div class="scard-actions" style="margin-top:14px"><button class="btn btn-brass" onclick="sendTalent()">Send the request</button></div>
+  </div></div>`;
+}
+async function sendTalent(){
+  const need_type=$("tlType").value;
+  const contact_phone=$("tlPhone").value.trim(), contact_email=$("tlEmail").value.trim();
+  if(!contact_phone && !contact_email) return toast("A phone or email is needed so they can reach you.");
+  const row={estate_id:S.estate.id,created_by:S.session.user.id,need_type,
+    service_date:$("tlDate").value||null,location:$("tlLocation").value.trim(),
+    budget_range:$("tlBudget").value,artist_wishes:$("tlWishes").value.trim(),
+    details:$("tlDetails").value.trim(),contact_name:$("tlName").value.trim(),
+    contact_phone,contact_email};
+  const {data,error}=await sb.from("talent_requests").insert(row).select().single();
+  if(error) return toast(error.message);
+  fetch("/.netlify/functions/send-invite",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({kind:"talent",brandName:BRAND.name,
+      needLabel:(TALENT_TYPES.find(x=>x[0]===need_type)||["","Request"])[1],
+      serviceDate:row.service_date,location:row.location,budget:row.budget_range,
+      artistWishes:row.artist_wishes,details:row.details,contactName:row.contact_name,
+      contactPhone:contact_phone,contactEmail:contact_email,reference:data.id.slice(0,8)})}).catch(()=>{});
+  logActivity("requested music/tribute",row.artist_wishes||need_type);
+  closeModal(); loadTalent();
+  toast("Sent. VisionWorks will reach out — usually within a business day.");
+}
+async function talentStatus(id,status){
+  await sb.from("talent_requests").update({status,updated_at:new Date().toISOString()}).eq("id",id);
+  const t=S.talent.find(x=>x.id===id); if(t)t.status=status;
+  if(status==="booked") toast("Wonderful. May the music carry the day.");
+}
+/* load talent list whenever the Funeral tab renders */
+const _loadFuneral=loadFuneral;
+loadFuneral=async function(){ await _loadFuneral(); loadTalent(); };
+</script>
+<script>
+/* ===================== CONCIERGE (Release 12) ===================== */
+const CONCIERGE_LEVELS=[["unstick","A few calls to get unstuck"],["funeral_week","Support through the funeral week"],["monthly","Check-ins and coordination, month by month"],["full","Walk the whole road with us — full settlement support"],["unsure","I'm not sure — help me figure out what I need"]];
+function conciergeModal(){
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Concierge</div><h3>A person to walk with you</h3>
+    <p class="muted" style="margin:8px 0 4px">Sometimes the app is enough. Sometimes you need a steady voice on the phone. Our concierge coordinators handle the calls, the paperwork chasing, and the keeping-track — so your family can grieve and decide, not administrate.</p>
+    <label>What kind of support fits?</label><select id="cgLevel">${CONCIERGE_LEVELS.map(([v,l])=>`<option value="${v}">${l}</option>`).join("")}</select>
+    <label>How urgent is it?</label><select id="cgUrgency"><option>Today if possible</option><option>This week</option><option>Whenever works</option></select>
+    <label>Where are things stuck? (a sentence or two is plenty)</label><textarea id="cgDetails" rows="3" placeholder="e.g., The insurance company keeps asking for forms we've already sent, and nobody in the family can take this on right now."></textarea>
+    <label>Your name</label><input id="cgName" value="${esc(S.profile?.full_name||"")}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label>Phone</label><input id="cgPhone" placeholder="(313) …"></div>
+      <div><label>Best time to call</label><input id="cgTime" placeholder="e.g., afternoons"></div>
+    </div>
+    <label>Email</label><input id="cgEmail" value="${esc(S.session.user.email)}">
+    <p class="muted" style="font-size:12px;margin-top:10px">The first conversation is free, and everything is quoted clearly before anything begins. Concierge support is organizational and logistical — where the law, taxes, or money need a licensed professional, your coordinator helps you get to the right one.</p>
+    <div class="scard-actions" style="margin-top:14px"><button class="btn btn-brass" onclick="sendConcierge()">Request a call</button></div>
+  </div></div>`;
+}
+async function sendConcierge(){
+  const contact_phone=$("cgPhone").value.trim(), contact_email=$("cgEmail").value.trim();
+  if(!contact_phone && !contact_email) return toast("A phone or email is needed so they can reach you.");
+  const level=$("cgLevel").value;
+  const row={estate_id:S.estate.id,created_by:S.session.user.id,need_type:"concierge_"+level,
+    details:($("cgUrgency").value)+" — "+$("cgDetails").value.trim(),
+    contact_name:$("cgName").value.trim(),contact_phone,contact_email};
+  const {data,error}=await sb.from("talent_requests").insert(row).select().single();
+  if(error) return toast(error.message);
+  fetch("/.netlify/functions/send-invite",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({kind:"concierge",brandName:BRAND.name,
+      needLabel:(CONCIERGE_LEVELS.find(x=>x[0]===level)||["","Support"])[1],
+      urgency:$("cgUrgency").value,details:$("cgDetails").value.trim(),
+      contactName:row.contact_name,contactPhone:contact_phone,contactEmail:contact_email,
+      bestTime:$("cgTime").value.trim(),reference:data.id.slice(0,8)})}).catch(()=>{});
+  logActivity("requested concierge support",$("cgUrgency").value);
+  closeModal();
+  toast("Request sent. A coordinator will call you — you're not carrying this alone anymore.");
+}
 </script>
 </body>
 </html>
