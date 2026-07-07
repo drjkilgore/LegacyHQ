@@ -1,5 +1,5 @@
-// LegacyHQ service worker — offline shell, network-first for the app itself.
-const CACHE = "legacyhq-v5";
+// HomegoingHQ service worker — offline shell, network-first for the app itself.
+const CACHE = "homegoinghq-v12";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -20,3 +20,4 @@ self.addEventListener("fetch", e => {
     }).catch(() => caches.match(e.request).then(m => m || caches.match("/index.html")))
   );
 });
+
