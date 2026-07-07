@@ -1,4 +1,4 @@
-// LegacyHQ — Weekly family digest (Netlify Scheduled Function; see netlify.toml)
+// HomegoingHQ — Weekly family digest (Netlify Scheduled Function; see netlify.toml)
 // Env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SENDGRID_API_KEY, FROM_EMAIL, SITE_URL
 exports.handler = async () => {
   const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY, URL = process.env.SUPABASE_URL;
@@ -26,13 +26,13 @@ exports.handler = async () => {
     const li = a => a.map(x => `<li style="margin:4px 0">${x}</li>`).join("");
     const html = `
       <div style="font-family:Georgia,serif;max-width:540px;margin:0 auto;color:#26332E">
-        <div style="background:#26332E;color:#F6F2EA;border-radius:14px 14px 0 0;padding:20px 26px;font-size:19px">LegacyHQ · Weekly update</div>
+        <div style="background:#26332E;color:#F6F2EA;border-radius:14px 14px 0 0;padding:20px 26px;font-size:19px">HomegoingHQ · Weekly update</div>
         <div style="border:1px solid #E4DDCE;border-top:none;border-radius:0 0 14px 14px;padding:24px;background:#FFFDF9">
           <p style="font-size:15px">A quiet summary of where things stand for the estate of <strong>${est.decedent_name}</strong>.</p>
           ${done.length ? `<p style="font-weight:bold;margin:18px 0 6px">Completed this week</p><ul style="padding-left:20px;font-size:14px">${li(done.map(d => d.title))}</ul>` : ""}
           ${next.length ? `<p style="font-weight:bold;margin:18px 0 6px">Coming up</p><ul style="padding-left:20px;font-size:14px">${li(next.map(n => `${n.title}${n.due_at ? " — by " + n.due_at : ""}`))}</ul>` : ""}
           <p style="margin:24px 0 4px"><a href="${process.env.SITE_URL || ""}" style="background:#A67C2E;color:#fff;text-decoration:none;padding:11px 20px;border-radius:10px;font-family:Arial,sans-serif;font-weight:bold;font-size:13px">Open the roadmap</a></p>
-          <p style="font-size:11px;color:#5B7183;margin-top:18px">You receive this because you're a member of this estate in LegacyHQ.</p>
+          <p style="font-size:11px;color:#5B7183;margin-top:18px">You receive this because you're a member of this estate in HomegoingHQ.</p>
         </div>
       </div>`;
 
@@ -41,7 +41,7 @@ exports.handler = async () => {
       headers: { Authorization: "Bearer " + process.env.SENDGRID_API_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({
         personalizations: emails.map(e => ({ to: [{ email: e }] })),
-        from: { email: process.env.FROM_EMAIL, name: "LegacyHQ" },
+        from: { email: process.env.FROM_EMAIL, name: "HomegoingHQ" },
         subject: `Weekly update — estate of ${est.decedent_name}`,
         content: [{ type: "text/html", value: html }]
       })

@@ -1,6 +1,6 @@
 {
-  "name": "LegacyHQ",
-  "short_name": "LegacyHQ",
+  "name": "HomegoingHQ",
+  "short_name": "HomegoingHQ",
   "description": "Estate settlement and end-of-life planning, guided.",
   "start_url": "/",
   "display": "standalone",

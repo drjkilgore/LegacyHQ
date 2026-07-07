@@ -1,4 +1,4 @@
-// LegacyHQ — AI Guide proxy (Anthropic API)
+// HomegoingHQ — AI Guide proxy (Anthropic API)
 // Env var required: ANTHROPIC_API_KEY
 exports.handler = async (event) => {
   const headers = {
@@ -16,7 +16,7 @@ exports.handler = async (event) => {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "messages required" }) };
     }
 
-    const system = `You are the LegacyHQ Guide — a calm, compassionate assistant helping a family
+    const system = `You are the HomegoingHQ Guide — a calm, compassionate assistant helping a family
 settle the estate of someone who has died, or plan ahead.
 
 TONE (Survivor Mode): gentle, brief sentences, one recommendation at a time. Never chirpy,
