@@ -163,6 +163,7 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
   <a class="logo" href="#" onclick="goHome();return false"><span class="mark">H</span>HomegoingHQ</a>
   <div style="display:flex;gap:10px;align-items:center">
     <span class="who" id="whoami"></span>
+    <button class="btn btn-ghost btn-sm hidden" id="btnHelp" onclick="openHelp()">? Help</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnAdmin" onclick="openAdmin()">Admin</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnSignOut" onclick="signOut()">Sign out</button>
   </div>
@@ -175,6 +176,7 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
     <h1>When it matters most,<br>know exactly what to do.</h1>
     <p>HomegoingHQ turns the hardest weeks of life into a clear, guided path — every task, deadline, letter, and document in one calm place.</p>
   </div>
+  <div id="introVideoSlot" style="max-width:440px;margin:0 auto 16px"></div>
   <div id="partnerBannerAuth" class="hidden" style="max-width:440px;margin:0 auto 16px;text-align:center"></div>
   <div class="auth-card card">
     <div class="eyebrow" id="authModeLabel">Sign in</div>
@@ -689,6 +691,7 @@ async function handleSession(session){
     if(lastSessionUser === session.user.id && S.profile) return; // ignore token refreshes
     lastSessionUser = session.user.id;
     $("btnSignOut").classList.remove("hidden");
+    $("btnHelp").classList.remove("hidden");
     sb.rpc("is_admin").then(({data})=>{ if(data===true) $("btnAdmin").classList.remove("hidden"); }).catch(()=>{});
     try{
       const {data:p} = await sb.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
@@ -708,7 +711,7 @@ async function handleSession(session){
   } else {
     lastSessionUser = null;
     $("btnSignOut").classList.add("hidden"); $("whoami").textContent="";
-    $("guideFab").classList.add("hidden"); show("view-auth");
+    $("guideFab").classList.add("hidden"); $("btnHelp").classList.add("hidden"); show("view-auth");
   }
 }
 // IMPORTANT: never do Supabase work inside this callback (deadlocks the auth
@@ -778,7 +781,7 @@ const WIZ = [
  {k:"decedent_name",q:"What is the name of the person who passed?",sub:"We'll use their name gently throughout — never 'the deceased' where it matters.",type:"text",ph:"Full name"},
  {k:"date_of_death",q:"When did they pass?",sub:"An approximate date is fine — you can correct it later.",type:"date"},
  {k:"relationship",q:"What was your relationship to them?",type:"choice",opts:[["spouse","Spouse or partner"],["child","Son or daughter"],["parent","Parent"],["sibling","Sibling"],["family","Other family"],["friend","Friend or helper"]]},
- {k:"tradition",q:"What tradition will guide the services?",sub:"This shapes the steps we suggest — timing, customs, and remembrance. Choose what fits; you can mix.",type:"choice",opts:[["homegoing","Homegoing (Black church tradition)"],["catholic","Catholic"],["jewish","Jewish"],["general","General / other"]]},
+ {k:"tradition",q:"What tradition will guide the services?",sub:"This shapes the steps we suggest — timing, customs, and remembrance. Choose what fits; you can mix.",type:"choice",opts:[["homegoing","Homegoing (Black church tradition)"],["general","General / other"]]}, /* re-add later: ["catholic","Catholic"],["jewish","Jewish"] */
  {k:"state_code",q:"Which state did they live in?",sub:"Some steps vary by state — this helps us point you right.",type:"text",ph:"e.g., MI"},
  {k:"funeralArranged",q:"Were funeral arrangements already made or prepaid?",type:"yn3"},
  {k:"minorChildren",q:"Are there minor children or dependents who relied on them?",type:"yn"},
@@ -1883,7 +1886,7 @@ function renderFuneral(){
     <label>Preceded in death by</label><input id="obPre" placeholder="parents …">
     <label>Service details (optional)</label><input id="obService" placeholder="Saturday July 18, 11 AM, …">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div><label>Tone</label><select id="obTone"><option>Traditional</option><option>Celebratory</option><option>Faith-centered</option><option>Homegoing (Black church tradition)</option><option>Jewish tradition</option><option>Catholic</option><option>Brief (for paid placement)</option></select></div>
+      <div><label>Tone</label><select id="obTone"><option>Traditional</option><option>Celebratory</option><option>Faith-centered</option><option>Homegoing (Black church tradition)</option><option>Brief (for paid placement)</option></select><!-- re-add later: Jewish tradition, Catholic --></div>
       <div><label>&nbsp;</label><button class="btn btn-brass" style="width:100%" onclick="draftObituary()">Draft obituary</button></div>
     </div>
     <div id="obOut" class="hidden"><label>Draft — edit freely</label><textarea id="obText" rows="12"></textarea>
@@ -2987,6 +2990,193 @@ async function sendConcierge(){
   closeModal();
   toast("Request sent. A coordinator will call you — you're not carrying this alone anymore.");
 }
+</script>
+<script>
+/* ===================== HELP CENTER + INTERACTIVE TOURS (Release 15) ===================== */
+
+/* Optional intro video (HeyGen). After rendering your avatar video in HeyGen,
+   download the MP4, drop it in this folder as intro.mp4, and set:  */
+const INTRO_VIDEO_URL = "";   // e.g. "/intro.mp4"  — leave "" to hide
+(function(){
+  if(!INTRO_VIDEO_URL) return;
+  const slot=$("introVideoSlot"); if(!slot) return;
+  slot.innerHTML=`<div class="card" style="padding:10px">
+    <video controls playsinline preload="metadata" style="width:100%;border-radius:12px;background:#000" src="${INTRO_VIDEO_URL}"></video>
+    <div class="muted" style="font-size:12px;text-align:center;margin-top:6px">A welcome from Dr. Kilgore, founder of ${BRAND.name}</div></div>`;
+})();
+
+/* ---------- HOW-TO GUIDE (tier-aware) ---------- */
+const TIER_LABELS={free:"Free",companion:"Companion",settle:"Settle",premium:"Settle"};
+function openHelp(){
+  const t=tier();
+  const sec=(title,body)=>`<details style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:8px"><summary style="font-weight:700;cursor:pointer">${title}</summary><div class="muted" style="margin-top:8px;font-size:14px;line-height:1.6">${body}</div></details>`;
+  let h=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:640px">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Help</div><h3>How to use ${BRAND.name}</h3>
+    <div class="banner" style="margin:10px 0">You're on the <strong>${TIER_LABELS[t]}</strong> plan. The interactive tour below walks through everything included in it, right on your own screen.</div>
+    <div class="scard-actions" style="margin-bottom:14px"><button class="btn btn-brass" onclick="closeModal();startTour()">▶ Start the interactive tour</button></div>`;
+  h+=sec("Getting started","From your home screen, choose <strong>\u201cSomeone close to me has died\u201d</strong> to build a settlement roadmap (about two minutes of gentle questions — \u201cI'm not sure\u201d is always fine), or <strong>\u201cI'm planning ahead\u201d</strong> to organize your own affairs and see your Readiness Score.");
+  h+=sec("The Next tab — one thing at a time","Your roadmap is shown one card at a time so it never overwhelms. Each card explains <em>why</em> the step matters and <em>how</em> to do it. Mark it done, skip it, or open the full step. The counter shows what remains.");
+  h+=sec("The Roadmap tab","Every step, organized by phase: the first 24–72 hours, the first week, the first month, and the road to closing. "+(t==="free"?"On the Free plan the first 72 hours are open; later phases are visible with a 🔒 and unlock with Companion.":"All phases are open on your plan."));
+  h+=sec("Notify — letters written for you","Track every bank, insurer, and agency you need to inform. Letter templates fill themselves in with your loved one's details. "+(t==="settle"||t==="premium"?"All six templates are yours.":t==="companion"?"Bank and insurer templates are included; Settle adds all six.":"The bank letter is included; paid plans add more."));
+  h+=sec("Documents","A private vault for death certificates, the will, statements, and anything the estate needs. "+(t==="free"?"Free includes 3 documents.":t==="companion"?"Companion includes 10 documents.":"Unlimited on Settle."));
+  h+=sec("The Ledger"+(t==="free"?" (paid plans)":""),"Assets, debts, expenses, beneficiaries, and distributions — the money side of the estate in one place. "+(t==="settle"||t==="premium"?"Your plan includes the <strong>court-ready Inventory and Accounting reports</strong> — print them for the probate court or the attorney — plus bank import.":t==="companion"?"Companion includes 10 entries; Settle makes it unlimited and adds the court-ready reports courts and attorneys ask for.":"Included with Companion (10 entries) and Settle (unlimited + court-ready reports)."));
+  h+=sec("Funeral & memorial","Budget line items with honest cost coaching, provider comparison, the obituary builder, and <strong>Music & special tributes</strong> — soloists, musicians, or a personal artist tribute video through our booking partner. Create a beautiful memorial page and share it with one link.");
+  h+=sec("Probate, explained","Answer three questions and see which path your state usually uses — with plain-language steps and your county court's contact details. It's information, not legal advice; it also tells you honestly when you need an attorney.");
+  h+=sec("Planning ahead","A life plan holds the thirteen things your family would need — documents, accounts, wishes, people — with a Readiness Score. "+(t==="settle"||t==="premium"?"Your plan includes sealed <strong>Last Wishes recordings</strong> (🎥) and the encrypted Sensitive lock (🔒).":"Settle adds sealed Last Wishes video recordings and encrypted number storage."));
+  h+=sec("Family teamwork","Invite family from the People section — they see the same roadmap, tasks can be assigned, and the weekly digest keeps everyone gently in step. "+(t==="settle"||t==="premium"?"Unlimited members on your plan.":"Two people are included; Settle opens it to the whole family."));
+  h+=`</div></div>`;
+  $("modalRoot").innerHTML=h;
+}
+
+/* ---------- TOUR ENGINE ---------- */
+let TOUR={steps:[],i:0};
+function tourEls(){
+  let ov=$("tourOverlay");
+  if(!ov){
+    ov=document.createElement("div"); ov.id="tourOverlay";
+    ov.style.cssText="position:fixed;inset:0;background:rgba(38,51,46,.55);z-index:900;display:none";
+    const ring=document.createElement("div"); ring.id="tourRing";
+    ring.style.cssText="position:fixed;border:3px solid var(--brass);border-radius:14px;box-shadow:0 0 0 6px rgba(143,106,36,.25);z-index:901;pointer-events:none;transition:all .25s;display:none";
+    const card=document.createElement("div"); card.id="tourCard";
+    card.style.cssText="position:fixed;max-width:340px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;z-index:902;box-shadow:0 18px 50px rgba(0,0,0,.25);display:none";
+    document.body.append(ov,ring,card);
+    ov.onclick=endTour;
+  }
+  return {ov:$("tourOverlay"),ring:$("tourRing"),card:$("tourCard")};
+}
+function startTour(){
+  const t=tier();
+  TOUR.steps = t==="free"?tourFree() : t==="companion"?tourCompanion() : tourSettle();
+  TOUR.i=0; showTourStep();
+}
+function endTour(){
+  const {ov,ring,card}=tourEls();
+  ov.style.display=ring.style.display=card.style.display="none";
+  localStorage.setItem("lhq_tour_done","1");
+}
+function showTourStep(){
+  const {ov,ring,card}=tourEls();
+  const st=TOUR.steps[TOUR.i];
+  if(!st){ endTour(); return; }
+  ov.style.display="block";
+  try{ if(st.go) st.go(); }catch(e){}
+  setTimeout(()=>{
+    const el=st.sel?document.querySelector(st.sel):null;
+    if(el){
+      el.scrollIntoView({block:"center",behavior:"smooth"});
+      setTimeout(()=>{
+        const r=el.getBoundingClientRect();
+        ring.style.display="block";
+        ring.style.left=(r.left-8)+"px"; ring.style.top=(r.top-8)+"px";
+        ring.style.width=(r.width+16)+"px"; ring.style.height=(r.height+16)+"px";
+        placeCard(card,r);
+      },300);
+    } else {
+      ring.style.display="none";
+      card.style.left="50%"; card.style.top="50%"; card.style.transform="translate(-50%,-50%)";
+    }
+    card.style.display="block";
+    card.innerHTML=`<div class="eyebrow">${TOUR.i+1} of ${TOUR.steps.length}</div>
+      <h3 style="margin:6px 0;font-size:17px">${st.title}</h3>
+      <p class="muted" style="font-size:13.5px;line-height:1.55">${st.text}</p>
+      <div style="display:flex;gap:8px;margin-top:14px;justify-content:space-between">
+        <button class="btn btn-ghost btn-sm" onclick="endTour()">Skip tour</button>
+        <div style="display:flex;gap:8px">
+          ${TOUR.i>0?'<button class="btn btn-ghost btn-sm" onclick="TOUR.i--;showTourStep()">Back</button>':""}
+          <button class="btn btn-brass btn-sm" onclick="TOUR.i++;showTourStep()">${TOUR.i===TOUR.steps.length-1?"Finish":"Next"}</button>
+        </div></div>`;
+  },st.go?350:0);
+}
+function placeCard(card,r){
+  card.style.transform="none";
+  const below=r.bottom+340<window.innerHeight;
+  card.style.top=(below?r.bottom+14:Math.max(14,r.top-14-220))+"px";
+  card.style.left=Math.min(Math.max(14,r.left),window.innerWidth-360)+"px";
+}
+const inEstate=()=>!$("view-estate").classList.contains("hidden");
+const goHomeStep={go:()=>show("view-home")};
+function estateOr(fallbackText){ return inEstate(); }
+
+/* ---------- TOUR SCRIPTS ---------- */
+function tourFree(){
+  const steps=[
+   {title:"Welcome — you're not doing this alone",text:"This short tour shows you everything the Free plan includes. You can skip anytime and re-take it from the ? Help button."},
+   {sel:".triage",go:()=>show("view-home"),title:"Start here",text:"\u201cSomeone close to me has died\u201d builds a personalized settlement roadmap in about two minutes. \u201cI'm planning ahead\u201d organizes your own affairs for your family. \u201cI'm an emergency contact\u201d unlocks a plan prepared for you."},
+  ];
+  if(S.estates.length){
+    steps.push(
+     {sel:"#estateList",title:"Your estates",text:"Each estate you're part of lives here — tap one to open it."},
+     {sel:'#eTabs [data-tab="next"]',go:()=>{openEstate(S.estates[0].id);},title:"The Next tab",text:"One card at a time: what to do, why it matters, and how. On the Free plan, every step of the <strong>first 72 hours</strong> is open — the most urgent stretch, handled."},
+     {sel:'#eTabs [data-tab="roadmap"]',go:()=>setTab("roadmap"),title:"The full road, visible",text:"Every phase is laid out here. Steps marked 🔒 belong to later phases — Companion ($39, once) opens all of them."},
+     {sel:'#eTabs [data-tab="notify"]',go:()=>setTab("notify"),title:"Who to tell — with the letter written",text:"Track every institution. The bank letter template is included free; it fills itself in with your details."},
+     {sel:'#eTabs [data-tab="docs"]',go:()=>setTab("docs"),title:"Documents",text:"A private vault — 3 documents free. Start with the death certificate; nearly everyone will ask for it."},
+     {sel:'#eTabs [data-tab="funeral"]',go:()=>setTab("funeral"),title:"Funeral, memorial & music",text:"Budget with honest cost coaching, the obituary builder, a shareable memorial page — and live musicians or artist tributes through our booking partner. All free."},
+     {sel:"#guideFab",title:"The Guide",text:"Ask anything at any hour — a legal term, what a form means, what to do next. Free includes 3 conversations to try it."});
+  } else {
+    steps.push({title:"Create your first estate or plan",text:"The rest of the tour lights up once one exists — it takes about two minutes. Everything is private until you invite someone."});
+  }
+  steps.push({sel:"#upgradeCard",go:()=>show("view-home"),title:"When you're ready for the whole road",text:"Companion ($39, once per estate) opens every phase and the tools around it. Settle ($249) makes everything unlimited and adds the court-ready reports. No subscriptions — ever."});
+  return steps;
+}
+function tourCompanion(){
+  const steps=[
+   {title:"Welcome to Companion",text:"The full roadmap is yours now. This tour shows everything your plan includes — and the one thing it doesn't."},
+  ];
+  if(S.estates.length){
+    steps.push(
+     {sel:'#eTabs [data-tab="next"]',go:()=>{openEstate(S.estates[0].id);},title:"Every phase, open",text:"The card stack now runs the whole road — first 72 hours through closing the estate. Work it one card at a time; it will keep you honest about deadlines."},
+     {sel:'#eTabs [data-tab="roadmap"]',go:()=>setTab("roadmap"),title:"The full roadmap",text:"No locks. Add your own tasks too — anything the estate needs, tracked alongside the guided steps."},
+     {sel:'#eTabs [data-tab="notify"]',go:()=>setTab("notify"),title:"Letters, ready to send",text:"Bank and insurer templates are included on Companion — track every notification's status here."},
+     {sel:'#eTabs [data-tab="ledger"]',go:()=>setTab("ledger"),title:"The Ledger — 10 entries",text:"Assets, debts, expenses, beneficiaries, distributions. Companion includes 10 entries to get the picture in order. The <strong>court-ready Inventory & Accounting reports</strong> are the Settle plan's flagship — when the court or attorney asks for them, that's your moment."},
+     {sel:'#eTabs [data-tab="claims"]',go:()=>setTab("claims"),title:"Insurance claims",text:"Every policy as a tracked claim — stage by stage, with the documents checklist and help finding lost policies."},
+     {sel:'#eTabs [data-tab="funeral"]',go:()=>setTab("funeral"),title:"Funeral, memorial & music",text:"Budget coaching, the obituary builder, the memorial page, and live music or artist tributes through our booking partner."},
+     {sel:"#guideFab",title:"The Guide — 25 conversations",text:"Companion includes 25. Ask it to explain terms, draft letters, or talk through what's next at 3 a.m."});
+  } else {
+    steps.push({title:"Create your estate",text:"Your Companion features light up inside an estate — start one from the home screen in about two minutes."});
+  }
+  steps.push({sel:"#upgradeCard",go:()=>show("view-home"),title:"The last unlock",text:"Settle ($249, once) adds the court-ready reports, all six templates, unlimited family members, documents, and entries, bank import, and sealed Last Wishes recordings."});
+  return steps;
+}
+function tourSettle(){
+  const steps=[
+   {title:"Welcome to Settle — everything is open",text:"This tour walks the full toolkit, including the pieces built specifically for executors and the court."},
+  ];
+  if(S.estates.length){
+    steps.push(
+     {sel:'#eTabs [data-tab="ledger"]',go:()=>{openEstate(S.estates[0].id);setTab("ledger");},title:"The court-ready reports",text:"Inside the Ledger: <strong>Inventory</strong> and <strong>Estate Accounting</strong> — print-ready reports in the shape courts and attorneys expect. Keep the ledger current and they're always one click away. \u201cImport from banks\u201d pulls account balances securely, then destroys the connection."},
+     {sel:'#eTabs [data-tab="notify"]',go:()=>setTab("notify"),title:"All six letters",text:"Banks, insurers, Social Security, credit bureaus, subscriptions, and the DMV — every template, filled in and tracked."},
+     {sel:'#eTabs [data-tab="roadmap"]',go:()=>setTab("roadmap"),title:"Invite the whole family",text:"Unlimited members on Settle — assign steps from any task, and the weekly digest keeps everyone gently in step without another group text."},
+     {sel:'#eTabs [data-tab="funeral"]',go:()=>setTab("funeral"),title:"The service, held well",text:"Budget with FTC-informed coaching, the obituary builder, the memorial page — and soloists, musicians, or artist tribute videos through our booking partner."});
+  }
+  steps.push(
+   {title:"Sealed Last Wishes recordings 🎥",text:"On any life plan: record wishes on camera, seal them with a digital fingerprint that can never be edited or deleted — by anyone — and email the certificate to witnesses. Verifiable forever."},
+   {title:"The Sensitive lock 🔒",text:"Also on plans: end-to-end encryption for account and policy numbers. They're scrambled on your device before upload — not even we can read them. Guard the passphrase; there is no back door."},
+   {sel:"#upgradeCard",go:()=>show("view-home"),title:"One more way to help",text:"Give ${'$'}249 of calm to another family — the 🎁 gift delivers a code by email, for the price of flowers."});
+  return steps;
+}
+
+/* offer the tour once, on first signed-in home render */
+(function(){
+  const _orig = window.renderClientsSection;
+  let offered=false;
+  const offer=()=>{
+    if(offered||localStorage.getItem("lhq_tour_done")) return;
+    if($("view-home").classList.contains("hidden")) return;
+    offered=true;
+    setTimeout(()=>{ if(!localStorage.getItem("lhq_tour_done")) toastTour(); },900);
+  };
+  window.toastTour=function(){
+    const d=document.createElement("div");
+    d.style.cssText="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 18px;z-index:800;box-shadow:0 12px 34px rgba(0,0,0,.18);display:flex;gap:12px;align-items:center;max-width:92vw";
+    d.innerHTML=`<span style="font-size:14px">New here? A 60-second tour shows you around.</span>
+      <button class="btn btn-brass btn-sm" onclick="this.parentElement.remove();startTour()">Show me</button>
+      <button class="btn btn-ghost btn-sm" onclick="localStorage.setItem('lhq_tour_done','1');this.parentElement.remove()">No thanks</button>`;
+    document.body.appendChild(d);
+    setTimeout(()=>d.remove(),20000);
+  };
+  window.renderClientsSection=function(){ _orig(); offer(); };
+})();
 </script>
 </body>
 </html>
