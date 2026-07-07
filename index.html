@@ -3007,7 +3007,7 @@ async function sendConcierge(){
 
 /* Optional intro video (HeyGen). After rendering your avatar video in HeyGen,
    download the MP4, drop it in this folder as intro.mp4, and set:  */
-const INTRO_VIDEO_URL = "intro.mp4";   // e.g. "/intro.mp4"  — leave "" to hide
+const INTRO_VIDEO_URL = "";   // e.g. "/intro.mp4"  — leave "" to hide
 (function(){
   if(!INTRO_VIDEO_URL) return;
   const slot=$("introVideoSlot"); if(!slot) return;
@@ -3216,9 +3216,10 @@ function tourSettle(){
 .ph-grid .ph{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:1;background:#eee}
 .ph-grid img{width:100%;height:100%;object-fit:cover}
 .ph-grid .rm{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:99px;width:22px;height:22px;cursor:pointer}
+.sheet,.sheet *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
 @media print{
   body *{visibility:hidden}
-  #printRoot,#printRoot *{visibility:visible}
+  #printRoot,#printRoot *{visibility:visible;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
   #printRoot{position:absolute;left:0;top:0}
   #printRoot .sheet{box-shadow:none;margin:0;page-break-after:always}
   @page{size:letter landscape;margin:0}
@@ -3398,6 +3399,7 @@ function pgFormHtml(){
     <div class="eyebrow">Finish & print</div>
     <div id="pgChecklist"></div>
     <p class="muted" style="font-size:13px;line-height:1.6;margin-top:10px">
+    <strong>Colors & photos in the PDF:</strong> in the print dialog, open \u201cMore settings\u201d and turn ON <strong>Background graphics</strong> — and set margins to None. That preserves the full design.<br>
     <strong>Print shop:</strong> use \u201cPrint / PDF — print shop\u201d and save as PDF (reading order, full-bleed backgrounds). Shops accept these high-quality PDFs and handle color conversion.<br>
     <strong>Home printing:</strong> use \u201cPrint — home duplex\u201d (booklet order). Print two-sided, flip on <em>short edge</em>, fold, done.</p>
     <div class="scard-actions" style="margin-top:10px">
@@ -3440,7 +3442,7 @@ function pgPanels(){
   const panels=[];
   // FRONT COVER
   panels.push(`<div class="panel" style="${base}display:flex;flex-direction:column;justify-content:flex-end;padding:.45in;background-size:cover">
-    ${t.cover?`<div style="position:absolute;inset:0;background:url('${t.cover.url}') center 20%/cover no-repeat;${th.dark?"opacity:.85":""}"></div>
+    ${t.cover?`<img src="${t.cover.url}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%;${th.dark?"opacity:.85":""}">
     <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,${th.dark?"rgba(15,14,12,.92)":"rgba(253,246,240,.94)"} 78%)"></div>`:""}
     <div style="position:relative;text-align:center">
       <div style="${F(th.script)}font-size:64px;line-height:.9;color:${th.accent}">${esc(t.firstName||" ")}</div>
