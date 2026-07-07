@@ -941,6 +941,7 @@ async function quickDone(id){
   await sb.from("tasks").update({status:"done",updated_at:new Date().toISOString()}).eq("id",id);
   const t=S.tasks.find(x=>x.id===id); if(t){t.status="done"; logActivity("completed task",t.title);}
   renderNext();
+  encourage(); checkPhaseMilestone(t);
 }
 
 /* ---- Roadmap ---- */
@@ -1005,6 +1006,8 @@ async function taskStatus(id,status){
   await sb.from("tasks").update({status,updated_at:new Date().toISOString()}).eq("id",id);
   const t=S.tasks.find(x=>x.id===id); if(t){t.status=status; logActivity(status==="done"?"completed task":status==="na"?"marked task N/A":"reopened task",t.title);}
   closeModal(); renderRoadmap(); renderNext();
+  if(status==="done"){ encourage(); checkPhaseMilestone(t); }
+  else if(status==="na"){ checkPhaseMilestone(t); }
 }
 async function saveTaskMeta(id){
   const assignee=$("tAssign").value||null, due_at=$("tDue").value||null;
@@ -1844,12 +1847,23 @@ function renderFuneral(){
     <div style="margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="funeralItemModal()">+ Add line item</button></div>
   </div>
   <div class="grid" style="margin-top:12px">`;
-  F.budget.forEach(r=>{
-    h+=`<div class="card" style="padding:13px 16px;cursor:pointer" onclick="funeralItemModal('${r.id}')">
-      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
-        <div><strong>${esc(r.item)}</strong><div class="muted" style="font-size:12.5px">${esc(r.category||"")}${r.vendor?" · "+esc(r.vendor):""}</div></div>
+  const bcats={};
+  F.budget.forEach(r=>{(bcats[r.category||"other"]=bcats[r.category||"other"]||[]).push(r);});
+  const bOpen=JSON.parse(localStorage.getItem("lhq_budget_open_"+S.estate.id)||"{}");
+  Object.entries(bcats).forEach(([cat,rows])=>{
+    const cEst=rows.reduce((a,r)=>a+Number(r.estimated||0),0), cAct=rows.reduce((a,r)=>a+Number(r.actual||0),0);
+    const isOpen=bOpen[cat]!==false;
+    h+=`<details class="card" style="padding:0;overflow:hidden" ${isOpen?"open":""} ontoggle="bgToggle('${cat}',this.open)">
+      <summary style="cursor:pointer;list-style:none;padding:13px 16px;display:flex;justify-content:space-between;gap:10px;align-items:center">
+        <div><strong style="text-transform:capitalize">${esc(cat)}</strong> <span class="pill" style="margin-left:6px">${rows.length}</span></div>
+        <div style="text-align:right"><span style="font-weight:700">${cAct?money(cAct):"—"}</span> <span class="muted" style="font-size:12px">/ plan ${money(cEst)}</span> <span class="muted" style="font-size:12px;margin-left:6px">▾</span></div>
+      </summary>
+      <div style="border-top:1px solid var(--line)">
+      ${rows.map(r=>`<div style="padding:11px 16px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap" onclick="funeralItemModal('${r.id}')">
+        <div><strong style="font-size:14px">${esc(r.item)}</strong>${r.vendor?`<div class="muted" style="font-size:12px">${esc(r.vendor)}</div>`:""}</div>
         <div style="text-align:right"><div style="font-weight:700">${r.actual!=null?money(r.actual):"—"}</div><div class="muted" style="font-size:12px">plan ${money(r.estimated)}</div></div>
-      </div></div>`;
+      </div>`).join("")}
+      </div></details>`;
   });
   h+=`</div>
   <h2 style="margin:26px 0 10px;font-size:20px">Find & compare providers</h2>
@@ -3742,6 +3756,129 @@ async function pvAnalyze(){
 /* hook into funeral tab lifecycle */
 const _loadFuneralPv=loadFuneral;
 loadFuneral=async function(){ await _loadFuneralPv(); pvInit(); pvDashboard(); };
+</script>
+<script>
+/* ===================== COMPASSIONATE COMPANION LAYER (Release 18) ===================== */
+function bgToggle(cat,open){
+  const k="lhq_budget_open_"+S.estate.id;
+  const st=JSON.parse(localStorage.getItem(k)||"{}"); st[cat]=open;
+  localStorage.setItem(k,JSON.stringify(st));
+}
+
+/* ---------- Encouraging messages: large shuffled library, no near-repeats ---------- */
+const ENCOURAGE=[
+"Well done. You've taken an important step forward.",
+"One less thing to worry about. You're making meaningful progress.",
+"You're doing an incredible job during a very difficult time.",
+"Every completed task is bringing you closer to honoring your loved one.",
+"Take a moment to breathe — you've accomplished something important.",
+"That one's handled. You're carrying this with real grace.",
+"Step by step — and you just took another one.",
+"They would be proud of how you're caring for everything.",
+"Handled, and handled well. Rest a moment if you need to.",
+"You're doing what needs to be done, one gentle step at a time.",
+"Another weight set down. Notice how far you've come.",
+"That took strength. It doesn't go unseen.",
+"Good. Now let yourself exhale.",
+"You're honoring them with every step you take.",
+"Done — and done with love. That's what matters.",
+"Progress doesn't have to be loud. This counts.",
+"You showed up for them again today.",
+"One more thing your family doesn't have to worry about — because of you.",
+"Steady hands, heavy heart, real progress.",
+"This is hard work, and you're doing it beautifully.",
+"Checked off. Be as kind to yourself as you're being to them.",
+"You're building order out of the hardest weeks. That's remarkable.",
+"Another step handled with care.",
+"Even small steps are acts of love right now.",
+"You didn't have to know how — you just had to keep going. And you are.",
+"That's one more door gently closed. Well done.",
+"Taking care of this is taking care of them.",
+"You're further along than you were this morning. That's the win.",
+"Strength isn't feeling fine — it's doing this anyway. You just did.",
+"Beautifully handled. On to the next when you're ready — no rush.",
+"The list is getting shorter because of you.",
+"You are exactly the person they needed for this.",
+"One task at a time is exactly the right pace.",
+"Done. Let that be enough for this moment.",
+"Your care shows in every box you check.",
+"Quiet, steady, faithful work. That's what this is."
+];
+function encourage(){
+  const k="lhq_enc_bag";
+  let bag=JSON.parse(localStorage.getItem(k)||"[]");
+  if(!bag.length){ bag=[...ENCOURAGE.keys()].sort(()=>Math.random()-.5); }
+  const idx=bag.pop(); localStorage.setItem(k,JSON.stringify(bag));
+  const d=document.createElement("div");
+  d.style.cssText="position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--card);border:1px solid var(--line);border-left:4px solid var(--sage);border-radius:12px;padding:13px 20px;z-index:850;box-shadow:0 10px 30px rgba(0,0,0,.16);max-width:92vw;font-size:14.5px;opacity:0;transition:all .4s";
+  d.textContent=ENCOURAGE[idx];
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>{d.style.opacity="1";d.style.transform="translateX(-50%) translateY(0)";});
+  setTimeout(()=>{d.style.opacity="0";d.style.transform="translateX(-50%) translateY(8px)";setTimeout(()=>d.remove(),450);},4200);
+}
+
+/* ---------- Phase milestone celebration ---------- */
+const MILESTONE_MSGS={
+ first24:{t:"The hardest hours — handled.",m:"You've completed every step of the first 24–72 hours. In the most disorienting stretch of this journey, you kept your footing and cared for everything that couldn't wait. Take a real breath before what's next — you've earned it."},
+ week1:{t:"The first week is complete.",m:"Every task of the first week is done. The service, the notifications, the beginnings of order — you carried all of it. This is a significant milestone, and your loved one is being honored with thoughtful care."},
+ month1:{t:"A month of faithful steps.",m:"You've completed the first month's roadmap. We know this journey isn't easy, but you're making steady, meaningful progress — and you're not the same person who opened this app on day one. Stronger than you know."},
+ days90:{t:"Ninety days — another milestone reached.",m:"The first ninety days are behind you, every step handled. Most of the urgent work is now done; what remains moves at a gentler pace. Take a moment to acknowledge everything you've accomplished."},
+ longterm:{t:"You've walked the whole road.",m:"Every step of the roadmap is complete. From the first phone call to the final record, you carried your family through it with steadiness and love. This is a profound accomplishment — one most people never see coming and few handle this well. Be proud."}
+};
+const MILESTONE_QUOTES=[
+"\u201cWhat we have once enjoyed we can never lose. All that we love deeply becomes a part of us.\u201d — Helen Keller",
+"\u201cGrief is the price we pay for love.\u201d — Queen Elizabeth II",
+"\u201cBlessed are those who mourn, for they shall be comforted.\u201d — Matthew 5:4",
+"\u201cCourage doesn't always roar. Sometimes it's the quiet voice saying, \u2018I will try again tomorrow.\u2019\u201d — Mary Anne Radmacher",
+"\u201cTo live in hearts we leave behind is not to die.\u201d — Thomas Campbell",
+"\u201cShe stood in the storm, and when the wind did not blow her way, she adjusted her sails.\u201d — Elizabeth Edwards",
+"\u201cWeeping may endure for a night, but joy cometh in the morning.\u201d — Psalm 30:5"
+];
+function checkPhaseMilestone(task){
+  if(!task||!S.estate) return;
+  const phase=task.phase;
+  const items=S.tasks.filter(t=>t.phase===phase);
+  if(!items.length) return;
+  const complete=items.every(t=>t.status==="done"||t.status==="na");
+  if(!complete) return;
+  const k="lhq_milestones_"+S.estate.id;
+  const seen=JSON.parse(localStorage.getItem(k)||"[]");
+  if(seen.includes(phase)) return;
+  seen.push(phase); localStorage.setItem(k,JSON.stringify(seen));
+  const ph=PHASES.find(p=>p.key===phase);
+  const msg=MILESTONE_MSGS[phase]||{t:"Milestone reached.",m:"You've completed the "+(ph?ph.label:"section")+" — steady, faithful progress."};
+  celebrate(ph?ph.label:phase,msg);
+}
+function celebrate(label,msg){
+  const quote=MILESTONE_QUOTES[Math.floor(Math.random()*MILESTONE_QUOTES.length)];
+  const done=S.tasks.filter(t=>t.status==="done"||t.status==="na").length;
+  const pct=Math.round(done/S.tasks.length*100);
+  const ov=document.createElement("div");
+  ov.id="celebrateOv";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(38,51,46,.6);z-index:950;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .5s";
+  // gentle petals
+  let petals="";
+  for(let i=0;i<26;i++){
+    const l=Math.random()*100, dl=Math.random()*4, dur=6+Math.random()*5, sz=6+Math.random()*8;
+    const col=["#C9A24B","#8FA893","#E8C7B8","#F6F2EA"][i%4];
+    petals+=`<span style="position:absolute;top:-20px;left:${l}%;width:${sz}px;height:${sz*0.7}px;background:${col};border-radius:60% 40% 55% 45%;opacity:.85;animation:petalFall ${dur}s linear ${dl}s infinite"></span>`;
+  }
+  ov.innerHTML=`<style>@keyframes petalFall{0%{transform:translateY(-4vh) rotate(0deg)}100%{transform:translateY(106vh) rotate(340deg)}}
+    @media(prefers-reduced-motion:reduce){#celebrateOv span{animation:none!important;display:none}}</style>
+    <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none">${petals}</div>
+    <div class="card" style="max-width:480px;text-align:center;padding:34px 30px;position:relative;box-shadow:0 24px 70px rgba(0,0,0,.35)">
+      <div style="font-size:34px">🕊️</div>
+      <div class="eyebrow" style="margin-top:8px">Milestone · ${esc(label)}</div>
+      <h2 style="font-family:var(--font-display);font-size:24px;margin:10px 0">${esc(msg.t)}</h2>
+      <p class="muted" style="font-size:14.5px;line-height:1.65">${esc(msg.m)}</p>
+      <div class="progress" style="margin:18px auto 6px;max-width:280px"><i class="${pct===100?"full":""}" style="width:${pct}%"></i></div>
+      <div class="muted" style="font-size:12px">${pct}% of the whole roadmap complete</div>
+      <p style="font-size:13px;font-style:italic;margin-top:16px;color:var(--brass-deep)">${quote}</p>
+      <button class="btn btn-brass" style="margin-top:18px" onclick="this.closest('#celebrateOv').remove()">Continue, gently</button>
+    </div>`;
+  document.body.appendChild(ov);
+  requestAnimationFrame(()=>ov.style.opacity="1");
+}
 </script>
 </body>
 </html>
