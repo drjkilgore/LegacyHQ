@@ -1852,22 +1852,38 @@ function renderFuneral(){
       </div></div>`;
   });
   h+=`</div>
-  <h2 style="margin:26px 0 10px;font-size:20px">Compare providers</h2>
-  <div class="card"><p class="muted" style="margin-bottom:10px">Enter each quote as you call around — prices for identical services vary widely between funeral homes.</p>
+  <h2 style="margin:26px 0 10px;font-size:20px">Find & compare providers</h2>
+  <div id="provDash"></div>
+  <div class="card">
+    <p class="muted" style="margin-bottom:10px">Tell us what you need and where — we'll find nearby providers with ratings, phone numbers, and directions. Prices for identical services vary widely; comparing is how families save thousands.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <input id="foName" placeholder="Provider name" style="flex:1;min-width:170px">
-      <select id="foType" style="width:auto"><option value="funeral_home">Funeral home</option><option value="cemetery">Cemetery</option><option value="florist">Florist</option><option value="caterer">Caterer</option><option value="other">Other</option></select>
-      <input id="foQuote" type="number" step="0.01" placeholder="Quote $" style="width:110px">
-      <button class="btn btn-primary btn-sm" onclick="addFuneralOption()">Add</button>
-    </div></div>
-  <div class="grid" style="margin-top:12px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">`;
+      <select id="pvCat" style="flex:1;min-width:180px"></select>
+      <input id="pvAddr" placeholder="City or address (e.g., Detroit, MI)" style="flex:2;min-width:200px">
+      <select id="pvRadius" style="width:auto"><option value="10">10 mi</option><option value="20">20 mi</option><option value="30">30 mi</option><option value="50">50 mi</option></select>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <button class="btn btn-brass btn-sm" onclick="pvSearch()">Search providers</button>
+      <button class="btn btn-ghost btn-sm" onclick="pvHere()">📍 Use my location</button>
+      <button class="btn btn-ghost btn-sm" onclick="pvManualModal()">+ Add one manually</button>
+    </div>
+    <div id="pvResults" style="margin-top:12px"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px">
+    <div class="eyebrow">Saved providers & quotes</div>
+    <button class="btn btn-ghost btn-sm" onclick="pvAnalyze()">✨ AI cost analysis</button></div>
+  <div id="pvAnalysis"></div>
+  <div class="grid" style="margin-top:8px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">`;
   F.options.forEach(o=>{
+    const qm=o.quote_meta||{};
     h+=`<div class="card" style="padding:15px;border-color:${o.chosen?"var(--brass)":"var(--line)"}">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><strong>${esc(o.name)}</strong>${o.chosen?'<span class="pill done">chosen</span>':""}</div>
-      <div class="muted" style="font-size:12.5px">${esc(o.option_type.replace("_"," "))}${o.phone?" · "+esc(o.phone):""}</div>
+      <div class="muted" style="font-size:12.5px">${esc((o.option_type||"").replace(/_/g," "))}${o.rating?` · ★ ${o.rating} (${o.rating_count||0})`:""}${o.distance_mi!=null?` · ${o.distance_mi} mi`:""}</div>
+      <div class="muted" style="font-size:12px">${o.phone?`☎ <a href="tel:${esc(o.phone)}">${esc(o.phone)}</a>`:""}${o.website?` · <a href="${esc(o.website)}" target="_blank" rel="noopener">website</a>`:""}${o.maps_url?` · <a href="${esc(o.maps_url)}" target="_blank" rel="noopener">directions</a>`:""}</div>
+      ${qm.followUp?`<div class="muted" style="font-size:11.5px;margin-top:3px">Follow up: ${esc(qm.followUp)}${qm.contact?" · "+esc(qm.contact):""}</div>`:""}
       <div style="font-family:var(--font-display);font-size:22px;margin:6px 0">${o.quote!=null?money(o.quote):"—"}</div>
       ${o.notes?`<div class="muted" style="font-size:12.5px">${esc(o.notes)}</div>`:""}
-      <div style="display:flex;gap:6px;margin-top:10px">
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="pvQuoteModal('${o.id}')">Quote details</button>
         <button class="btn btn-ghost btn-sm" onclick="chooseFuneralOption('${o.id}')">${o.chosen?"Unchoose":"Choose"}</button>
         <button class="btn btn-danger btn-sm" onclick="deleteFuneralOption('${o.id}')">Remove</button>
       </div></div>`;
@@ -3007,7 +3023,7 @@ async function sendConcierge(){
 
 /* Optional intro video (HeyGen). After rendering your avatar video in HeyGen,
    download the MP4, drop it in this folder as intro.mp4, and set:  */
-const INTRO_VIDEO_URL = "intro.mp4";   // e.g. "/intro.mp4"  — leave "" to hide
+const INTRO_VIDEO_URL = "";   // e.g. "/intro.mp4"  — leave "" to hide
 (function(){
   if(!INTRO_VIDEO_URL) return;
   const slot=$("introVideoSlot"); if(!slot) return;
@@ -3578,6 +3594,154 @@ function pgPrint(order){
   pr.querySelectorAll(".fitText").forEach(el=>{let s=12.5,g=0;el.style.fontSize=s+"px";while(el.scrollHeight>el.clientHeight&&s>8.5&&g<40){s-=.5;el.style.fontSize=s+"px";g++;}});
   setTimeout(()=>{ window.print(); setTimeout(()=>pr.remove(),500); }, PG.memorialUrl?450:150);
 }
+</script>
+<script>
+/* ===================== PROVIDER DISCOVERY & COMPARISON (Release 17) ===================== */
+const PV_CATS=[["funeral_home","Funeral Homes"],["cemetery","Cemeteries"],["crematory","Crematories"],["florist","Florists"],["caterer","Caterers"],["reception_venue","Reception Venues"],["church","Churches"],["limousine","Funeral Transportation / Limos"],["monument","Monument & Headstone"],["obituary_news","Obituary / Newspaper"],["printing","Printing Companies"],["musician","Musicians"],["vocalist","Vocalists"],["officiant","Ministers / Officiants"],["videographer","Videographers"],["photographer","Photographers"],["balloon_release","Balloon Releases"],["dove_release","Dove Releases"],["tent_rental","Tent & Chair Rentals"],["event_rental","Event Rentals"],["security","Security Services"],["grief_counseling","Grief Counseling"],["estate_attorney","Estate Attorneys"],["probate_attorney","Probate Attorneys"],["accountant","Accountants"],["insurance_help","Insurance Claim Assistance"],["cleaning","Cleaning Services"],["estate_sale","Estate Sale Companies"],["storage","Storage Facilities"],["moving","Moving Companies"],["other","Other"]];
+const PV_QUERY={funeral_home:"funeral home",cemetery:"cemetery",crematory:"crematory cremation services",florist:"funeral florist flower shop",caterer:"catering repast",reception_venue:"banquet hall reception venue",church:"church",limousine:"funeral limousine service",monument:"monument headstone company",obituary_news:"newspaper obituary office",printing:"print shop",musician:"musicians for hire",vocalist:"vocalist singer for events",officiant:"minister officiant",videographer:"videographer",photographer:"event photographer",balloon_release:"balloon release service",dove_release:"dove release service",tent_rental:"tent and chair rental",event_rental:"event rentals",security:"event security services",grief_counseling:"grief counseling",estate_attorney:"estate attorney",probate_attorney:"probate attorney",accountant:"accountant CPA",insurance_help:"public adjuster insurance claim help",cleaning:"house cleaning service",estate_sale:"estate sale company",storage:"self storage",moving:"moving company",other:"services"};
+let PV={results:[],center:null};
+
+function pvInit(){
+  const sel=$("pvCat"); if(!sel||sel.options.length) return;
+  sel.innerHTML=PV_CATS.map(([v,l])=>`<option value="${v}">${l}</option>`).join("");
+  const st=S.estate?.state_code||""; const city=S.estate?.intake?.city||"";
+  if(!$("pvAddr").value) $("pvAddr").value=[city,st].filter(Boolean).join(", ");
+  pvDashboard();
+}
+function pvHere(){
+  if(!navigator.geolocation) return toast("Location isn't available in this browser — type a city instead.");
+  toast("Getting your location…");
+  navigator.geolocation.getCurrentPosition(p=>{
+    PV.geo={lat:p.coords.latitude,lng:p.coords.longitude};
+    $("pvAddr").value="My current location"; pvSearch();
+  },()=>toast("Couldn't get your location — type a city or address instead."));
+}
+async function pvSearch(){
+  const cat=$("pvCat").value, addr=$("pvAddr").value.trim();
+  const body={category:PV_QUERY[cat]||cat,radiusMiles:Number($("pvRadius").value)};
+  if(PV.geo&&addr==="My current location"){ body.lat=PV.geo.lat; body.lng=PV.geo.lng; }
+  else { if(!addr) return toast("Enter a city or address first."); body.address=addr; }
+  $("pvResults").innerHTML='<div class="muted">Searching nearby providers…</div>';
+  try{
+    const r=await fetch("/.netlify/functions/providers",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(d.error){ $("pvResults").innerHTML=`<div class="banner">${esc(d.error)}</div>`; return; }
+    PV.results=d.providers||[]; PV.cat=cat;
+    if(!PV.results.length){ $("pvResults").innerHTML='<div class="muted">Nothing found within 100 miles — try a different category wording via "Add one manually".</div>'; return; }
+    $("pvResults").innerHTML=`<div class="muted" style="font-size:12.5px;margin-bottom:8px">${PV.results.length} found within ${d.radiusUsed} miles — tap Save on any you want to compare.</div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">`+PV.results.map((p,i)=>`
+      <div class="card" style="padding:13px 15px">
+        <strong>${esc(p.name)}</strong>
+        <div class="muted" style="font-size:12px;margin:2px 0">${p.rating?`★ ${p.rating} (${p.ratingCount})`:"no ratings"} · ${p.distanceMi!=null?p.distanceMi+" mi":""} ${p.openNow===true?'· <span style="color:var(--sage)">open now</span>':p.openNow===false?"· closed now":""}</div>
+        <div class="muted" style="font-size:12px">${esc(p.address)}</div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          ${p.phone?`<a class="btn btn-ghost btn-sm" href="tel:${esc(p.phone)}">Call</a>`:""}
+          ${p.website?`<a class="btn btn-ghost btn-sm" href="${esc(p.website)}" target="_blank" rel="noopener">Website</a>`:""}
+          ${p.mapsUrl?`<a class="btn btn-ghost btn-sm" href="${esc(p.mapsUrl)}" target="_blank" rel="noopener">Directions</a>`:""}
+          <button class="btn btn-primary btn-sm" onclick="pvSave(${i})">Save</button>
+        </div></div>`).join("")+`</div>`;
+  }catch(e){ $("pvResults").innerHTML=`<div class="banner">Search failed: ${esc(e.message)}</div>`; }
+}
+async function pvSave(i){
+  const p=PV.results[i];
+  const {error}=await sb.from("funeral_options").insert({estate_id:S.estate.id,option_type:PV.cat,
+    name:p.name,phone:p.phone||null,address:p.address||null,website:p.website||null,maps_url:p.mapsUrl||null,
+    rating:p.rating,rating_count:p.ratingCount,distance_mi:p.distanceMi});
+  if(error) return toast(error.message);
+  toast("Saved to your comparison — add their quote when you have it.");
+  loadFuneral();
+}
+function pvManualModal(){
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Add a provider</div><h3>Add one manually</h3>
+    <label>Category</label><select id="pmCat">${PV_CATS.map(([v,l])=>`<option value="${v}">${l}</option>`).join("")}</select>
+    <label>Name</label><input id="pmName" placeholder="Swanson Funeral Home — Northwest Chapel">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label>Phone</label><input id="pmPhone"></div>
+      <div><label>Quote $ (if you have it)</label><input id="pmQuote" type="number" step="0.01"></div></div>
+    <div class="scard-actions" style="margin-top:14px"><button class="btn btn-primary" onclick="pvManualSave()">Add</button></div>
+  </div></div>`;
+}
+async function pvManualSave(){
+  const name=$("pmName").value.trim(); if(!name) return toast("A name is needed.");
+  const {error}=await sb.from("funeral_options").insert({estate_id:S.estate.id,option_type:$("pmCat").value,name,
+    phone:$("pmPhone").value.trim()||null,quote:$("pmQuote").value?Number($("pmQuote").value):null});
+  if(error) return toast(error.message);
+  closeModal(); loadFuneral();
+}
+function pvQuoteModal(id){
+  const o=F.options.find(x=>x.id===id); if(!o) return;
+  const q=o.quote_meta||{};
+  const inp=(k,label,v,type)=>`<label>${label}</label><input id="pq_${k}" type="${type||"text"}" value="${esc(v||"")}">`;
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:600px">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">${esc(o.name)}</div><h3>Quote details</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label>Total quoted $</label><input id="pq_total" type="number" step="0.01" value="${o.quote!=null?o.quote:""}"></div>
+      <div>${inp("quoteDate","Date of quote",q.quoteDate,"date")}</div>
+      <div>${inp("contact","Contact person",q.contact)}</div>
+      <div>${inp("contactPhone","Their phone",q.contactPhone)}</div>
+      <div>${inp("deposit","Deposit required",q.deposit)}</div>
+      <div>${inp("followUp","Follow-up date",q.followUp,"date")}</div>
+    </div>
+    <label>What's included</label><textarea id="pq_included" rows="2">${esc(q.included||"")}</textarea>
+    <label>What's excluded / costs extra</label><textarea id="pq_excluded" rows="2">${esc(q.excluded||"")}</textarea>
+    <label>Payment terms / financing</label><input id="pq_terms" value="${esc(q.terms||"")}">
+    <label>Notes</label><textarea id="pq_notes" rows="2">${esc(q.notes||"")}</textarea>
+    <p class="muted" style="font-size:12px;margin-top:6px">Have their PDF price list? Upload it in the Documents tab — the General Price List is your legal right under the FTC Funeral Rule.</p>
+    <div class="scard-actions" style="margin-top:14px"><button class="btn btn-primary" onclick="pvQuoteSave('${id}')">Save quote</button></div>
+  </div></div>`;
+}
+async function pvQuoteSave(id){
+  const gv=k=>$("pq_"+k).value.trim();
+  const quote_meta={quoteDate:gv("quoteDate"),contact:gv("contact"),contactPhone:gv("contactPhone"),
+    deposit:gv("deposit"),followUp:gv("followUp"),included:gv("included"),excluded:gv("excluded"),
+    terms:gv("terms"),notes:gv("notes")};
+  const total=$("pq_total").value;
+  const {error}=await sb.from("funeral_options").update({quote:total?Number(total):null,quote_meta}).eq("id",id);
+  if(error) return toast(error.message);
+  closeModal(); loadFuneral();
+}
+function pvDashboard(){
+  const el=$("provDash"); if(!el) return;
+  const ops=F.options||[];
+  if(!ops.length){ el.innerHTML=""; return; }
+  const quoted=ops.filter(o=>o.quote!=null);
+  const byCat={}; ops.forEach(o=>{(byCat[o.option_type]=byCat[o.option_type]||[]).push(o);});
+  let savings=0;
+  Object.values(byCat).forEach(g=>{const q=g.filter(o=>o.quote!=null).map(o=>Number(o.quote)); if(q.length>1) savings+=Math.max(...q)-Math.min(...q);});
+  const chosenTotal=ops.filter(o=>o.chosen&&o.quote!=null).reduce((a,o)=>a+Number(o.quote),0);
+  const await_=ops.length-quoted.length;
+  const fups=ops.filter(o=>o.quote_meta?.followUp&&o.quote_meta.followUp>=new Date().toISOString().slice(0,10)).length;
+  el.innerHTML=`<div class="card" style="margin-bottom:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;text-align:center">
+    ${[["Providers",ops.length],["Quotes in",quoted.length],["Awaiting",await_],
+      ["Lowest",quoted.length?money(Math.min(...quoted.map(o=>Number(o.quote)))):"—"],
+      ["Potential savings",savings?money(savings):"—"],
+      ["Chosen total",chosenTotal?money(chosenTotal):"—"],
+      ["Follow-ups",fups]].map(([l,v])=>`<div><div style="font-family:var(--font-display);font-size:19px">${v}</div><div class="muted" style="font-size:11px;letter-spacing:1px;text-transform:uppercase">${l}</div></div>`).join("")}
+  </div>`;
+}
+async function pvAnalyze(){
+  const quoted=(F.options||[]).filter(o=>o.quote!=null);
+  if(quoted.length<2) return toast("Enter at least two quotes first — comparison is where the savings live.");
+  const el=$("pvAnalysis");
+  el.innerHTML='<div class="card" style="margin:8px 0"><div class="muted">Analyzing your quotes…</div></div>';
+  const lines=quoted.map(o=>{const q=o.quote_meta||{};return `${o.name} (${(o.option_type||"").replace(/_/g," ")}): $${o.quote}. Included: ${q.included||"not specified"}. Excluded: ${q.excluded||"not specified"}. Deposit: ${q.deposit||"?"}. Terms: ${q.terms||"?"}. Notes: ${q.notes||o.notes||""}`;});
+  const prompt=`You are helping a grieving family compare funeral-related service quotes. Analyze these quotes and reply in short, warm, plain language with these sections: BEST VALUE (which and why — value, not just lowest price), PRICE SPREAD (differences and estimated savings), WATCH FOR (missing services, likely add-on fees, duplicate charges), and ASK THEM (3-4 specific follow-up questions for the providers). Under 250 words. Quotes:\n${lines.join("\n")}`;
+  try{
+    const r=await fetch("/.netlify/functions/ai-guide",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({messages:[{role:"user",content:prompt}],estateContext:"provider quote comparison"})});
+    const d=await r.json();
+    const text=d.text||d.error||"Analysis unavailable right now.";
+    el.innerHTML=`<div class="card" style="margin:8px 0;border-top:3px solid var(--brass)"><div class="eyebrow">✨ Cost analysis</div>
+      <div style="white-space:pre-wrap;font-size:13.5px;line-height:1.6;margin-top:6px">${esc(text)}</div>
+      <div class="muted" style="font-size:11px;margin-top:8px">General guidance to help you ask better questions — always confirm details with each provider in writing.</div></div>`;
+  }catch(e){ el.innerHTML=`<div class="banner">Couldn't analyze right now: ${esc(e.message)}</div>`; }
+}
+/* hook into funeral tab lifecycle */
+const _loadFuneralPv=loadFuneral;
+loadFuneral=async function(){ await _loadFuneralPv(); pvInit(); pvDashboard(); };
 </script>
 </body>
 </html>
