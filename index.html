@@ -434,6 +434,39 @@ const PHASES = [
   {key:"days90",  label:"First 90 Days"},
   {key:"longterm",label:"Long-Term Administration"}
 ];
+/* Hands-on effort estimates in minutes [low, high] — active work, not waiting */
+const TASK_EFFORT={
+ pronounce:[20,60],funeralhome:[30,60],prepaid:[15,40],organ:[10,30],notifyfam:[45,120],
+ securehome:[30,90],pets:[20,60],dependents:[30,90],mail:[15,30],bureaus:[20,45],
+ finddocs:[60,180],deathcerts:[20,45],biz72:[45,120],
+ meetdirector:[120,240],obituary:[60,150],
+ employer:[20,45],pension:[30,75],va:[30,75],
+ lifeins:[30,60],claimsdone:[30,90],
+ attorney:[60,120],probatepath:[15,30],trustadmin:[60,180],inventory:[180,420],creditors:[60,120],
+ cpa:[30,60],esttax:[45,120],finaltax:[60,180],
+ ssa:[30,75],medicare:[15,40],medicaid:[20,60],
+ banks:[45,120],cards:[30,75],ein:[15,30],
+ utilities:[30,75],subs:[30,90],
+ vehicles:[45,120],propxfer:[60,180],
+ distribute:[60,180],closeestate:[60,150],records:[30,60],
+ jw_chevra:[20,45],jw_shiva:[60,150],jw_sheloshim:[20,45],jw_unveiling:[45,90],jw_yahrzeit:[10,20],
+ ca_parish:[20,45],ca_vigil:[30,60],ca_committal:[20,45],ca_monthsmind:[10,25],ca_anniv:[10,25],
+ hg_church:[60,150],
+ findwill:[45,120],findpolicy:[45,90],probate_step:[30,90]
+};
+const CAT_EFFORT={Immediate:[20,60],Protect:[20,60],Documents:[30,90],Business:[45,120],Funeral:[60,150],Benefits:[25,60],Insurance:[30,75],Legal:[60,150],Taxes:[45,120],Government:[25,60],Financial:[30,90],Household:[25,75],Property:[45,120],Closing:[45,120],Tradition:[30,90]};
+function effortFor(t){
+  const rid=(t.rule_id||t.id_hint||"").toString();
+  return TASK_EFFORT[rid]||TASK_EFFORT[t.rule]||CAT_EFFORT[t.category]||[20,60];
+}
+function effortLabel(t){ const [a,b]=effortFor(t); return a>=60?`~${Math.round(a/60*10)/10}–${Math.round(b/60*10)/10} hrs hands-on`:`~${a}–${b} min hands-on`; }
+function phaseEffort(items){
+  const open=items.filter(t=>t.status!=="done"&&t.status!=="na");
+  let lo=0,hi=0; open.forEach(t=>{const [a,b]=effortFor(t); lo+=a; hi+=b;});
+  return {open:open.length,lo,hi};
+}
+function fmtHrs(min){ if(min<55) return Math.max(5,Math.round(min/5)*5)+" min"; const h=min/60; return (h<10?Math.round(h*2)/2:Math.round(h))+" hr"+(h>=1.75?"s":""); }
+const PHASE_SPAN={first24:"over the first 1–3 days",week1:"spread across the week",month1:"spread across the month",days90:"spread over weeks 4–12 — much of it is waiting on institutions",longterm:"over the following months — mostly waiting, with occasional paperwork"};
 const RULES = [
 // ---- FIRST 24–72 HOURS ----
 {id:"pronounce",phase:"first24",cat:"Immediate",due:1,title:"Confirm legal pronouncement of death",why:"A legal pronouncement is required before a funeral home can act and before death certificates can be issued.",how:"If death occurred at home without hospice, call 911. With hospice, call the hospice nurse. In a hospital or facility, staff handle this — ask who signs the pronouncement."},
@@ -927,7 +960,7 @@ function renderNext(){
     const ph=PHASES.find(p=>p.key===t.phase);
     if(i===0){
       c.innerHTML=`<div class="phase-tag">${ph.label}${t.due_at?" · by "+fmtDate(t.due_at):""}</div>
-        <h3>${esc(t.title)}</h3><p class="why">${esc(t.why||"")}</p>
+        <h3>${esc(t.title)}</h3><div class="muted" style="font-size:12px;margin:-2px 0 6px">${effortLabel(t)}</div><p class="why">${esc(t.why||"")}</p>
         <div class="scard-actions">
           <button class="btn btn-primary" onclick="openTask('${t.id}')">Open this step</button>
           <button class="btn btn-ghost" onclick="quickDone('${t.id}')">Mark done</button>
@@ -951,7 +984,12 @@ function renderRoadmap(){
     const items=S.tasks.filter(t=>t.phase===p.key); if(items.length===0) return;
     const done=items.filter(t=>t.status==="done"||t.status==="na").length;
     const blk=document.createElement("div"); blk.className="phase-block";
+    const ef=phaseEffort(items);
+    const efLine = done===items.length
+      ? `<span style="color:var(--sage);font-weight:600">Complete ✓</span>`
+      : `≈ ${fmtHrs(ef.lo)}–${fmtHrs(ef.hi)} of hands-on work remaining, ${PHASE_SPAN[p.key]||""}`;
     blk.innerHTML=`<div class="phase-head"><h2>${p.label}</h2><span class="muted">${done}/${items.length}</span></div>
+      <div class="muted" style="font-size:12.5px;margin:2px 0 6px">${efLine}</div>
       <div class="progress"><i class="${done===items.length?"full":""}" style="width:${items.length?Math.round(done/items.length*100):0}%"></i></div>`;
     items.forEach(t=>{
       const locked=phaseLocked(t.phase);
@@ -985,7 +1023,7 @@ function openTask(id){
   const memberOpts = S.members.map(m=>`<option value="${m.user_id}" ${t.assignee===m.user_id?"selected":""}>${esc(m.name||m.email||"Member")}</option>`).join("");
   $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()">
     <div class="modal"><button class="close" onclick="closeModal()">×</button>
-    <div class="eyebrow">${ph.label} · ${esc(t.category||"")}</div>
+    <div class="eyebrow">${ph.label} · ${esc(t.category||"")} · ${effortLabel(t)}</div>
     <h3>${esc(t.title)}</h3>
     ${t.why?`<p style="margin:10px 0;color:var(--ink-soft)"><strong>Why this matters.</strong> ${esc(t.why)}</p>`:""}
     ${t.how?`<p style="margin:10px 0"><strong>How to do it.</strong> ${esc(t.how)}</p>`:""}
