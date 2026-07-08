@@ -1,5 +1,5 @@
 // HomegoingHQ service worker — offline shell, network-first for the app itself.
-const CACHE = "homegoinghq-v18-5";
+const CACHE = "homegoinghq-v18-6";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
