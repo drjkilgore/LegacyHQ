@@ -1,6 +1,6 @@
 // Acceptance Sender — POST {key,name,email,path:"founding"|"cert"}
 const LINKS={founding:"https://app.paythen.co/company/KinKeeper/plan/77soz8xs7y",
-             cert:"https://app.paythen.co/company/KinKeeper/plan/r6ditgu3a8", welcome:"x",
+             cert:"https://app.paythen.co/company/KinKeeper/plan/r6ditgu3a8",
              plan:"https://app.paythen.co/company/KinKeeper/plan/3yubg905jl"};
 exports.handler=async(event)=>{
   if(event.httpMethod!=="POST")return{statusCode:405,body:"POST only"};
@@ -8,26 +8,26 @@ exports.handler=async(event)=>{
   if(!key||key!==process.env.ACCEPT_KEY)return{statusCode:401,body:JSON.stringify({error:"Bad key"})};
   if(!name||!email||!LINKS[path])return{statusCode:400,body:JSON.stringify({error:"name, email, path required"})};
   const founding=path==="founding";
-  if(path==="welcome"){
+  if(path==="provider"){
     const html=`<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#26332E">
-    <div style="background:#26332E;color:#F6F2EA;border-radius:14px;padding:26px;text-align:center"><div style="font-size:20px;font-weight:700">Homegoing<span style="color:#C9A24B">HQ</span> Academy™</div></div>
+    <div style="background:#26332E;color:#F6F2EA;border-radius:14px;padding:26px;text-align:center"><div style="font-size:20px;font-weight:700">Homegoing<span style="color:#C9A24B">HQ</span> <span style="font-weight:400;font-size:12px;letter-spacing:2px">PREFERRED PROVIDERS</span></div></div>
     <div style="padding:26px 6px"><p>Dear ${name},</p>
-    <p><b>You are enrolled.</b> Your payment is received and your seat in HomegoingHQ Academy is open.</p>
-    <p><b>Getting started:</b></p>
-    <p>1. Go to <a href="https://academy.homegoinghq.com">academy.homegoinghq.com</a> and create your account — <b>use the exact name you want printed on your certificate.</b><br>
-    2. Open <b>HC-101: The Concierge Calling</b> — your first course is waiting.<br>
-    3. Work at your pace; every module ends with an assessment (80% to pass), and your credential prints the day you finish.</p>
+    <p><b>Welcome to the HomegoingHQ Preferred Provider Network.</b> Your application has been reviewed and approved — your business now carries the Preferred mark.</p>
+    <p><b>What happens next:</b><br>
+    1. Your listing goes live in the provider tools families and certified concierges use to search and compare.<br>
+    2. As a founding provider, your listing is <b>free through the launch year</b>, with the founding rate locked at renewal.<br>
+    3. Families and concierges contact and pay you directly — we take no commission on your work.</p>
+    <p><b>What Preferred means:</b> current licensing where your trade requires it, written quotes honored as given, responsiveness on funeral timelines, and dignity with families in grief. A pattern of surprise charges or unreturned calls removes a provider from the network — we protect the mark so it keeps meaning something for you.</p>
     <p>Reply to this email any time — a person reads it.</p>
-    <p>Welcome to the work.</p>
-    <p>Jessie E. Kilgore, Jr., Ph.D.<br><span style="color:#68756D;font-size:13px">Founder &amp; Director of Certification &mdash; HomegoingHQ</span></p></div></div>`;
-    const rw=await fetch("https://api.sendgrid.com/v3/mail/send",{method:"POST",
+    <p>Jessie E. Kilgore, Jr., Ph.D.<br><span style="color:#68756D;font-size:13px">Founder &mdash; HomegoingHQ</span></p></div></div>`;
+    const rp=await fetch("https://api.sendgrid.com/v3/mail/send",{method:"POST",
       headers:{Authorization:`Bearer ${process.env.SENDGRID_API_KEY}`,"Content-Type":"application/json"},
       body:JSON.stringify({personalizations:[{to:[{email,name}]}],
-        from:{email:process.env.FROM_EMAIL||"care@homegoinghq.com",name:"HomegoingHQ Academy"},
+        from:{email:process.env.FROM_EMAIL||"care@homegoinghq.com",name:"HomegoingHQ Providers"},
         reply_to:{email:"care@homegoinghq.com"},
-        subject:"You are enrolled — HomegoingHQ Academy™",
+        subject:"Approved — HomegoingHQ Preferred Provider Network",
         content:[{type:"text/html",value:html}]})});
-    if(rw.status>=300){const t=await rw.text();return{statusCode:502,body:JSON.stringify({error:"SendGrid: "+t.slice(0,200)})}}
+    if(rp.status>=300){const t=await rp.text();return{statusCode:502,body:JSON.stringify({error:"SendGrid: "+t.slice(0,200)})}}
     return{statusCode:200,body:JSON.stringify({ok:true})};
   }
   const pay=LINKS[path], code="FOUNDING2026";
@@ -46,7 +46,7 @@ exports.handler=async(event)=>{
   <p>Your acceptance code is <b>${code}</b> — the Tuition &amp; payments page at concierge.homegoinghq.com will ask for it.</p>
   <p><b>Then:</b> within one business day of payment, you'll receive your HomegoingHQ Academy enrollment at academy.homegoinghq.com — create your account with the exact name you want on your certificate.</p>
   <p>Welcome. We are honored to walk with you.</p>
-  <p>Jessie E. Kilgore, Jr., Ph.D.<br><span style="color:#68756D;font-size:13px">Founder &amp; Director of Certification &mdash; HomegoingHQ</span></p>
+  <p>Dr. J. Kilgore Jr.<br><span style="color:#68756D;font-size:13px">Founder &amp; Director of Certification · EdConsult LLC</span></p>
   </div>
   <p style="font-size:11px;color:#8a8f8b;text-align:center">HomegoingHQ · care@homegoinghq.com · Certification is required before serving families under the credential.</p></div>`;
   const r=await fetch("https://api.sendgrid.com/v3/mail/send",{method:"POST",
@@ -59,4 +59,5 @@ exports.handler=async(event)=>{
   if(r.status>=300){const t=await r.text();return{statusCode:502,body:JSON.stringify({error:"SendGrid: "+t.slice(0,200)})}}
   return{statusCode:200,body:JSON.stringify({ok:true})};
 };
+
 
