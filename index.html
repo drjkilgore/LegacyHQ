@@ -184,6 +184,7 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
     <div class="eyebrow" id="authModeLabel">Sign in</div>
     <label>Email</label><input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com">
     <label>Password</label><input id="authPass" type="password" autocomplete="current-password" placeholder="••••••••">
+    <div style="text-align:right;margin-top:5px"><a href="#" onclick="forgotPass();return false" style="font-size:12.5px;color:var(--muted)">Forgot your password?</a></div>
     <div id="authNameWrap" class="hidden"><label>Your full name</label><input id="authName" placeholder="First Last"></div>
     <div style="margin-top:18px;display:grid;gap:9px">
       <button class="btn btn-primary" id="authGo" onclick="authSubmit()">Sign in</button>
@@ -420,7 +421,7 @@ const BRAND_KEY=localStorage.getItem("lhq_brand")||HOSTNAME_BRANDS[location.host
 const BRAND=BRANDS[BRAND_KEY];
 
 /* ================= CONFIG — fill these two in ================= */
-const SUPABASE_URL = "https://vohqgmnurnkgbwpvrakp.supabase.co";
+cconst SUPABASE_URL = "https://vohqgmnurnkgbwpvrakp.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvaHFnbW51cm5rZ2J3cHZyYWtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNjc0NTYsImV4cCI6MjA5ODk0MzQ1Nn0.fXDBbljOS_p49FS9vU4smAWxyn4STYuLRGFf9rJgp-Q";
 /* =============================================================== */
 </script>
@@ -756,8 +757,33 @@ async function handleSession(session){
 // IMPORTANT: never do Supabase work inside this callback (deadlocks the auth
 // library). Defer to the next tick, then work freely.
 if(CONFIGURED) sb.auth.onAuthStateChange((_e, session)=>{
-  setTimeout(()=>handleSession(session), 0);
+  setTimeout(()=>{ handleSession(session); if(_e==="PASSWORD_RECOVERY") resetPassModal(); }, 0);
 });
+
+async function forgotPass(){
+  const email=$("authEmail").value.trim();
+  if(!email) return toast("Enter your email above first, then tap the link again.");
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+  if(error) return toast(error.message);
+  toast("Reset email sent — check your inbox (and spam, just in case).");
+}
+function resetPassModal(){
+  $("modalRoot").innerHTML=`<div class="overlay"><div class="modal" style="max-width:420px">
+    <div class="eyebrow">Account</div><h3>Choose a new password</h3>
+    <p class="muted" style="font-size:13.5px">You're securely signed in through the email link — set your new password and you're done.</p>
+    <label>New password</label><input id="npw1" type="password" autocomplete="new-password">
+    <label>Confirm it</label><input id="npw2" type="password" autocomplete="new-password">
+    <div class="scard-actions" style="margin-top:14px"><button class="btn btn-primary" onclick="saveNewPass()">Save new password</button></div>
+  </div></div>`;
+}
+async function saveNewPass(){
+  const a=$("npw1").value, b=$("npw2").value;
+  if(a.length<8) return toast("Use at least 8 characters.");
+  if(a!==b) return toast("The two passwords don't match.");
+  const {error}=await sb.auth.updateUser({password:a});
+  if(error) return toast(error.message);
+  closeModal(); toast("Password updated — you're all set.");
+}
 
 /* ---------- home / estates ---------- */
 async function loadEstates(){
