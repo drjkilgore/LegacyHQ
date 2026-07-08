@@ -400,18 +400,14 @@ const BRANDS={
    hero:"When it matters most,<br>know exactly what to do.",
    sub:"HomegoingHQ turns the hardest weeks of life into a clear, guided path — every task, deadline, letter, and document in one calm place.",
    tradition:"homegoing",memorialBy:"HomegoingHQ",accent:"#8F6A24",accentDeep:"#75561D"},
- kinkeeper:{name:"KinKeeper",mark:"K",tagline:"Plan Ahead · Settle With Care · Remember",
-   hero:"For the one who<br>holds the family together.",
-   sub:"KinKeeper guides your family through everything before and after a loss — every task, deadline, letter, and document in one calm place.",
-   tradition:"general",memorialBy:"KinKeeper",accent:"#4A6B57",accentDeep:"#3B5646"},
- chesed:{name:"Chesed",mark:"ח",tagline:"Levaya · Shiva · Estate · Remembrance",
-   hero:"A guide through the days<br>and the year that follow.",
-   sub:"Chesed walks your family from the first call through sheloshim, the estate, and the unveiling — every task, deadline, and document in one calm place.",
-   tradition:"jewish",memorialBy:"Chesed",accent:"#34457E",accentDeep:"#283763"},
- requiem:{name:"Requiem",mark:"R",tagline:"Vigil · Funeral Mass · Estate · Remembrance",
-   hero:"Grant them rest.<br>We'll guide the rest.",
-   sub:"Requiem walks your family from the vigil through the funeral Mass, the estate, and remembrance — every task, deadline, and document in one calm place.",
-   tradition:"catholic",memorialBy:"Requiem",accent:"#55346B",accentDeep:"#432A55"}
+ general:{name:"HomegoingHQ",mark:"H",tagline:"Aftercare · Estate Guidance · Memorial",
+   hero:"When it matters most,<br>know exactly what to do.",
+   sub:"HomegoingHQ turns the hardest weeks of life into a clear, guided path — every task, deadline, letter, and document in one calm place.",
+   tradition:"general",memorialBy:"HomegoingHQ",accent:"#8F6A24",accentDeep:"#75561D"},
+ kinkeeper:{name:"HomegoingHQ",mark:"H",tagline:"Aftercare · Estate Guidance · Memorial",
+   hero:"When it matters most,<br>know exactly what to do.",
+   sub:"HomegoingHQ turns the hardest weeks of life into a clear, guided path — every task, deadline, letter, and document in one calm place.",
+   tradition:"general",memorialBy:"HomegoingHQ",accent:"#8F6A24",accentDeep:"#75561D"}
 };
 // Brand is chosen by (1) ?brand= link, (2) saved choice, (3) hostname mapping, (4) default.
 const HOSTNAME_BRANDS={ /* "kinkeeper.com":"kinkeeper", "chesedhq.com":"chesed" */ };
@@ -848,7 +844,7 @@ const WIZ = [
  {k:"decedent_name",q:"What is the name of the person who passed?",sub:"We'll use their name gently throughout — never 'the deceased' where it matters.",type:"text",ph:"Full name"},
  {k:"date_of_death",q:"When did they pass?",sub:"An approximate date is fine — you can correct it later.",type:"date"},
  {k:"relationship",q:"What was your relationship to them?",type:"choice",opts:[["spouse","Spouse or partner"],["child","Son or daughter"],["parent","Parent"],["sibling","Sibling"],["family","Other family"],["friend","Friend or helper"]]},
- {k:"tradition",q:"What tradition will guide the services?",sub:"This shapes the steps we suggest — timing, customs, and remembrance. Choose what fits; you can mix.",type:"choice",opts:[["homegoing","Homegoing (Black church tradition)"],["general","General / other"]]}, /* re-add later: ["catholic","Catholic"],["jewish","Jewish"] */
+ {k:"tradition",q:"Which HomegoingHQ experience fits your family?",sub:"This shapes the steps we suggest — timing, customs, and remembrance. Choose what fits; you can mix.",type:"choice",opts:[["homegoing","HomegoingHQ — African American Tradition"],["general","HomegoingHQ — Traditional Funeral / Non-Denominational"]]}, /* re-add later: ["catholic","Catholic"],["jewish","Jewish"] */
  {k:"state_code",q:"Which state did they live in?",sub:"Some steps vary by state — this helps us point you right.",type:"text",ph:"e.g., MI"},
  {k:"funeralArranged",q:"Were funeral arrangements already made or prepaid?",type:"yn3"},
  {k:"minorChildren",q:"Are there minor children or dependents who relied on them?",type:"yn"},
