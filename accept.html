@@ -7,7 +7,7 @@ button{background:#8F6A24;color:#fff;border:0;border-radius:10px;padding:13px;wi
 <label>Admin key</label><input id="k" type="password">
 <label>Applicant name</label><input id="n" placeholder="Pamela Washington">
 <label>Email</label><input id="e" type="email">
-<label>Path</label><select id="p"><option value="founding">Founding 100 seat ($99/mo)</option><option value="cert">Certification only ($995 / plan)</option></select>
+<label>Path</label><select id="p"><option value="founding">Founding 100 seat ($99/mo)</option><option value="cert">Certification only ($995 / plan)</option><option value="welcome">Enrollment welcome (after payment)</option></select>
 <button onclick="go()">Send acceptance letter</button><div id="msg"></div>
 <script>
 async function go(){const b=document.querySelector("button");b.disabled=true;msg.textContent="Sending…";
