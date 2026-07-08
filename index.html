@@ -341,7 +341,7 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
 
 <!-- ADMIN -->
 <section id="view-admin" class="hidden"><div class="wrap">
-<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><a class="btn btn-brass btn-sm" href="/accept.html" target="_blank">🕊 Acceptance Sender</a></div>
+<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px"><a class="btn btn-brass btn-sm" href="/accept.html" target="_blank">🕊 Acceptance Sender</a><a class="btn btn-ghost btn-sm" href="/vet.html" target="_blank">✓ Provider Vetting</a></div>
   <div class="estate-head"><div class="eyebrow">HomegoingHQ</div><h1 class="name" style="font-size:26px">Admin console</h1></div>
   <div class="grid" id="adminStats" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))"></div>
   <div class="card" style="margin-top:16px">
@@ -3329,8 +3329,7 @@ function tourSettle(){
 .pg-step.active{display:block}
 .pg-dots{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 14px}
 .pg-dots button{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:5px 11px;font-size:12px;cursor:pointer}
-.pg-dots button.on{background:var(--ink);border-color:var(--brass)}
-.pg-dots button.on, .pg-dots button.on:hover, .pg-dots button.on:focus, .pg-dots button.on:active{color:#F6F2EA !important}
+.pg-dots button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .theme-pick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .theme-card{border:2px solid var(--line);border-radius:12px;padding:0;cursor:pointer;overflow:hidden;background:#fff;text-align:left}
 .theme-card.on{border-color:var(--brass);box-shadow:0 0 0 3px rgba(143,106,36,.2)}
