@@ -24,7 +24,7 @@ exports.handler=async(event)=>{
   <p>Your acceptance code is <b>${code}</b> — the Tuition &amp; payments page at concierge.homegoinghq.com will ask for it.</p>
   <p><b>Then:</b> within one business day of payment, you'll receive your HomegoingHQ Academy enrollment at academy.homegoinghq.com — create your account with the exact name you want on your certificate.</p>
   <p>Welcome. We are honored to walk with you.</p>
-  <p>Dr. J. Kilgore Jr.<br><span style="color:#68756D;font-size:13px">Founder &amp; Director of Certification · EdConsult LLC</span></p>
+  <p>Jessie E. Kilgore, Jr., Ph.D.<br><span style="color:#68756D;font-size:13px">Founder &amp; Director of Certification &mdash; HomegoingHQ</span></p>
   </div>
   <p style="font-size:11px;color:#8a8f8b;text-align:center">HomegoingHQ · care@homegoinghq.com · Certification is required before serving families under the credential.</p></div>`;
   const r=await fetch("https://api.sendgrid.com/v3/mail/send",{method:"POST",
