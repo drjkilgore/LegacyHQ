@@ -2063,16 +2063,21 @@ async function deleteFuneralOption(id){ await sb.from("funeral_options").delete(
 function tradToneDefault(){ try{ if((S.estate?.intake?.tradition)==="homegoing"){ const a=$("obTone"); if(a&&!a.dataset.set){a.value="Homegoing (Black church tradition)";a.dataset.set=1;} const b=$("pgObTone"); if(b&&!b.dataset.set){b.value="Homegoing (Black church tradition)";b.dataset.set=1;} } }catch(e){} }
 setInterval(tradToneDefault, 1200);
 async function pgDraftObit(btn){
+  if(lim().ai!==Infinity){
+    const {data:n}=await sb.rpc("increment_ai_use");
+    if(typeof n==="number") S.profile.ai_uses=n;
+    if((S.profile.ai_uses||0)>lim().ai){ return upgradeModal("Obituary drafting uses the Guide"); }
+  }
   btn.disabled=true; const was=btn.textContent; btn.textContent="Writing…";
+  const tone=$("pgObTone").value;
+  const prompt=`Please write a complete obituary (350-450 words) for ${S.estate.decedent_name}, who passed on ${S.estate.date_of_death||"(date)"}. Tone: ${tone}. Use graceful general language where details are unknown. Do not include an exact birth date or any street address. Return only the obituary text.`;
   try{
-    const tone=$("pgObTone").value;
-    const iv=S.estate?.intake||{};
-    const prompt=`Please write a complete obituary (350-450 words) for ${S.estate.decedent_name}, who passed on ${S.estate.date_of_death||"(date)"}. Tone: ${tone}. ${$("obSurvived")?"":""}Include survived-by and service details if provided: survived by ${iv.obSurvived||"(family)"}. Do not include an exact birth date or any street address. Return only the obituary text.`;
-    const r=await fetch(FN_BASE+"ai-guide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:prompt}],estateContext:guideContext()})});
+    const r=await fetch("/.netlify/functions/ai-guide",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({messages:[{role:"user",content:prompt}]})});
     const d=await r.json();
     if(d.text){ PG.obituary=d.text.trim(); pgSave(); renderProgram(); toast("Draft ready — edit it freely below."); }
-    else toast("The writer couldn\u2019t draft just now — try again in a moment.");
-  }catch(e){ toast("The writer couldn\u2019t draft just now — try again in a moment."); }
+    else toast(d.error||"Couldn\u2019t draft just now — try again.");
+  }catch(e){ toast("Couldn\u2019t reach the Guide — try again."); }
   btn.disabled=false; btn.textContent=was;
 }
 async function draftObituary(){
