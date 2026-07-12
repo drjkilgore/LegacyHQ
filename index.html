@@ -707,6 +707,52 @@ const $ = id => document.getElementById(id);
   const h=document.querySelector(".auth-hero h1"); if(h) h.innerHTML=BRAND.hero;
   const p=document.querySelector(".auth-hero p"); if(p) p.textContent=BRAND.sub;
 })();
+
+/* ===== White-label tenant branding (multi-tenant foundation, migration v13) =====
+   On a concierge/funeral-home host, override accent colors, logo, hero, favicon,
+   and show a subtle "Powered by HomegoingHQ®" attribution. First-party hosts skip
+   the lookup; any other host degrades silently to default branding if unmatched. */
+const FIRST_PARTY_HOSTS = ["homegoinghq.com","www.homegoinghq.com","app.homegoinghq.com","localhost","127.0.0.1",""];
+(async function applyTenantBranding(){
+  try{
+    const host = location.hostname;
+    if(FIRST_PARTY_HOSTS.indexOf(host) !== -1) return;
+    const res = await fetch("/.netlify/functions/tenant?host="+encodeURIComponent(host));
+    const b = await res.json();
+    if(!b || !b.found) return;
+    const root = document.documentElement.style;
+    if(b.color_accent)      root.setProperty("--brass", b.color_accent);
+    if(b.color_accent_deep) root.setProperty("--brass-deep", b.color_accent_deep);
+    if(b.color_ink)         root.setProperty("--ink", b.color_ink);
+    if(b.business_name)     document.title = b.business_name;
+    // Logo: image if provided, else the tenant business name; keep the square mark.
+    document.querySelectorAll(".logo").forEach(l=>{
+      const mark = (b.business_name||"H").trim().charAt(0).toUpperCase() || "H";
+      l.innerHTML = b.logo_url
+        ? '<span class="mark"></span><img src="'+b.logo_url+'" alt="" style="height:26px;width:auto">'
+        : '<span class="mark">'+mark+'</span>'+ (b.business_name||"");
+      const m=l.querySelector(".mark"); if(m && !b.logo_url) m.textContent=mark; else if(m) m.style.display="none";
+    });
+    if(b.favicon_url){
+      let ic=document.querySelector('link[rel="icon"]');
+      if(!ic){ ic=document.createElement("link"); ic.rel="icon"; document.head.appendChild(ic); }
+      ic.href=b.favicon_url;
+    }
+    if(b.hero_url){
+      const hero=document.querySelector(".auth-hero");
+      if(hero){ hero.style.backgroundImage="linear-gradient(rgba(38,51,46,.55),rgba(38,51,46,.55)),url('"+b.hero_url+"')";
+        hero.style.backgroundSize="cover"; hero.style.backgroundPosition="center"; hero.style.color="#F6F2EA"; }
+    }
+    // Subtle attribution beneath the business name — on every tier.
+    document.querySelectorAll(".tenant-attr").forEach(e=>e.remove());
+    const attr=document.createElement("div");
+    attr.className="tenant-attr";
+    attr.style.cssText="font-size:11px;letter-spacing:.04em;color:var(--ink-soft);opacity:.7;margin-top:2px";
+    attr.textContent="Powered by HomegoingHQ®";
+    const sub=document.querySelector(".auth-hero p"); if(sub && sub.parentNode) sub.parentNode.appendChild(attr);
+    window.__tenant = b; // available to later chunks (client portal, contact block, etc.)
+  }catch(e){ /* silent: default branding stays */ }
+})();
 function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.remove("hidden"); clearTimeout(t._x); t._x=setTimeout(()=>t.classList.add("hidden"),3200); }
 function esc(s){ return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function show(view){ ["view-auth","view-home","view-intake","view-estate","view-plan","view-memorial","view-admin","view-program"].forEach(v=>$(v).classList.add("hidden")); $(view).classList.remove("hidden"); window.scrollTo(0,0); }
