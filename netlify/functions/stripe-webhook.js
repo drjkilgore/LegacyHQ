@@ -75,6 +75,30 @@ exports.handler = async (event) => {
       return { statusCode: 200, body: "gift created" };
     }
 
+    // ---- CONCIERGE white-label subscription: provision a tenant account ----
+    // metadata.tier is one of concierge_starter | concierge_professional | concierge_enterprise
+    if (typeof tier === "string" && tier.startsWith("concierge_")) {
+      const owner = session.metadata?.user_id || session.client_reference_id;
+      if (!owner) return { statusCode: 200, body: "no owner" };
+      const rpc = await fetch(process.env.SUPABASE_URL + "/rest/v1/rpc/provision_concierge_account", {
+        method: "POST",
+        headers: {
+          "apikey": process.env.SUPABASE_SERVICE_ROLE_KEY,
+          "Authorization": "Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          p_owner: owner,
+          p_tier: tier.replace("concierge_", ""),      // starter | professional | enterprise
+          p_business: session.metadata?.business_name || "",
+          p_subdomain: session.metadata?.subdomain || "",
+          p_stripe_sub: session.subscription || null,
+          p_tenant_type: session.metadata?.tenant_type || "concierge"
+        })
+      });
+      return { statusCode: rpc.ok ? 200 : 500, body: rpc.ok ? "account provisioned" : "provision error" };
+    }
+
     const userId = session.metadata?.user_id || session.client_reference_id;
     if (!userId) return { statusCode: 200, body: "no user" };
 
