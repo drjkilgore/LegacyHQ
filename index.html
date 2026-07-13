@@ -44,7 +44,20 @@ label{display:block;font-size:13px;font-weight:600;color:var(--ink-soft);margin:
 
 /* Topbar */
 .topbar{position:sticky;top:0;z-index:40;background:rgba(246,242,234,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-.topbar-inner{display:flex;align-items:center;justify-content:space-between;height:58px}
+.topbar-inner{display:flex;align-items:center;justify-content:space-between;height:58px;position:relative}
+.topbar-right{display:flex;gap:10px;align-items:center}
+.topbar-actions{display:flex;gap:10px;align-items:center}
+.topbar-menu-btn{display:none;font-size:18px;padding:6px 12px}
+@media(max-width:640px){
+  .topbar .who{display:none}
+  .topbar-menu-btn{display:inline-flex}
+  .topbar-actions{position:absolute;top:calc(100% + 6px);right:0;flex-direction:column;align-items:stretch;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;box-shadow:0 12px 34px rgba(38,51,46,.22);display:none;min-width:210px;z-index:65}
+  .topbar-actions.open{display:flex}
+  .topbar-actions .btn{width:100%;justify-content:flex-start}
+  .estate-head .name{font-size:23px}
+  .estate-head{padding:16px 0 4px}
+  .wrap{padding:0 14px}
+}
 .logo{font-family:var(--font-display);font-size:21px;font-weight:600;color:var(--ink);text-decoration:none;display:flex;align-items:center;gap:9px}
 .logo .mark{width:26px;height:26px;border-radius:7px;background:var(--ink);color:var(--parchment);display:grid;place-items:center;font-size:14px;font-weight:600}
 .topbar .who{font-size:13px;color:var(--slate)}
@@ -163,14 +176,17 @@ summary::-webkit-details-marker{display:none}
 
 <header class="topbar"><div class="wrap topbar-inner">
   <a class="logo" href="#" onclick="goHome();return false"><span class="mark">H</span>HomegoingHQ</a>
-  <div style="display:flex;gap:10px;align-items:center">
+  <div class="topbar-right">
     <span class="who" id="whoami"></span>
+    <button class="btn btn-ghost btn-sm hidden topbar-menu-btn" id="btnMenu" onclick="toggleTopMenu()" aria-label="Menu">☰</button>
+    <div class="topbar-actions" id="topActions">
     <button class="btn btn-ghost btn-sm hidden" id="btnHelp" onclick="openHelp()">? Help</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnBrand" onclick="openMyBrand()">My Brand</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnAdmin" onclick="openAdmin()">Admin</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnComfort" onclick="toggleComfort()" title="Comfort mode — gentle sound">🔈 Comfort</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnVoice" onclick="toggleVoice()" title="Read encouragements aloud">🔇 Voice</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnSignOut" onclick="signOut()">Sign out</button>
+    </div>
   </div>
 </div></header>
 
@@ -812,6 +828,7 @@ async function handleSession(session){
     $("btnSignOut").classList.remove("hidden");
     $("btnComfort").classList.remove("hidden");
     $("btnVoice").classList.remove("hidden");
+    $("btnMenu").classList.remove("hidden");
     $("btnHelp").classList.remove("hidden");
     sb.rpc("is_admin").then(({data})=>{ if(data===true){ $("btnAdmin").classList.remove("hidden"); if(location.hash==="#admin") setTimeout(openAdmin,60); } }).catch(()=>{});
     sb.rpc("my_account").then(({data})=>{ if(data && data.found){ S.myAccount=data; $("btnBrand").classList.remove("hidden"); } else { S.myAccount=null; } }).catch(()=>{});
@@ -835,6 +852,7 @@ async function handleSession(session){
     $("btnSignOut").classList.add("hidden"); $("whoami").textContent="";
     $("btnComfort").classList.add("hidden"); if(typeof Comfort!=="undefined"&&Comfort.isOn())toggleComfort();
     $("btnVoice").classList.add("hidden"); if(typeof Voice!=="undefined"&&Voice.isOn())toggleVoice();
+    $("btnMenu").classList.add("hidden");
     $("guideFab").classList.add("hidden"); $("btnHelp").classList.add("hidden"); show("view-auth");
   }
 }
@@ -4846,6 +4864,13 @@ function toggleVoice(){
   if(Voice.on){ hhqSpeak("Voice is on. I will read the encouragements as you go."); toast("Spoken affirmations on."); }
   else { try{ window.speechSynthesis&&window.speechSynthesis.cancel(); }catch(e){} toast("Spoken affirmations off."); }
 }
+function toggleTopMenu(){ const a=$("topActions"); if(a) a.classList.toggle("open"); }
+document.addEventListener("click",function(e){
+  const a=document.getElementById("topActions"), m=document.getElementById("btnMenu");
+  if(!a||!m||!a.classList.contains("open")) return;
+  if(m.contains(e.target)) return;              // toggle handles its own button
+  a.classList.remove("open");                   // clicked an action or outside -> close
+});
 function toggleComfort(){
   const btn=$("btnComfort");
   if(Comfort.isOn()){
