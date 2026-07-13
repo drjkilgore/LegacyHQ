@@ -372,6 +372,17 @@ summary::-webkit-details-marker{display:none}
   <div class="estate-head"><div class="eyebrow">HomegoingHQ</div><h1 class="name" style="font-size:26px">Admin console</h1></div>
   <div class="grid" id="adminStats" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))"></div>
   <details class="card" style="margin-top:16px" open>
+    <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">Provider applications</span> <span style="color:var(--moss)">▾</span></summary>
+    <div style="display:flex;gap:8px;margin:10px 0 4px;align-items:center;flex-wrap:wrap">
+      <select id="admProvFilter" onchange="admLoadApplications()" style="width:auto">
+        <option value="">All statuses</option><option value="pending">Pending</option><option value="under_review">Under Review</option>
+        <option value="approved">Approved</option><option value="denied">Denied</option><option value="more_info">Request More Info</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="admLoadApplications()">Refresh</button>
+    </div>
+    <div id="admProvApps"></div>
+  </details>
+  <details class="card" style="margin-top:16px" open>
     <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">Other HomegoingHQ admin consoles</span> <span style="color:var(--moss)">▾</span></summary>
     
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
@@ -2968,7 +2979,7 @@ async function openAdmin(){
   if(!stats||stats.error){ $("adminStats").innerHTML='<div class="muted">Not authorized.</div>'; return; }
   const cards=[["Users",stats.users],["New (7d)",stats.users_7d],["Paid",stats.paid_users],["Estates",stats.estates],["Plans",stats.plans],["Tasks done",stats.tasks_done],["Memorials live",stats.memorials_live]];
   $("adminStats").innerHTML=cards.map(([l,v])=>`<div class="card" style="padding:14px"><div class="eyebrow">${l}</div><div style="font-family:var(--font-display);font-size:28px;margin-top:2px">${v??0}</div></div>`).join("");
-  admLoadUsers(); admLoadAccounts(); admLoadPacks(); admLoadCounties();
+  admLoadUsers(); admLoadAccounts(); admLoadPacks(); admLoadCounties(); admLoadApplications();
   const {data:act}=await sb.rpc("admin_recent_activity");
   $("admActivity").innerHTML=(Array.isArray(act)?act:[]).map(a=>{
     const when=new Date(a.created_at).toLocaleDateString(undefined,{month:"short",day:"numeric"})+" "+new Date(a.created_at).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
@@ -2993,6 +3004,153 @@ async function admSetTier(id,tier){
 /* ---------- ADMIN: WHITE-LABEL ACCOUNTS (migration v13) ---------- */
 function fmtBytes(n){ n=Number(n||0); if(n<1024)return n+" B"; if(n<1048576)return (n/1024).toFixed(0)+" KB"; if(n<1073741824)return (n/1048576).toFixed(1)+" MB"; return (n/1073741824).toFixed(2)+" GB"; }
 const TENANT_ASSET_BUCKET="tenant-assets"; // public bucket; run supabase-storage-tenant-assets.sql to enable uploads
+/* ---------- PROVIDER CREDENTIALING DASHBOARD (Phase 2) ---------- */
+const PROV_STATUS=[["pending","Pending"],["under_review","Under Review"],["approved","Approved"],["denied","Denied"],["more_info","Request More Info"]];
+const PROV_VET=[["mystery_shop","Mystery shopping completed"],["website_reviewed","Website reviewed"],["pricing_reviewed","Pricing reviewed"],["reputation_reviewed","Online reputation reviewed"],["references_contacted","References contacted"],["licensing_verified","Licensing verified"],["insurance_verified","Insurance verified"],["background_review","Background review completed"]];
+let PROV_APPS=[], provSelectedStatus=null;
+function provStatusLabel(s){ const h=PROV_STATUS.find(x=>x[0]===s); return h?h[1]:s; }
+function provStatusColor(s){ return {pending:"#8F6A24",under_review:"#12A7E6",approved:"#2E7D32",denied:"#8B0000",more_info:"#B0710B"}[s]||"#68756D"; }
+async function admLoadApplications(){
+  const el=$("admProvApps"); if(!el) return;
+  const filt=$("admProvFilter")?$("admProvFilter").value:"";
+  let q=sb.from("provider_applications").select("*").eq("kind","provider").order("created_at",{ascending:false});
+  if(filt) q=q.eq("status",filt);
+  const {data,error}=await q;
+  if(error){ el.innerHTML=`<p class="muted" style="font-size:13px">Couldn't load (${esc(error.message)}).</p>`; return; }
+  PROV_APPS=data||[];
+  if(!PROV_APPS.length){ el.innerHTML=`<p class="muted" style="font-size:13px;margin-top:8px">No applications${filt?" with this status":""} yet.</p>`; return; }
+  el.innerHTML=PROV_APPS.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)">
+    <div style="flex:1;min-width:0">
+      <strong>${esc(a.business_name||"—")}</strong> <span class="muted" style="font-size:12.5px">· ${esc(a.category||"")}</span>
+      <div class="muted" style="font-size:12px">${esc(a.contact_name||"")}${a.email?" · "+esc(a.email):""}${a.service_area?" · "+esc(a.service_area):""}</div>
+    </div>
+    ${a.payment_status==="paid"?`<span class="pill" style="background:#2E7D32;color:#fff">Paid</span>`:""}
+    <span class="pill" style="background:${provStatusColor(a.status)};color:#fff;white-space:nowrap">${provStatusLabel(a.status)}</span>
+    <button class="btn btn-ghost btn-sm" onclick="admProvAppModal('${a.id}')">Review</button>
+  </div>`).join("");
+}
+function admProvAppModal(id){
+  const a=PROV_APPS.find(x=>x.id===id); if(!a){ toast("Not found."); return; }
+  provSelectedStatus=a.status;
+  const vet=a.vetting||{};
+  const rows=[["Contact",a.contact_name],["Email",a.email],["Phone",a.phone],["Address",a.business_address],["Website",a.website],["Category",a.category],["Services",a.services_offered],["Service area",a.service_area],["Years in business",a.years_in_business],["License #",a.license_number]];
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:680px;max-height:90vh;display:flex;flex-direction:column">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Provider application</div>
+    <h3 style="margin-bottom:2px">${esc(a.business_name||"—")}</h3>
+    <div class="muted" style="font-size:12.5px">Submitted ${new Date(a.created_at).toLocaleDateString()} · <span class="pill" style="background:${provStatusColor(a.status)};color:#fff">${provStatusLabel(a.status)}</span></div>
+    <div style="overflow:auto;flex:1;margin-top:12px">
+      <div class="eyebrow">Applicant</div>
+      <table style="width:100%;font-size:13.5px;border-collapse:collapse">
+        ${rows.map(r=>`<tr><td style="padding:4px 10px 4px 0;color:var(--ink-soft);vertical-align:top;white-space:nowrap">${r[0]}</td><td style="padding:4px 0">${esc(r[1]||"—")}</td></tr>`).join("")}
+      </table>
+      ${a.business_description?`<div class="eyebrow" style="margin-top:12px">About</div><p style="font-size:13.5px;white-space:pre-wrap;margin:4px 0">${esc(a.business_description)}</p>`:""}
+      ${a.references_text?`<div class="eyebrow" style="margin-top:12px">References</div><p style="font-size:13.5px;white-space:pre-wrap;margin:4px 0">${esc(a.references_text)}</p>`:""}
+      <div class="eyebrow" style="margin-top:16px">Documents</div>
+      <div id="admProvDocs"><p class="muted" style="font-size:12.5px">Loading documents…</p></div>
+      <div class="eyebrow" style="margin-top:16px">Internal vetting checklist</div>
+      <div style="display:grid;gap:5px;margin-top:5px">
+        ${PROV_VET.map(v=>`<label style="font-weight:400;font-size:13.5px;display:flex;gap:8px;align-items:center"><input type="checkbox" id="pv_${v[0]}" ${vet[v[0]]?"checked":""} style="width:auto"> ${v[1]}</label>`).join("")}
+      </div>
+      <label style="margin-top:10px">Final recommendation</label>
+      <textarea id="pv_final" rows="2">${esc(vet.final_recommendation||"")}</textarea>
+      <label>Internal notes</label>
+      <textarea id="pv_notes" rows="3">${esc(a.admin_notes||"")}</textarea>
+    </div>
+    <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:10px">
+      <div class="eyebrow">Payment &amp; directory</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px">
+        <button class="btn btn-sm ${a.payment_status==="paid"?"btn-primary":"btn-ghost"}" onclick="admProvSetPayment('${a.id}','${a.payment_status==="paid"?"unpaid":"paid"}')">${a.payment_status==="paid"?"✓ Paid — mark unpaid":"Mark as paid"}</button>
+        <button class="btn btn-sm ${a.published?"btn-primary":"btn-ghost"}" onclick="admProvPublish('${a.id}',${a.published?"false":"true"})">${a.published?"✓ Published — unpublish":"Publish to directory"}</button>
+      </div>
+      <div class="eyebrow">Decision email</div>
+      <div style="display:flex;gap:6px;margin:6px 0"><button class="btn btn-ghost btn-sm" onclick="admProvEmail('${a.id}','accept')">Acceptance email</button><button class="btn btn-ghost btn-sm" onclick="admProvEmail('${a.id}','deny')">Denial email</button></div>
+      <div id="admProvEmailOut"></div>
+      <label style="margin-top:12px">Status</label>
+      <div id="admProvStatusBtns" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        ${PROV_STATUS.map(s=>`<button class="btn btn-sm ${a.status===s[0]?"btn-primary":"btn-ghost"}" onclick="admProvSetStatus('${s[0]}',this)">${s[1]}</button>`).join("")}
+      </div>
+      <div style="display:flex;gap:8px"><button class="btn btn-brass" onclick="admProvSave('${a.id}')">Save review</button><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>
+    </div>
+  </div></div>`;
+  admProvLoadDocs(id);
+}
+async function admProvLoadDocs(id){
+  const el=$("admProvDocs"); if(!el) return;
+  const {data,error}=await sb.storage.from("provider-docs").list(id,{limit:50});
+  if(error){ el.innerHTML=`<p class="muted" style="font-size:12.5px">Couldn't list documents (${esc(error.message)}).</p>`; return; }
+  const files=(data||[]).filter(f=>f.name && f.name!==".emptyFolderPlaceholder");
+  if(!files.length){ el.innerHTML=`<p class="muted" style="font-size:12.5px">No documents uploaded.</p>`; return; }
+  const items=await Promise.all(files.map(async f=>{
+    const {data:s}=await sb.storage.from("provider-docs").createSignedUrl(id+"/"+f.name,600);
+    return `<a href="${s?s.signedUrl:'#'}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="margin:2px 4px 2px 0">📎 ${esc(f.name)}</a>`;
+  }));
+  el.innerHTML=items.join("");
+}
+function admProvSetStatus(status,btn){
+  provSelectedStatus=status;
+  const wrap=$("admProvStatusBtns"); if(!wrap) return;
+  Array.from(wrap.children).forEach(b=>{ b.classList.remove("btn-primary"); b.classList.add("btn-ghost"); });
+  btn.classList.remove("btn-ghost"); btn.classList.add("btn-primary");
+}
+async function admProvSave(id){
+  const vetting={};
+  PROV_VET.forEach(v=>{ const c=$("pv_"+v[0]); vetting[v[0]]=c?c.checked:false; });
+  vetting.final_recommendation=($("pv_final").value||"").trim();
+  const upd={ vetting, admin_notes:($("pv_notes").value||"").trim(), reviewed_at:new Date().toISOString(), reviewed_by:(S.session&&S.session.user&&S.session.user.email)||null };
+  if(provSelectedStatus){ upd.status=provSelectedStatus; if(provSelectedStatus==="approved"||provSelectedStatus==="denied") upd.decided_at=new Date().toISOString(); }
+  const {error}=await sb.from("provider_applications").update(upd).eq("id",id);
+  if(error){ toast("Couldn't save ("+error.message+")."); return; }
+  toast("Review saved."); closeModal(); admLoadApplications();
+}
+/* ---------- PROVIDER CREDENTIALING — Phase 3: approval / payment / publish ---------- */
+const PROV_PAY_LINK="https://app.paythen.co/company/HomeGoingHQ/plan/ka5nq2pglg";
+function provAcceptEmail(a){
+  const who=a.contact_name||a.business_name||"there";
+  const biz=a.business_name||"your business";
+  return { subject:"You're approved — HomegoingHQ Preferred Provider Network",
+    body:"Dear "+who+",\n\nCongratulations — your application to the HomegoingHQ Preferred Provider Network has been approved. We're glad to welcome "+biz+" into a network families can trust.\n\nActivate your founding listing here:\n"+PROV_PAY_LINK+"\n\nAs one of our first 50 founding providers, your first year is just $4.99. At checkout, click \"Add a discount code\" and enter:  PROVIDERS50\nYour listing renews at $499/year after the first year, with your founding position locked in your category.\n\nBy enrolling you agree to the Preferred Provider Network terms:\nhttps://providers.homegoinghq.com/terms.html\n\nOnce your enrollment is complete, we'll publish your listing with the Preferred mark in the tools families and certified concierges use to find and book providers.\n\nWelcome aboard,\nThe HomegoingHQ Team\ncare@homegoinghq.com" };
+}
+function provDenyEmail(a){
+  const who=a.contact_name||a.business_name||"there";
+  const biz=a.business_name||"your business";
+  return { subject:"Your HomegoingHQ Preferred Provider application",
+    body:"Dear "+who+",\n\nThank you for applying to the HomegoingHQ Preferred Provider Network, and for the work you do for families. After careful review, we're not able to move forward with "+biz+" at this time.\n\nThis decision reflects our current network standards and capacity, and is not a judgment of your business. You're welcome to reapply in the future as the network grows.\n\nWith appreciation,\nThe HomegoingHQ Team\ncare@homegoinghq.com" };
+}
+function admProvEmail(id,kind){
+  const a=PROV_APPS.find(x=>x.id===id); if(!a) return;
+  const e=kind==="accept"?provAcceptEmail(a):provDenyEmail(a);
+  const out=$("admProvEmailOut"); if(!out) return;
+  out.innerHTML='<label>Subject</label><input id="pv_em_subj" value="'+esc(e.subject)+'">'
+    +'<label>Body — edit freely before sending</label><textarea id="pv_em_body" rows="10">'+esc(e.body)+'</textarea>'
+    +'<div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-brass btn-sm" onclick="admProvCopyEmail()">Copy</button>'
+    +'<button class="btn btn-ghost btn-sm" onclick="admProvMailto(\''+esc(a.email||"")+'\')">Open in Mail</button></div>';
+}
+function admProvCopyEmail(){
+  const s=$("pv_em_subj")?$("pv_em_subj").value:"", b=$("pv_em_body")?$("pv_em_body").value:"";
+  const txt="Subject: "+s+"\n\n"+b;
+  try{ navigator.clipboard.writeText(txt); toast("Email copied."); }catch(e){ toast("Select the text and copy manually."); }
+}
+function admProvMailto(email){
+  const s=$("pv_em_subj")?$("pv_em_subj").value:"", b=$("pv_em_body")?$("pv_em_body").value:"";
+  window.location.href="mailto:"+encodeURIComponent(email)+"?subject="+encodeURIComponent(s)+"&body="+encodeURIComponent(b);
+}
+async function admProvSetPayment(id,status){
+  const {error}=await sb.from("provider_applications").update({payment_status:status}).eq("id",id);
+  if(error){ toast("Couldn't update payment ("+error.message+")."); return; }
+  const a=PROV_APPS.find(x=>x.id===id); if(a) a.payment_status=status;
+  toast(status==="paid"?"Marked paid.":"Marked unpaid."); admProvAppModal(id); admLoadApplications();
+}
+async function admProvPublish(id,pub){
+  const a=PROV_APPS.find(x=>x.id===id);
+  if(pub && a && a.payment_status!=="paid"){ toast("Mark as paid before publishing to the directory."); return; }
+  const {error}=await sb.from("provider_applications").update({published:pub}).eq("id",id);
+  if(error){ toast("Couldn't update ("+error.message+")."); return; }
+  if(a) a.published=pub;
+  toast(pub?"Published to directory.":"Unpublished."); admProvAppModal(id); admLoadApplications();
+}
+
+
 async function admLoadAccounts(){
   const {data}=await sb.rpc("admin_list_accounts",{search:$("admAcctSearch").value.trim()});
   const rows=Array.isArray(data)?data:[];
