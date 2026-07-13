@@ -167,6 +167,7 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
     <button class="btn btn-ghost btn-sm hidden" id="btnHelp" onclick="openHelp()">? Help</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnBrand" onclick="openMyBrand()">My Brand</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnAdmin" onclick="openAdmin()">Admin</button>
+    <button class="btn btn-ghost btn-sm hidden" id="btnComfort" onclick="toggleComfort()" title="Comfort mode — gentle sound">🔈 Comfort</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnSignOut" onclick="signOut()">Sign out</button>
   </div>
 </div></header>
@@ -263,6 +264,7 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
   </div>
 
   <div id="tab-next">
+    <div id="oosCard" style="margin-bottom:12px"></div>
     <div class="stack-zone"><div class="stack" id="nextStack"></div></div>
     <div class="stack-count" id="nextCount"></div>
     <div class="card" style="margin-top:8px;border-top:3px solid var(--brass)">
@@ -800,6 +802,7 @@ async function handleSession(session){
     if(lastSessionUser === session.user.id && S.profile) return; // ignore token refreshes
     lastSessionUser = session.user.id;
     $("btnSignOut").classList.remove("hidden");
+    $("btnComfort").classList.remove("hidden");
     $("btnHelp").classList.remove("hidden");
     sb.rpc("is_admin").then(({data})=>{ if(data===true){ $("btnAdmin").classList.remove("hidden"); if(location.hash==="#admin") setTimeout(openAdmin,60); } }).catch(()=>{});
     sb.rpc("my_account").then(({data})=>{ if(data && data.found){ S.myAccount=data; $("btnBrand").classList.remove("hidden"); } else { S.myAccount=null; } }).catch(()=>{});
@@ -820,6 +823,7 @@ async function handleSession(session){
   } else {
     lastSessionUser = null;
     $("btnSignOut").classList.add("hidden"); $("whoami").textContent="";
+    $("btnComfort").classList.add("hidden"); if(typeof Comfort!=="undefined"&&Comfort.isOn())toggleComfort();
     $("guideFab").classList.add("hidden"); $("btnHelp").classList.add("hidden"); show("view-auth");
   }
 }
@@ -1015,7 +1019,7 @@ async function openEstate(id){
   $("eName").textContent = est.decedent_name;
   $("eSub").textContent = (est.date_of_death?("Passed "+fmtDate(est.date_of_death)):"") + (est.state_code?" · "+est.state_code:"") + (est.relationship?" · You: "+est.relationship:"");
   await Promise.all([loadTasks(),loadMembers(),loadNotifs(),loadDocs(),loadStatePack()]);
-  renderEstateStatus();
+  renderEstateStatus(); renderOOSCard();
   setTab("next"); show("view-estate");
 }
 function renderEstateStatus(){
@@ -1940,6 +1944,7 @@ function renderProbate(){
   }
   h+=`<div class="card" style="margin-top:14px"><div class="eyebrow">${pack.name} — worth knowing</div>
     <ul style="margin:10px 0 0 18px;display:grid;gap:7px;font-size:14.5px">${pack.notes.map(n=>`<li>${n}</li>`).join("")}</ul></div>
+    ${probateResourceCenter()}
     <p class="footer-note" style="padding:20px 0 10px">General information about court procedure, not legal advice. Thresholds, forms, and deadlines change — verify with the county probate court or a licensed attorney. Contested, insolvent, or complex estates need an attorney.</p>`;
   $("tab-probate").innerHTML=h;
   if((S.counties||[]).length) showCounty();
@@ -2192,8 +2197,329 @@ function renderFuneral(){
     <div id="obOut" class="hidden"><label>Draft — edit freely</label><textarea id="obText" rows="12"></textarea>
       <div class="scard-actions"><button class="btn btn-ghost btn-sm" onclick="copyObit(this)">Copy</button><button class="btn btn-ghost btn-sm" onclick="printObit()">Print</button></div></div>
   </div>`;
+  h+=`<div id="casketCard" style="margin-top:12px"></div>`;
+  h+=`<div id="musicCard" style="margin-top:12px"></div>`;
   $("tab-funeral").innerHTML=h;
+  renderCasketCard(); renderMusicCard();
 }
+
+/* ---------- SERVICE MUSIC — Funeral Music Explorer, saved to the estate ---------- */
+const MX_SONGS = [{"t":"Amazing Grace","a":"","c":["Traditional Gospel","Instrumental","Mother's Favorites","Traditional Hymns"],"th":["Comfort","Faith","Mother's Service"],"m":["Prelude","Processional"],"yt":"https://www.youtube.com/results?search_query=Amazing+Grace"},{"t":"Amazing Grace (Bagpipes)","a":"","c":["Military / Veteran"],"th":["Veteran's Service"],"m":["Processional"],"yt":"https://www.youtube.com/results?search_query=Amazing+Grace+%28Bagpipes%29"},{"t":"America the Beautiful","a":"","c":["Military / Veteran"],"th":["Veteran's Service"],"m":[],"yt":"https://www.youtube.com/results?search_query=America+the+Beautiful"},{"t":"Ave Maria","a":"","c":["Instrumental"],"th":["Comfort"],"m":["Prelude"],"yt":"https://www.youtube.com/results?search_query=Ave+Maria"},{"t":"Battle Hymn of the Republic","a":"","c":["Military / Veteran"],"th":["Veteran's Service"],"m":[],"yt":"https://www.youtube.com/results?search_query=Battle+Hymn+of+the+Republic"},{"t":"Because He Lives","a":"","c":["Traditional Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Because+He+Lives"},{"t":"Better Days","a":"Le'Andria Johnson","c":["Contemporary Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Better+Days+Le%27Andria+Johnson"},{"t":"Bless Me","a":"Maverick City Music","c":["Contemporary Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Bless+Me+Maverick+City+Music"},{"t":"Blessed Assurance","a":"","c":["Traditional Gospel","Traditional Hymns"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Blessed+Assurance"},{"t":"Canon in D","a":"","c":["Instrumental"],"th":["Comfort"],"m":["Prelude"],"yt":"https://www.youtube.com/results?search_query=Canon+in+D"},{"t":"Center of My Joy","a":"","c":["Choir"],"th":["Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Center+of+My+Joy"},{"t":"Dance With My Father","a":"Luther Vandross","c":["Reflection / Slideshow"],"th":["Comfort","Reflection"],"m":["Reflection"],"yt":"https://www.youtube.com/results?search_query=Dance+With+My+Father+Luther+Vandross"},{"t":"Encourage Yourself","a":"Donald Lawrence","c":["Contemporary Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Encourage+Yourself+Donald+Lawrence"},{"t":"Eternal Father, Strong to Save","a":"","c":["Military / Veteran"],"th":["Veteran's Service"],"m":[],"yt":"https://www.youtube.com/results?search_query=Eternal+Father%2C+Strong+to+Save"},{"t":"Every Praise","a":"Hezekiah Walker","c":["Contemporary Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Every+Praise+Hezekiah+Walker"},{"t":"God Bless America","a":"","c":["Military / Veteran"],"th":["Veteran's Service"],"m":[],"yt":"https://www.youtube.com/results?search_query=God+Bless+America"},{"t":"God Is","a":"","c":["Choir"],"th":["Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=God+Is"},{"t":"Going Up Yonder","a":"Walter Hawkins","c":["Traditional Gospel","Celebration / Victory","Father's Favorites"],"th":["Celebration","Comfort","Faith","Father's Service","Heaven"],"m":["Processional","Recessional"],"yt":"https://www.youtube.com/results?search_query=Going+Up+Yonder+Walter+Hawkins"},{"t":"Great Is Thy Faithfulness","a":"","c":["Traditional Gospel","Father's Favorites","Traditional Hymns"],"th":["Comfort","Faith","Father's Service"],"m":[],"yt":"https://www.youtube.com/results?search_query=Great+Is+Thy+Faithfulness"},{"t":"Guide Me O Thou Great Jehovah","a":"","c":["Choir"],"th":["Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Guide+Me+O+Thou+Great+Jehovah"},{"t":"He Saw the Best in Me","a":"Marvin Sapp","c":["Contemporary Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=He+Saw+the+Best+in+Me+Marvin+Sapp"},{"t":"Heaven","a":"","c":["Celebration / Victory"],"th":["Celebration","Heaven"],"m":["Recessional"],"yt":"https://www.youtube.com/results?search_query=Heaven"},{"t":"Hero","a":"Mariah Carey","c":["Reflection / Slideshow"],"th":["Comfort","Reflection"],"m":["Reflection"],"yt":"https://www.youtube.com/results?search_query=Hero+Mariah+Carey"},{"t":"His Eye Is on the Sparrow","a":"","c":["Traditional Gospel","Mother's Favorites"],"th":["Comfort","Faith","Mother's Service"],"m":[],"yt":"https://www.youtube.com/results?search_query=His+Eye+Is+on+the+Sparrow"},{"t":"Hold to God's Unchanging Hand","a":"","c":["Choir","Father's Favorites"],"th":["Faith","Father's Service"],"m":[],"yt":"https://www.youtube.com/results?search_query=Hold+to+God%27s+Unchanging+Hand"},{"t":"Holy Spirit","a":"","c":["Choir"],"th":["Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Holy+Spirit"},{"t":"How Great Thou Art","a":"","c":["Instrumental","Traditional Hymns"],"th":["Comfort","Faith"],"m":["Prelude"],"yt":"https://www.youtube.com/results?search_query=How+Great+Thou+Art"},{"t":"I Can Go to God in Prayer","a":"","c":["Choir"],"th":["Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=I+Can+Go+to+God+in+Prayer"},{"t":"I Can Only Imagine","a":"MercyMe","c":["Reflection / Slideshow"],"th":["Comfort","Reflection"],"m":["Memorial Video"],"yt":"https://www.youtube.com/results?search_query=I+Can+Only+Imagine+MercyMe"},{"t":"I Know I've Been Changed","a":"","c":["Celebration / Victory"],"th":["Celebration","Heaven"],"m":["Recessional"],"yt":"https://www.youtube.com/results?search_query=I+Know+I%27ve+Been+Changed"},{"t":"I Won't Complain","a":"Rev. Paul Jones","c":["Traditional Gospel","Mother's Favorites"],"th":["Comfort","Faith","Mother's Service"],"m":[],"yt":"https://www.youtube.com/results?search_query=I+Won%27t+Complain+Rev.+Paul+Jones"},{"t":"I'll Fly Away","a":"","c":["Traditional Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=I%27ll+Fly+Away"},{"t":"I'll Meet You in the Morning","a":"","c":["Celebration / Victory"],"th":["Celebration","Heaven"],"m":["Recessional"],"yt":"https://www.youtube.com/results?search_query=I%27ll+Meet+You+in+the+Morning"},{"t":"If I Could","a":"Regina Belle","c":["Reflection / Slideshow"],"th":["Comfort","Reflection"],"m":["Reflection"],"yt":"https://www.youtube.com/results?search_query=If+I+Could+Regina+Belle"},{"t":"In the Garden","a":"","c":["Traditional Hymns"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=In+the+Garden"},{"t":"It Is Well With My Soul","a":"","c":["Traditional Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=It+Is+Well+With+My+Soul"},{"t":"Jesus Is Real","a":"","c":["Choir"],"th":["Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Jesus+Is+Real"},{"t":"Jesus Promised Me a Home Over There","a":"Jennifer Holliday","c":["Contemporary Gospel","Celebration / Victory","Mother's Favorites"],"th":["Celebration","Comfort","Faith","Heaven","Mother's Service"],"m":["Recessional"],"yt":"https://www.youtube.com/results?search_query=Jesus+Promised+Me+a+Home+Over+There+Jennifer+Holliday"},{"t":"Just a Closer Walk with Thee","a":"","c":["Traditional Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Just+a+Closer+Walk+with+Thee"},{"t":"Just As I Am","a":"","c":["Traditional Hymns"],"th":["Comfort","Faith"],"m":["Invitation"],"yt":"https://www.youtube.com/results?search_query=Just+As+I+Am"},{"t":"Leaning on the Everlasting Arms","a":"","c":["Choir"],"th":["Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Leaning+on+the+Everlasting+Arms"},{"t":"My Redeemer Lives","a":"","c":["Celebration / Victory"],"th":["Celebration","Heaven"],"m":["Recessional"],"yt":"https://www.youtube.com/results?search_query=My+Redeemer+Lives"},{"t":"My Soul Has Been Anchored","a":"Douglas Miller","c":["Contemporary Gospel","Father's Favorites"],"th":["Comfort","Faith","Father's Service"],"m":[],"yt":"https://www.youtube.com/results?search_query=My+Soul+Has+Been+Anchored+Douglas+Miller"},{"t":"Near the Cross","a":"","c":["Traditional Hymns"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Near+the+Cross"},{"t":"Nearer My God to Thee","a":"","c":["Traditional Gospel","Traditional Hymns"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Nearer+My+God+to+Thee"},{"t":"Never Would Have Made It","a":"Marvin Sapp","c":["Traditional Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Never+Would+Have+Made+It+Marvin+Sapp"},{"t":"One Sweet Day","a":"Mariah Carey & Boyz II Men","c":["Reflection / Slideshow"],"th":["Comfort","Reflection"],"m":["Memorial Video"],"yt":"https://www.youtube.com/results?search_query=One+Sweet+Day+Mariah+Carey+%26+Boyz+II+Men"},{"t":"Order My Steps","a":"Brooklyn Tabernacle Choir","c":["Traditional Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Order+My+Steps+Brooklyn+Tabernacle+Choir"},{"t":"Pass Me Not, O Gentle Savior","a":"","c":["Traditional Gospel"],"th":["Comfort","Faith"],"m":["Invitation"],"yt":"https://www.youtube.com/results?search_query=Pass+Me+Not%2C+O+Gentle+Savior"},{"t":"Precious Lord, Take My Hand","a":"Mahalia Jackson","c":["Traditional Gospel","Mother's Favorites"],"th":["Comfort","Faith","Mother's Service"],"m":["Processional"],"yt":"https://www.youtube.com/results?search_query=Precious+Lord%2C+Take+My+Hand+Mahalia+Jackson"},{"t":"Ribbon in the Sky","a":"Stevie Wonder","c":["Reflection / Slideshow"],"th":["Comfort","Reflection"],"m":["Memorial Video"],"yt":"https://www.youtube.com/results?search_query=Ribbon+in+the+Sky+Stevie+Wonder"},{"t":"Ride Up in the Chariot","a":"","c":["Choir"],"th":["Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Ride+Up+in+the+Chariot"},{"t":"Rock of Ages","a":"","c":["Traditional Hymns"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Rock+of+Ages"},{"t":"Safe in His Arms","a":"Rev. Milton Brunson","c":["Contemporary Gospel","Mother's Favorites"],"th":["Comfort","Faith","Mother's Service"],"m":["Family Entrance"],"yt":"https://www.youtube.com/results?search_query=Safe+in+His+Arms+Rev.+Milton+Brunson"},{"t":"See You Again","a":"Wiz Khalifa & Charlie Puth","c":["Reflection / Slideshow"],"th":["Comfort","Reflection"],"m":[],"yt":"https://www.youtube.com/results?search_query=See+You+Again+Wiz+Khalifa+%26+Charlie+Puth"},{"t":"Shall We Gather at the River","a":"","c":["Traditional Hymns"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Shall+We+Gather+at+the+River"},{"t":"Smile","a":"Kirk Franklin","c":["Reflection / Slideshow"],"th":["Comfort","Reflection"],"m":[],"yt":"https://www.youtube.com/results?search_query=Smile+Kirk+Franklin"},{"t":"Soon and Very Soon","a":"Andraé Crouch","c":["Traditional Gospel","Celebration / Victory","Father's Favorites"],"th":["Celebration","Comfort","Faith","Father's Service","Heaven"],"m":["Recessional"],"yt":"https://www.youtube.com/results?search_query=Soon+and+Very+Soon+Andra%C3%A9+Crouch"},{"t":"Soon I Will Be Done with the Troubles of the World","a":"","c":["Choir"],"th":["Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Soon+I+Will+Be+Done+with+the+Troubles+of+the+World"},{"t":"Stand","a":"Donnie McClurkin","c":["Contemporary Gospel","Father's Favorites"],"th":["Comfort","Faith","Father's Service"],"m":[],"yt":"https://www.youtube.com/results?search_query=Stand+Donnie+McClurkin"},{"t":"Supermarket Flowers","a":"Ed Sheeran","c":["Reflection / Slideshow"],"th":["Comfort","Reflection"],"m":[],"yt":"https://www.youtube.com/results?search_query=Supermarket+Flowers+Ed+Sheeran"},{"t":"Take Me to the King","a":"Tamela Mann","c":["Contemporary Gospel","Mother's Favorites"],"th":["Comfort","Faith","Mother's Service"],"m":[],"yt":"https://www.youtube.com/results?search_query=Take+Me+to+the+King+Tamela+Mann"},{"t":"Taps","a":"","c":["Military / Veteran"],"th":["Veteran's Service"],"m":[],"yt":"https://www.youtube.com/results?search_query=Taps"},{"t":"Thank You Lord","a":"","c":["Celebration / Victory"],"th":["Celebration","Heaven"],"m":["Recessional"],"yt":"https://www.youtube.com/results?search_query=Thank+You+Lord"},{"t":"The Lord Is My Shepherd","a":"","c":["Traditional Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=The+Lord+Is+My+Shepherd"},{"t":"The Prayer","a":"","c":["Instrumental"],"th":["Comfort"],"m":["Prelude"],"yt":"https://www.youtube.com/results?search_query=The+Prayer"},{"t":"The Presence of the Lord Is Here","a":"Byron Cage","c":["Contemporary Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=The+Presence+of+the+Lord+Is+Here+Byron+Cage"},{"t":"Through It All","a":"Andraé Crouch","c":["Contemporary Gospel","Father's Favorites"],"th":["Comfort","Faith","Father's Service"],"m":[],"yt":"https://www.youtube.com/results?search_query=Through+It+All+Andra%C3%A9+Crouch"},{"t":"Time to Say Goodbye","a":"","c":["Instrumental"],"th":["Comfort"],"m":["Prelude"],"yt":"https://www.youtube.com/results?search_query=Time+to+Say+Goodbye"},{"t":"Total Praise","a":"Richard Smallwood","c":["Traditional Gospel","Mother's Favorites"],"th":["Comfort","Faith","Mother's Service"],"m":["Family Entrance"],"yt":"https://www.youtube.com/results?search_query=Total+Praise+Richard+Smallwood"},{"t":"Victory","a":"","c":["Celebration / Victory"],"th":["Celebration","Heaven"],"m":["Recessional"],"yt":"https://www.youtube.com/results?search_query=Victory"},{"t":"Victory Is Mine","a":"","c":["Traditional Gospel","Father's Favorites"],"th":["Comfort","Faith","Father's Service"],"m":["Recessional"],"yt":"https://www.youtube.com/results?search_query=Victory+Is+Mine"},{"t":"We Fall Down","a":"Donnie McClurkin","c":["Contemporary Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=We+Fall+Down+Donnie+McClurkin"},{"t":"We Shall Behold Him","a":"Sandi Patty","c":["Traditional Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=We+Shall+Behold+Him+Sandi+Patty"},{"t":"What a Friend We Have in Jesus","a":"","c":["Traditional Hymns"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=What+a+Friend+We+Have+in+Jesus"},{"t":"When We All Get to Heaven","a":"","c":["Celebration / Victory"],"th":["Celebration","Heaven"],"m":["Recessional"],"yt":"https://www.youtube.com/results?search_query=When+We+All+Get+to+Heaven"},{"t":"Wind Beneath My Wings","a":"Bette Midler","c":["Instrumental","Reflection / Slideshow"],"th":["Comfort","Reflection"],"m":["Prelude"],"yt":"https://www.youtube.com/results?search_query=Wind+Beneath+My+Wings+Bette+Midler"},{"t":"Worth","a":"Anthony Brown & group therAPy","c":["Contemporary Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=Worth+Anthony+Brown+%26+group+therAPy"},{"t":"You Raise Me Up","a":"","c":["Instrumental"],"th":["Comfort"],"m":["Prelude"],"yt":"https://www.youtube.com/results?search_query=You+Raise+Me+Up"},{"t":"You're Bigger","a":"Jekalyn Carr","c":["Contemporary Gospel"],"th":["Comfort","Faith"],"m":[],"yt":"https://www.youtube.com/results?search_query=You%27re+Bigger+Jekalyn+Carr"}];
+const MX_CATS=["Traditional Gospel","Contemporary Gospel","Choir","Celebration / Victory","Instrumental","Reflection / Slideshow","Mother's Favorites","Father's Favorites","Military / Veteran","Traditional Hymns"];
+const MX_MOMENTS=["Prelude","Processional","Family Entrance","Reflection","Memorial Video","Invitation","Recessional"];
+const MX_THEMES=["Comfort","Faith","Celebration","Heaven","Reflection","Mother's Service","Father's Service","Veteran's Service"];
+function mxByTitle(t){ return MX_SONGS.find(s=>s.t===t); }
+function mxSelected(){ return (F.options||[]).filter(o=>o.option_type==="music"); }
+function mxSaved(t){ return mxSelected().some(o=>o.name===t); }
+function mxGroup(rows){
+  const out=[]; const placed=new Set();
+  MX_MOMENTS.forEach(m=>{ const g=rows.filter(o=>{const s=mxByTitle(o.name); return s&&s.m.indexOf(m)>-1;}); if(g.length){ out.push([m,g]); g.forEach(o=>placed.add(o.name)); } });
+  const other=rows.filter(o=>!placed.has(o.name)); if(other.length) out.push(["Other selections",other]);
+  return out;
+}
+function renderMusicCard(){
+  const el=$("musicCard"); if(!el) return;
+  const rows=mxSelected();
+  let h=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div class="eyebrow">Service music</div>
+    <div style="display:flex;gap:8px"><button class="btn btn-brass btn-sm" onclick="openMusicExplorer()">Browse songs</button>${rows.length?`<button class="btn btn-ghost btn-sm" onclick="mxPrint()">Print list</button>`:""}</div></div>`;
+  if(!rows.length){ h+=`<p class="muted" style="margin-top:10px;font-size:13px">Choose hymns, gospel, and reflection songs for the service. We'll organize them by moment — processional, reflection, recessional — and you can print the list for the family and funeral home.</p>`; }
+  else {
+    mxGroup(rows).forEach(g0=>{ const m=g0[0], g=g0[1];
+      h+=`<div style="margin-top:12px"><div class="muted" style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--brass)">${esc(m)}</div>`;
+      g.forEach(o=>{ const s=mxByTitle(o.name); h+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)">
+        <div style="flex:1"><strong style="font-size:14px">${esc(o.name)}</strong>${o.notes?` <span class="muted" style="font-size:12px">· ${esc(o.notes)}</span>`:""}</div>
+        <a class="btn btn-ghost btn-sm" href="${s?s.yt:'#'}" target="_blank" rel="noopener">▶</a>
+        <button class="btn btn-ghost btn-sm" onclick="mxToggle(this.getAttribute('data-t'))" data-t="${esc(o.name)}">Remove</button></div>`; });
+      h+=`</div>`;
+    });
+  }
+  h+=`</div>`;
+  el.innerHTML=h;
+}
+function openMusicExplorer(){
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:640px;max-height:88vh;display:flex;flex-direction:column">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Service music</div><h3 style="margin-bottom:8px">Find songs for the service</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <input id="mxQ" type="search" placeholder="Search title or artist…" oninput="mxRender()" style="grid-column:1/-1">
+      <select id="mxCat" onchange="mxRender()"></select>
+      <select id="mxMoment" onchange="mxRender()"></select>
+      <select id="mxTheme" onchange="mxRender()" style="grid-column:1/-1"></select>
+    </div>
+    <div id="mxCount" class="muted" style="font-size:12px;margin:8px 0"></div>
+    <div id="mxList" style="overflow:auto;flex:1;margin:0 -4px;padding:0 4px"></div>
+    <div style="margin-top:10px;text-align:right"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>
+  </div></div>`;
+  mxFill("mxCat",MX_CATS,"All genres"); mxFill("mxMoment",MX_MOMENTS,"Any moment"); mxFill("mxTheme",MX_THEMES,"Any feeling");
+  mxRender();
+}
+function mxFill(id,items,all){ $(id).innerHTML=`<option value="">${all}</option>`+items.map(x=>`<option>${esc(x)}</option>`).join(""); }
+function mxMatch(s){
+  const q=($("mxQ").value||"").trim().toLowerCase(), c=$("mxCat").value, m=$("mxMoment").value, t=$("mxTheme").value;
+  if(q && (s.t+" "+s.a).toLowerCase().indexOf(q)<0) return false;
+  if(c && s.c.indexOf(c)<0) return false;
+  if(m && s.m.indexOf(m)<0) return false;
+  if(t && s.th.indexOf(t)<0) return false;
+  return true;
+}
+function mxRender(){
+  const list=MX_SONGS.filter(mxMatch);
+  if($("mxCount")) $("mxCount").textContent=list.length+" of "+MX_SONGS.length+" songs";
+  $("mxList").innerHTML = list.length ? list.map(s=>{
+    const on=mxSaved(s.t);
+    const tags=s.c.slice(0,1).concat(s.m.slice(0,1)).map(x=>`<span class="pill" style="font-size:10px">${esc(x)}</span>`).join(" ");
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
+      <div style="flex:1"><strong style="font-size:14px">${esc(s.t)}</strong>${s.a?` <span class="muted" style="font-size:12px">· ${esc(s.a)}</span>`:""}<div style="margin-top:3px">${tags}</div></div>
+      <a class="btn btn-ghost btn-sm" href="${s.yt}" target="_blank" rel="noopener">▶</a>
+      <button class="btn ${on?"btn-primary":"btn-ghost"} btn-sm" onclick="mxToggle(this.getAttribute('data-t'))" data-t="${esc(s.t)}">${on?"♥ Saved":"♡ Save"}</button></div>`;
+  }).join("") : `<div class="muted" style="padding:24px;text-align:center">No songs match. Try clearing a filter.</div>`;
+}
+async function mxToggle(title){
+  const s=mxByTitle(title); const existing=mxSelected().find(o=>o.name===title);
+  if(existing){
+    await sb.from("funeral_options").delete().eq("id",existing.id);
+    F.options=F.options.filter(o=>o.id!==existing.id);
+  } else {
+    const {data}=await sb.from("funeral_options").insert({estate_id:S.estate.id,option_type:"music",name:title,notes:s?(s.a||null):null,chosen:true}).select().single();
+    if(data) F.options.push(data);
+  }
+  if($("mxList")) mxRender();
+  renderMusicCard();
+}
+function mxPrint(){
+  const rows=mxSelected(); if(!rows.length) return;
+  const est=S.estate?S.estate.decedent_name:"";
+  let h=`<div style="font-family:Georgia,serif;padding:20px;max-width:640px">
+    <h2 style="margin:0 0 2px">Music Selections</h2><div style="color:#555;margin-bottom:16px">${esc(est)}${est?" · ":""}Prepared with HomegoingHQ</div>`;
+  mxGroup(rows).forEach(g0=>{ const m=g0[0], g=g0[1];
+    h+=`<div style="margin:14px 0 4px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8F6A24;font-size:13px">${esc(m)}</div>`;
+    g.forEach(o=>{ h+=`<div style="padding:4px 0;border-bottom:1px solid #eee">&bull; <strong>${esc(o.name)}</strong>${o.notes?" — "+esc(o.notes):""}</div>`; });
+  });
+  h+=`</div>`;
+  const w=window.open("","_blank"); if(!w){ toast("Allow pop-ups to print."); return; }
+  w.document.write("<title>Music Selections</title>"+h); w.document.close(); w.focus(); w.print();
+}
+
+/* ---------- OUT-OF-STATE DEATH — guided sub-flow (migration v16) ---------- */
+const US_STATES=[{c:"AL",n:"Alabama"},{c:"AK",n:"Alaska"},{c:"AZ",n:"Arizona"},{c:"AR",n:"Arkansas"},{c:"CA",n:"California"},{c:"CO",n:"Colorado"},{c:"CT",n:"Connecticut"},{c:"DE",n:"Delaware"},{c:"DC",n:"District of Columbia"},{c:"FL",n:"Florida"},{c:"GA",n:"Georgia"},{c:"HI",n:"Hawaii"},{c:"ID",n:"Idaho"},{c:"IL",n:"Illinois"},{c:"IN",n:"Indiana"},{c:"IA",n:"Iowa"},{c:"KS",n:"Kansas"},{c:"KY",n:"Kentucky"},{c:"LA",n:"Louisiana"},{c:"ME",n:"Maine"},{c:"MD",n:"Maryland"},{c:"MA",n:"Massachusetts"},{c:"MI",n:"Michigan"},{c:"MN",n:"Minnesota"},{c:"MS",n:"Mississippi"},{c:"MO",n:"Missouri"},{c:"MT",n:"Montana"},{c:"NE",n:"Nebraska"},{c:"NV",n:"Nevada"},{c:"NH",n:"New Hampshire"},{c:"NJ",n:"New Jersey"},{c:"NM",n:"New Mexico"},{c:"NY",n:"New York"},{c:"NC",n:"North Carolina"},{c:"ND",n:"North Dakota"},{c:"OH",n:"Ohio"},{c:"OK",n:"Oklahoma"},{c:"OR",n:"Oregon"},{c:"PA",n:"Pennsylvania"},{c:"RI",n:"Rhode Island"},{c:"SC",n:"South Carolina"},{c:"SD",n:"South Dakota"},{c:"TN",n:"Tennessee"},{c:"TX",n:"Texas"},{c:"UT",n:"Utah"},{c:"VT",n:"Vermont"},{c:"VA",n:"Virginia"},{c:"WA",n:"Washington"},{c:"WV",n:"West Virginia"},{c:"WI",n:"Wisconsin"},{c:"WY",n:"Wyoming"}];
+function oosStateName(c){ const s=US_STATES.find(x=>x.c===(c||"").toUpperCase()); return s?s.n:(c||""); }
+function renderOOSCard(){
+  const el=$("oosCard"); if(!el||!S.estate) return;
+  const home=(S.estate.state_code||"").toUpperCase(), death=(S.estate.death_state||"").toUpperCase();
+  if(!death){
+    el.innerHTML=`<div class="card" style="border-left:4px solid var(--sage)">
+      <div class="eyebrow">Where did the death occur?</div>
+      <p class="muted" style="font-size:13.5px;margin:8px 0">If ${esc(S.estate.decedent_name||"they")} passed away in a different state than home${home?` (${esc(oosStateName(home))})`:""}, a few extra steps come into play. Let us know so we can guide you.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="oosSel" style="max-width:230px"><option value="">Select the state…</option>${US_STATES.map(s=>`<option value="${s.c}"${s.c===home?" selected":""}>${esc(s.n)}</option>`).join("")}</select>
+        <button class="btn btn-primary btn-sm" onclick="oosSetDeathState($('oosSel').value)">Save</button>
+        ${home?`<button class="btn btn-ghost btn-sm" onclick="oosSetDeathState('${home}')">It was in ${esc(oosStateName(home))}</button>`:""}
+      </div></div>`;
+    return;
+  }
+  if(death===home){
+    el.innerHTML=`<div class="card" style="padding:12px 16px"><span class="muted" style="font-size:13px">Death occurred in ${esc(oosStateName(home))} — same as the home state, so there are no cross-state steps. <a href="#" onclick="oosClear();return false;">Change</a></span></div>`;
+    return;
+  }
+  const added=(S.tasks||[]).some(t=>(t.rule_id||"").indexOf("oos_")===0);
+  el.innerHTML=`<div class="card" style="border-left:4px solid var(--brass)">
+    <div class="eyebrow">Out-of-state death</div>
+    <h3 style="font-size:19px;margin:6px 0 4px">Death in ${esc(oosStateName(death))}, estate in ${esc(oosStateName(home))}</h3>
+    <p class="muted" style="font-size:13.5px;margin:0 0 10px">When someone dies in a different state than where they lived, a few things change. Here's what to watch for:</p>
+    <ul style="margin:0 0 12px;padding-left:18px;font-size:13.5px;line-height:1.7">
+      <li><strong>Death certificates come from ${esc(oosStateName(death))}.</strong> Order them from that state's vital records — you'll still use them everywhere.</li>
+      <li><strong>They have to be transported home.</strong> The funeral home needs a burial-transit permit to move them across state lines.</li>
+      <li><strong>The estate is usually handled under ${esc(oosStateName(home))} law</strong> — where they legally resided — not where they died.</li>
+      <li><strong>Property in ${esc(oosStateName(death))} may need its own probate.</strong> Real estate there can require a separate "ancillary" filing.</li>
+    </ul>
+    ${added?`<div class="muted" style="font-size:13px">✓ These steps are in your roadmap.</div>`
+      :`<button class="btn btn-brass btn-sm" onclick="oosAddTasks()">Add these steps to my roadmap</button>`}
+    <div style="margin-top:8px"><a href="#" onclick="oosClear();return false;" class="muted" style="font-size:12px">Death was actually in ${esc(oosStateName(home))}? Undo</a></div>
+  </div>`;
+}
+async function oosSetDeathState(code){
+  code=(code||"").toUpperCase().slice(0,2); if(!code) return toast("Pick a state.");
+  const {data}=await sb.rpc("set_death_state",{p_estate:S.estate.id,p_state:code});
+  if(data&&data.ok){
+    S.estate.death_state=code; const e=S.estates.find(x=>x.id===S.estate.id); if(e)e.death_state=code;
+    renderOOSCard();
+    if(code!==(S.estate.state_code||"").toUpperCase()) toast("Noted — see the out-of-state steps below.");
+  } else toast("Couldn't save that.");
+}
+async function oosClear(){
+  const {data}=await sb.rpc("set_death_state",{p_estate:S.estate.id,p_state:null});
+  if(data&&data.ok){ S.estate.death_state=null; const e=S.estates.find(x=>x.id===S.estate.id); if(e)e.death_state=null; renderOOSCard(); }
+}
+async function oosAddTasks(){
+  if((S.tasks||[]).some(t=>(t.rule_id||"").indexOf("oos_")===0)){ renderOOSCard(); return; }
+  const H=oosStateName(S.estate.state_code), D=oosStateName(S.estate.death_state);
+  const rows=[
+    {estate_id:S.estate.id,rule_id:"oos_certs",phase:"week1",category:"Documents",title:"Order death certificates from "+D,why:"The death certificate is issued by the state where the death occurred ("+D+"). You'll file it with institutions in both states, so order 10–12 certified copies.",how:"The funeral home usually orders these; if not, contact "+D+"'s vital records office. Certified copies from "+D+" are valid nationwide."},
+    {estate_id:S.estate.id,rule_id:"oos_transport",phase:"first24",category:"Funeral",title:"Confirm cross-state transport of the deceased",why:"Moving the deceased from "+D+" to "+H+" requires a burial-transit permit and coordination between funeral homes.",how:"Ask the funeral home handling arrangements to confirm they're managing transport and the burial-transit permit from "+D+" to "+H+"."},
+    {estate_id:S.estate.id,rule_id:"oos_governing",phase:"week1",category:"Legal",title:"Confirm the estate is handled under "+H+" law",why:"Probate generally follows the state where the person legally resided ("+H+"), even though the death occurred in "+D+".",how:"When you consult an attorney or open probate, confirm "+H+" is the primary jurisdiction. Keep proof of residency (ID, bills, voter registration)."},
+    {estate_id:S.estate.id,rule_id:"oos_ancillary",phase:"month1",category:"Probate",title:"Check for property in "+D+" (possible ancillary probate)",why:"If they owned real estate or titled property in "+D+", that state may require its own smaller 'ancillary' probate in addition to "+H+".",how:"List any property located in "+D+". If there's real estate there, ask your attorney whether ancillary probate is needed."}
+  ];
+  const maxSort=(S.tasks||[]).reduce((m,t)=>Math.max(m,t.sort_order||0),0);
+  rows.forEach((r,i)=>{ r.sort_order=maxSort+10+i; });
+  const {data,error}=await sb.from("tasks").insert(rows).select();
+  if(error){ toast("Couldn't add the steps."); return; }
+  if(data) S.tasks.push(...data);
+  renderOOSCard(); if(typeof renderNext==="function") renderNext(); if(typeof renderRoadmap==="function") renderRoadmap();
+  toast("Added 4 out-of-state steps to your roadmap.");
+}
+
+/* ---------- CASKETS & URNS — FTC education + estate-saved comparison ---------- */
+const CASKET_TYPES=["Cloth-covered / pressed wood","Steel (20-gauge)","Steel (18-gauge)","Steel (16-gauge)","Stainless steel","Solid hardwood","Bronze or copper","Green / biodegradable","Rental (viewing) casket","Cremation container","Urn","Other"];
+const CASKET_TIERS=[
+  ["Cloth-covered / pressed wood","$500–$1,500","Lightest cost; covered particleboard."],
+  ["Steel (by gauge)","$1,000–$4,000","Most common. Lower gauge number = thicker metal (18ga is thicker than 20ga)."],
+  ["Stainless steel","$2,000–$5,000","Resists rust better than standard steel."],
+  ["Solid hardwood","$1,500–$7,000+","Pine and poplar are lower; oak, cherry, mahogany, walnut cost more."],
+  ["Bronze or copper","$3,000–$10,000+","Premium, non-rusting metals."],
+  ["Green / biodegradable","$500–$3,000","Pine, bamboo, wicker, or cardboard for natural burial."],
+  ["Rental (viewing) casket","$750–$1,500","A ceremonial shell for the viewing before cremation."],
+  ["Cremation / alternative container","$50–$500","All that's required for cremation."]
+];
+function casketSaved(){ return (F.options||[]).filter(o=>o.option_type==="casket"); }
+function renderCasketCard(){
+  const el=$("casketCard"); if(!el) return;
+  const rows=casketSaved();
+  const prices=rows.map(o=>o.quote).filter(q=>q!=null&&q!=="");
+  const low=prices.length?Math.min.apply(null,prices):null;
+  let h=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div class="eyebrow">Caskets & urns</div>
+    <button class="btn btn-brass btn-sm" onclick="casketAddModal()">+ Add a casket to compare</button></div>`;
+
+  // education (collapsible)
+  h+=`<details class="card" style="margin-top:10px;padding:0;overflow:hidden;background:var(--parchment)">
+    <summary style="cursor:pointer;list-style:none;padding:12px 16px;font-weight:700;font-size:14px">Know before you buy — a fair-price primer ▾</summary>
+    <div style="padding:0 16px 14px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px">
+        <thead><tr style="text-align:left;color:var(--ink-soft)"><th style="padding:6px 8px 6px 0">Type</th><th style="padding:6px 8px">Typical range</th><th style="padding:6px 0">Notes</th></tr></thead>
+        <tbody>${CASKET_TIERS.map(t=>`<tr style="border-top:1px solid var(--line)"><td style="padding:7px 8px 7px 0;font-weight:600">${esc(t[0])}</td><td style="padding:7px 8px;white-space:nowrap">${esc(t[1])}</td><td style="padding:7px 0;color:var(--ink-soft)">${esc(t[2])}</td></tr>`).join("")}</tbody>
+      </table>
+      <div class="eyebrow" style="margin-bottom:6px">Your rights (FTC Funeral Rule)</div>
+      <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7">
+        <li>You may <strong>buy a casket from anyone</strong> — including online (Costco, Walmart, Titan, Amazon). The funeral home <strong>must use it and cannot charge a handling fee</strong>.</li>
+        <li><strong>No casket preserves the body.</strong> "Protective," "sealed," or gasketed caskets don't prevent decomposition — don't pay extra on that promise.</li>
+        <li><strong>Cremation doesn't require a casket.</strong> An unfinished wood box or alternative container is allowed, and the funeral home must tell you so.</li>
+        <li>You can choose items <strong>individually</strong> from the itemized price list — you're never required to buy a package.</li>
+      </ul>
+    </div></details>`;
+
+  if(!rows.length){
+    h+=`<p class="muted" style="margin-top:10px;font-size:13px">Add the caskets you're considering — from the funeral home or an outside seller — and compare them side by side before you decide.</p>`;
+  } else {
+    h+=`<div style="margin-top:12px;display:grid;gap:10px">`;
+    rows.forEach(o=>{
+      const isLow = low!=null && o.quote!=null && Number(o.quote)===Number(low) && prices.length>1;
+      h+=`<div class="card" style="padding:12px 14px;display:flex;align-items:center;gap:12px;${isLow?"border-left:4px solid var(--sage)":""}">
+        <div style="flex:1">
+          <strong style="font-size:15px">${esc(o.name)}</strong>${isLow?` <span class="pill" style="background:var(--sage);color:#fff">Lowest</span>`:""}
+          ${o.notes?`<div class="muted" style="font-size:12.5px">${esc(o.notes)}</div>`:""}
+        </div>
+        <div style="text-align:right"><div style="font-family:var(--font-display);font-size:20px">${o.quote!=null&&o.quote!==""?money(o.quote):"—"}</div>
+          <button class="btn btn-ghost btn-sm" onclick="casketRemove('${o.id}')" style="margin-top:2px">Remove</button></div>
+      </div>`;
+    });
+    h+=`</div>`;
+    if(prices.length>1){ const hi=Math.max.apply(null,prices);
+      h+=`<div class="muted" style="font-size:12.5px;margin-top:8px">Spread across your options: ${money(hi-low)} between the lowest and highest. Comparison shopping on caskets often saves the most of any single funeral choice.</div>`; }
+  }
+  h+=`</div>`;
+  el.innerHTML=h;
+}
+function casketAddModal(){
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:480px">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Add a casket to compare</div><h3 style="margin-bottom:10px">Casket or urn</h3>
+    <label>Name / model</label><input id="ckName" placeholder="e.g. Titan Era Oak, or Batesville 18ga">
+    <label>Type</label><select id="ckType">${CASKET_TYPES.map(t=>`<option>${esc(t)}</option>`).join("")}</select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label>Price</label><input id="ckPrice" type="number" inputmode="decimal" placeholder="1995"></div>
+      <div><label>Where from</label><input id="ckSrc" placeholder="Funeral home, Costco…"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-brass" onclick="casketSave()">Add to comparison</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div></div></div>`;
+}
+async function casketSave(){
+  const name=$("ckName").value.trim(); if(!name) return toast("Give it a name.");
+  const type=$("ckType").value, src=$("ckSrc").value.trim();
+  const price=$("ckPrice").value===""?null:Number($("ckPrice").value);
+  const notes=[type,src].filter(Boolean).join(" · ");
+  const {data,error}=await sb.from("funeral_options").insert({estate_id:S.estate.id,option_type:"casket",name,quote:price,notes:notes||null,chosen:false}).select().single();
+  if(error){ toast("Couldn't save."); return; }
+  if(data) F.options.push(data);
+  closeModal(); renderCasketCard();
+}
+async function casketRemove(id){
+  await sb.from("funeral_options").delete().eq("id",id);
+  F.options=F.options.filter(o=>o.id!==id);
+  renderCasketCard();
+}
+
+/* ---------- PROBATE RESOURCE CENTER (augments the Probate Assistant) ---------- */
+function findProbateHelp(cat){
+  setTab("funeral");
+  let tries=0;
+  const trySet=()=>{ const sel=$("pvCat"); if(sel&&sel.options.length){ sel.value=cat; sel.scrollIntoView&&sel.scrollIntoView({behavior:"smooth",block:"center"}); toast("Enter a city, then tap Search providers."); } else if(tries++<12){ setTimeout(trySet,150); } };
+  setTimeout(trySet,180);
+}
+function probateResourceCenter(){
+  const pack=(typeof packFor==="function")?packFor():{name:"your state"};
+  const st=pack.name||"your state";
+  const box=(title,inner,open)=>`<details class="card" style="margin-top:10px;padding:0;overflow:hidden" ${open?"open":""}>
+    <summary style="cursor:pointer;list-style:none;padding:13px 16px;font-weight:700;font-size:14.5px">${title} ▾</summary>
+    <div style="padding:0 16px 15px">${inner}</div></details>`;
+
+  const timeline=`<ol style="margin:6px 0 0;padding-left:18px;display:grid;gap:9px;font-size:13.5px;line-height:1.6">
+    <li><strong>Open the estate.</strong> File with the probate court; it appoints the personal representative and issues <em>Letters of Authority</em> (a few days to a few weeks).</li>
+    <li><strong>Notify heirs &amp; creditors.</strong> Give required notice; creditors usually get a window (often 3–4 months) to file claims.</li>
+    <li><strong>Inventory the estate.</strong> List and value the assets (weeks to months).</li>
+    <li><strong>Pay debts, taxes &amp; final expenses</strong> from estate funds, in the legal priority order.</li>
+    <li><strong>Distribute what remains</strong> to heirs or beneficiaries — per the will, or state law if there's none.</li>
+    <li><strong>Close the estate.</strong> File a final accounting; the court discharges the representative.</li>
+  </ol>
+  <p class="muted" style="font-size:12.5px;margin:10px 0 0">Straightforward estates often take 6–12 months; contested or complex ones run longer.</p>`;
+
+  const docs=`<ul style="margin:6px 0 0;padding-left:18px;display:grid;gap:6px;font-size:13.5px;line-height:1.6">
+    <li>Several <strong>certified death certificates</strong></li>
+    <li>The <strong>original will</strong> and any codicils, if one exists</li>
+    <li>Government <strong>ID for the personal representative</strong></li>
+    <li>Account statements &amp; a <strong>list of assets</strong> (banks, investments, deeds, vehicle titles)</li>
+    <li>A <strong>list of known debts</strong> and creditors</li>
+    <li>Names and addresses of <strong>heirs and beneficiaries</strong></li>
+    <li>The court's <strong>petition / appointment forms</strong> (from the county probate court)</li>
+  </ul>`;
+
+  const lawyer=`<div style="font-size:13.5px;line-height:1.7">
+    <p style="margin:4px 0 8px"><strong>You can often handle it yourself when:</strong> the estate is small or qualifies for a simplified process, there's a clear will, the family agrees, and the assets are simple.</p>
+    <p style="margin:0 0 12px"><strong>Bring in an attorney when:</strong> there's family conflict or a contested will, the estate may be <em>insolvent</em> (debts exceed assets), there's a business or out-of-state real estate, the taxes are complex — or you simply feel over your head.</p>
+    <button class="btn btn-brass btn-sm" onclick="findProbateHelp('probate_attorney')">Find a probate attorney near you</button>
+  </div>`;
+
+  const terms=`<dl style="margin:6px 0 0;font-size:13.5px;line-height:1.6">
+    <dt style="font-weight:700">Personal representative (executor / administrator)</dt><dd style="margin:0 0 8px">The person the court authorizes to settle the estate.</dd>
+    <dt style="font-weight:700">Letters of Authority / Testamentary</dt><dd style="margin:0 0 8px">The court document proving that authority — banks and institutions will ask for it.</dd>
+    <dt style="font-weight:700">Intestate</dt><dd style="margin:0 0 8px">Dying without a will; state law then decides who inherits.</dd>
+    <dt style="font-weight:700">Probate vs. non-probate assets</dt><dd style="margin:0 0 8px">Joint accounts, beneficiary designations, and trust assets usually pass <em>outside</em> probate.</dd>
+    <dt style="font-weight:700">Small-estate / summary administration</dt><dd style="margin:0">A simplified path for estates under a state dollar threshold.</dd>
+  </dl>`;
+
+  return `<div style="margin-top:18px"><div class="eyebrow">Probate resource center · ${esc(st)}</div>
+    ${box("What to expect — the probate timeline",timeline,true)}
+    ${box("Documents you'll likely need",docs)}
+    ${box("Do I need an attorney?",lawyer)}
+    ${box("Key terms, in plain language",terms)}
+  </div>`;
+}
+
+
+
+
 const TRADITION_STARTERS={
  jewish:[["Tahara & shomer (chevra kadisha)","service"],["Plain wooden casket","disposition"],["Shiva meals & platters","catering"],["Kriah ribbons","service"],["Monument & unveiling","cemetery"]],
  catholic:[["Vigil / rosary service","service"],["Mass offering & musicians","service"],["Mass cards / prayer cards","printing"],["Committal at Catholic cemetery","cemetery"]],
@@ -4294,7 +4620,72 @@ function celebrate(label,msg){
     </div>`;
   document.body.appendChild(ov);
   requestAnimationFrame(()=>ov.style.opacity="1");
+  if(typeof Comfort!=="undefined") Comfort.speak(msg.t);
 }
+
+/* ---------- COMFORT MODE — gentle synthesized ambience + opt-in spoken affirmations ----------
+   No audio files, no external calls: a soft low chord is generated live with the Web Audio API.
+   Audio only ever begins on a click (browser autoplay rules), so nothing plays unexpectedly. */
+const Comfort = {
+  on:false, ctx:null, master:null, nodes:[], lfo:null,
+  isOn(){ return this.on; },
+  start(){
+    if(this.on) return;
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+      const ctx=new AC(); this.ctx=ctx;
+      this.master=ctx.createGain(); this.master.gain.value=0; this.master.connect(ctx.destination);
+      const lp=ctx.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=780; lp.Q.value=0.6; lp.connect(this.master);
+      // warm open chord: A2 · E3 · A3 · C#4
+      const freqs=[110.0,164.81,220.0,277.18], gains=[0.5,0.34,0.24,0.12];
+      freqs.forEach((f,i)=>{
+        const o=ctx.createOscillator(); o.type = i<2 ? "sine":"triangle"; o.frequency.value=f; o.detune.value=(i-1.5)*3;
+        const g=ctx.createGain(); g.gain.value=gains[i];
+        o.connect(g); g.connect(lp); o.start(); this.nodes.push(o,g);
+      });
+      // slow breathing swell on the master level
+      this.lfo=ctx.createOscillator(); this.lfo.type="sine"; this.lfo.frequency.value=0.06;
+      const lg=ctx.createGain(); lg.gain.value=0.012; this.lfo.connect(lg); lg.connect(this.master.gain); this.lfo.start();
+      this.master.gain.setValueAtTime(0,ctx.currentTime);
+      this.master.gain.linearRampToValueAtTime(0.05,ctx.currentTime+2.2);   // fade in, very low
+      this.on=true;
+    }catch(e){ this.on=false; }
+  },
+  stop(){
+    this.on=false;
+    if(!this.ctx){ return; }
+    const ctx=this.ctx, m=this.master, nodes=this.nodes, lfo=this.lfo;
+    try{
+      m.gain.cancelScheduledValues(ctx.currentTime);
+      m.gain.setValueAtTime(m.gain.value,ctx.currentTime);
+      m.gain.linearRampToValueAtTime(0,ctx.currentTime+1.4);                 // fade out
+      setTimeout(()=>{ try{ nodes.forEach(n=>n.stop&&n.stop()); lfo&&lfo.stop(); ctx.close(); }catch(e){} },1600);
+    }catch(e){}
+    this.ctx=null; this.master=null; this.nodes=[]; this.lfo=null;
+  },
+  speak(text){
+    if(!this.on || !text) return;                         // only when comfort sound is on
+    try{
+      if(!("speechSynthesis" in window)) return;
+      window.speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(text); u.rate=0.9; u.pitch=1.0; u.volume=0.9;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+};
+function toggleComfort(){
+  const btn=$("btnComfort");
+  if(Comfort.isOn()){
+    Comfort.stop();
+    if(btn){ btn.textContent="\uD83D\uDD08 Comfort"; btn.classList.remove("btn-primary"); }
+    toast("Comfort sound off.");
+  } else {
+    Comfort.start();
+    if(btn){ btn.textContent="\uD83D\uDD0A Comfort"; btn.classList.add("btn-primary"); }
+    toast("Comfort sound on — soft ambience for a hard day.");
+  }
+}
+
 </script>
 </body>
 </html>
