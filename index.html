@@ -3806,7 +3806,7 @@ const INTRO_VIDEO_URL = "intro.mp4";   // e.g. "/intro.mp4"  — leave "" to hid
   const slot=$("introVideoSlot"); if(!slot) return;
   slot.innerHTML=`<div class="card" style="padding:10px">
     <video controls playsinline preload="metadata" style="width:100%;border-radius:12px;background:#000" src="${INTRO_VIDEO_URL}"></video>
-    <div class="muted" style="font-size:12px;text-align:center;margin-top:6px">A welcome from HomegoingHQ </div></div>`;
+    <div class="muted" style="font-size:12px;text-align:center;margin-top:6px">A welcome from HomegoingHQ</div></div>`;
 })();
 
 /* ---------- HOW-TO GUIDE (tier-aware) ---------- */
@@ -4725,7 +4725,7 @@ function celebrate(label,msg){
     <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none">${petals}</div>
     <div class="card" style="max-width:480px;text-align:center;padding:34px 30px;position:relative;box-shadow:0 24px 70px rgba(0,0,0,.35)">
       <div style="font-size:34px">🕊️</div>
-      ${msg.clip?`<video src="${esc(msg.clip)}" autoplay playsinline controls style="width:100%;border-radius:12px;margin:8px 0;background:#000" onerror="this.style.display='none'"></video>`:""}
+      ${msg.clip?`<video src="${esc(msg.clip)}" autoplay playsinline controls style="height:min(52vh,440px);aspect-ratio:9/16;object-fit:cover;border-radius:14px;margin:10px auto;display:block;background:#26332E" onerror="this.style.display='none'"></video>`:""}
       <div class="eyebrow" style="margin-top:8px">Milestone · ${esc(label)}</div>
       <h2 style="font-family:var(--font-display);font-size:24px;margin:10px 0">${esc(msg.t)}</h2>
       <p class="muted" style="font-size:14.5px;line-height:1.65">${esc(msg.m)}</p>
