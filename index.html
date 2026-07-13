@@ -4598,6 +4598,10 @@ function admMessagesModal(){
       <div class="eyebrow">${esc(label)}</div>
       <label>Heading</label><input id="ms_t_${k}" value="${esc(m.t||"")}">
       <label>Message</label><textarea id="ms_m_${k}" rows="3">${esc(m.m||"")}</textarea>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="mgGenerateVideo('${k}',this)">🎬 Generate avatar video</button>
+        ${m.clip?`<a href="${esc(m.clip)}" target="_blank" class="muted" style="font-size:12px">✓ preview current video</a>`:`<span class="muted" style="font-size:12px">no video yet</span>`}
+      </div>
     </div>`;
   }).join("");
   $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:640px;max-height:88vh;display:flex;flex-direction:column">
@@ -4616,7 +4620,7 @@ function admMessagesModal(){
     </div>
   </div></div>`;
 }
-async function admSaveMessages(){
+async function admSaveMessages(keepOpen){
   const encBody=$("ms_enc").value.split("\n").map(s=>s.trim()).filter(Boolean).join("\n");
   const rows=[{kind:"encourage",phase:null,title:null,body:encBody,sort_order:0}];
   MS_PHASES.forEach(([k],i)=>{ rows.push({kind:"milestone",phase:k,title:($("ms_t_"+k).value||"").trim(),body:($("ms_m_"+k).value||"").trim(),sort_order:i}); });
@@ -4624,9 +4628,23 @@ async function admSaveMessages(){
     await sb.from("app_messages").delete().neq("kind","__never__");   // clear all, then rewrite
     const {error}=await sb.from("app_messages").insert(rows);
     if(error) throw error;
-  }catch(e){ toast("Couldn't save (admin only)."); return; }
+  }catch(e){ toast("Couldn't save (admin only)."); return false; }
   await loadAppMessages();
-  closeModal(); toast("Messages saved.");
+  if(!keepOpen){ closeModal(); toast("Messages saved."); }
+  return true;
+}
+async function mgGenerateVideo(phase, btn){
+  const body=($("ms_m_"+phase).value||"").trim();
+  if(!body){ toast("Add a milestone message first."); return; }
+  btn.disabled=true; const orig=btn.textContent; btn.textContent="Saving…";
+  const ok=await admSaveMessages(true);              // persist so the row exists + text matches
+  if(!ok){ btn.disabled=false; btn.textContent=orig; return; }
+  btn.textContent="Sending to renderer…";
+  try{
+    await fetch("/.netlify/functions/heygen-generate-background",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phase,text:body})});
+    toast("Rendering the avatar video — this takes a few minutes. Reopen Messages later to preview it.");
+  }catch(e){ toast("Couldn't start rendering."); }
+  btn.disabled=false; btn.textContent=orig;
 }
 
 const MILESTONE_QUOTES=[
@@ -4672,6 +4690,7 @@ function celebrate(label,msg){
     <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none">${petals}</div>
     <div class="card" style="max-width:480px;text-align:center;padding:34px 30px;position:relative;box-shadow:0 24px 70px rgba(0,0,0,.35)">
       <div style="font-size:34px">🕊️</div>
+      ${msg.clip?`<video src="${esc(msg.clip)}" autoplay playsinline controls style="width:100%;border-radius:12px;margin:8px 0;background:#000" onerror="this.style.display='none'"></video>`:""}
       <div class="eyebrow" style="margin-top:8px">Milestone · ${esc(label)}</div>
       <h2 style="font-family:var(--font-display);font-size:24px;margin:10px 0">${esc(msg.t)}</h2>
       <p class="muted" style="font-size:14.5px;line-height:1.65">${esc(msg.m)}</p>
@@ -4686,7 +4705,7 @@ function celebrate(label,msg){
   window._hhqCele=(msg.t||"")+". "+(msg.m||"");
   document.body.appendChild(ov);
   requestAnimationFrame(()=>ov.style.opacity="1");
-  if(typeof Voice!=="undefined") Voice.speak(window._hhqCele);
+  if(!msg.clip && typeof Voice!=="undefined") Voice.speak(window._hhqCele);
 }
 
 /* ---------- COMFORT MODE — gentle synthesized ambience + opt-in spoken affirmations ----------
