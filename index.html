@@ -807,6 +807,11 @@ async function handleSession(session){
       $("whoami").textContent = p?.full_name || session.user.email;
       $("homeName").textContent = p?.full_name ? ", "+p.full_name.split(" ")[0] : "";
       await sb.rpc("accept_my_invites");
+      // If they paid for a concierge plan via Paythen before signing in, activate it now.
+      try{
+        const {data:claim} = await sb.rpc("claim_my_provision");
+        if(claim && claim.claimed){ toast("Your "+claim.tier+" concierge practice is now active."); }
+      }catch(e){}
       // attribute this account to a partner if they arrived via a partner link
       const pc=localStorage.getItem("lhq_partner");
       if(pc && p && !p.partner_code){
