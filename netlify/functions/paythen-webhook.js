@@ -13,13 +13,19 @@ const PLAN_TIER = {
   "9qrau4sk14": "agency",     wazeflgqet: "agency"
 };
 
-function tierFrom(planId, planName) {
-  if (planId && PLAN_TIER[planId]) return PLAN_TIER[planId];
-  const n = (planName || "").toLowerCase();
-  if (n.indexOf("agency") > -1) return "agency";
-  if (n.indexOf("enterprise") > -1) return "enterprise";
-  if (n.indexOf("professional") > -1) return "professional";
-  if (n.indexOf("starter") > -1) return "starter";
+// Paythen sends the plan id embedded in a long slug, e.g.
+// "homegoinghq_concierge_platform_-_starter-_($49_recurring_monthly)_frusqkt0ur_plan".
+// So we search the whole payload for a known plan id OR a tier word — robust to
+// slug format and to whichever field the id lands in.
+function tierFrom(haystack) {
+  const h = (haystack || "").toLowerCase();
+  for (const id in PLAN_TIER) {                    // embedded short id (most specific)
+    if (h.indexOf(id.toLowerCase()) > -1) return PLAN_TIER[id];
+  }
+  if (h.indexOf("agency") > -1) return "agency";   // tier word anywhere (fallback)
+  if (h.indexOf("enterprise") > -1) return "enterprise";
+  if (h.indexOf("professional") > -1) return "professional";
+  if (h.indexOf("starter") > -1) return "starter";
   return null;
 }
 
@@ -53,7 +59,8 @@ exports.handler = async (event) => {
   const planNm = firstOf(body, ["plan_name", "planName", "plan_title", "product", "product_name"]);
   const business = firstOf(body, ["business_name", "businessName", "company", "practice_name"]) || null;
 
-  const tier = tierFrom(planId, planNm);
+  // Search the parsed fields AND the raw body, so an id embedded anywhere still matches.
+  const tier = tierFrom(planId + " " + planNm + " " + (event.body || ""));
   if (!email) return { statusCode: 200, headers, body: JSON.stringify({ ok: false, skipped: "no email" }) };
   if (!tier)  return { statusCode: 200, headers, body: JSON.stringify({ ok: false, skipped: "unrecognized plan", planId, planNm }) };
 
