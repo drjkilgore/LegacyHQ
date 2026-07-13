@@ -165,6 +165,7 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
   <div style="display:flex;gap:10px;align-items:center">
     <span class="who" id="whoami"></span>
     <button class="btn btn-ghost btn-sm hidden" id="btnHelp" onclick="openHelp()">? Help</button>
+    <button class="btn btn-ghost btn-sm hidden" id="btnBrand" onclick="openMyBrand()">My Brand</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnAdmin" onclick="openAdmin()">Admin</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnSignOut" onclick="signOut()">Sign out</button>
   </div>
@@ -237,10 +238,16 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
 
 <!-- ESTATE -->
 <section id="view-estate" class="hidden"><div class="wrap">
-  <div class="estate-head">
-    <div class="eyebrow">Estate of</div>
-    <h1 class="name" id="eName"></h1>
-    <div class="sub" id="eSub"></div>
+  <div class="estate-head" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+    <div>
+      <div class="eyebrow">Estate of</div>
+      <h1 class="name" id="eName"></h1>
+      <div class="sub" id="eSub"></div>
+    </div>
+    <div style="text-align:right">
+      <span id="eStatusPill" class="pill" style="display:none"></span>
+      <div><button id="eStatusBtn" class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="toggleEstateStatus()"></button></div>
+    </div>
   </div>
   <div class="tabs" id="eTabs">
     <button data-tab="next" class="active" onclick="setTab('next')">Next</button>
@@ -795,6 +802,7 @@ async function handleSession(session){
     $("btnSignOut").classList.remove("hidden");
     $("btnHelp").classList.remove("hidden");
     sb.rpc("is_admin").then(({data})=>{ if(data===true){ $("btnAdmin").classList.remove("hidden"); if(location.hash==="#admin") setTimeout(openAdmin,60); } }).catch(()=>{});
+    sb.rpc("my_account").then(({data})=>{ if(data && data.found){ S.myAccount=data; $("btnBrand").classList.remove("hidden"); } else { S.myAccount=null; } }).catch(()=>{});
     try{
       const {data:p} = await sb.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
       S.profile = p;
@@ -1007,7 +1015,128 @@ async function openEstate(id){
   $("eName").textContent = est.decedent_name;
   $("eSub").textContent = (est.date_of_death?("Passed "+fmtDate(est.date_of_death)):"") + (est.state_code?" · "+est.state_code:"") + (est.relationship?" · You: "+est.relationship:"");
   await Promise.all([loadTasks(),loadMembers(),loadNotifs(),loadDocs(),loadStatePack()]);
+  renderEstateStatus();
   setTab("next"); show("view-estate");
+}
+function renderEstateStatus(){
+  const st = (S.estate && S.estate.status) || "active";
+  const pill=$("eStatusPill"), btn=$("eStatusBtn");
+  if(!pill||!btn) return;
+  if(st==="active"){ pill.style.display="none"; btn.textContent="Close this estate"; }
+  else { pill.style.display="inline-block"; pill.textContent = st==="archived"?"Archived":"Closed"; btn.textContent="Reopen estate"; }
+}
+async function toggleEstateStatus(){
+  const cur = (S.estate.status)||"active";
+  const next = cur==="active" ? "closed" : "active";
+  if(next==="closed" && !confirm("Close this estate? It moves out of your active count — you can reopen it anytime, and nothing is deleted.")) return;
+  const {data} = await sb.rpc("set_estate_status",{p_estate:S.estate.id,p_status:next});
+  if(data && data.ok){
+    S.estate.status = next;
+    const e=S.estates.find(x=>x.id===S.estate.id); if(e) e.status=next;
+    renderEstateStatus();
+    toast(next==="closed"?"Estate closed.":"Estate reopened.");
+  } else toast((data&&data.error)?("Couldn't update ("+data.error+")."):"Couldn't update status.");
+}
+
+/* ---------- OWNER: MY BRAND (self-serve white-label, migrations v13/v15) ---------- */
+async function openMyBrand(){
+  const {data:a} = await sb.rpc("my_account");
+  if(!a || !a.found){ toast("No practice found on this account."); return; }
+  S.myAccount=a;
+  const b=a.branding||{};
+  const ink=b.color_ink||"#26332E", accent=b.color_accent||"#8F6A24", accentD=b.color_accent_deep||"#75561D";
+  const bucket = a.estates_used, lim = a.estate_limit;
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:620px">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">My practice</div><h3 style="margin-bottom:2px" id="mbTitle">${esc(a.business_name||"Your practice")}</h3>
+    <div class="muted" style="font-size:12.5px">${a.tier} plan · ${bucket}/${lim} active estates${a.subdomain?" · "+esc(a.subdomain)+".homegoinghq.com":""}</div>
+
+    <label>Practice name</label>
+    <div style="display:flex;gap:6px"><input id="mbBiz" value="${esc(a.business_name||"")}" placeholder="Grace Concierge" style="flex:1">
+      <button class="btn btn-primary btn-sm" onclick="mbSaveBiz()">Save</button></div>
+
+    <label>Your web address <span class="muted" style="font-weight:400">— pick a subdomain</span></label>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input id="mbSub" value="${esc(a.subdomain||"")}" placeholder="grace" style="flex:1" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,'')">
+      <span class="muted" style="font-size:13px;white-space:nowrap">.homegoinghq.com</span>
+      <button class="btn btn-primary btn-sm" onclick="mbSaveSub()">Save</button></div>
+    ${a.custom_domain?`<div class="muted" style="font-size:12.5px;margin-top:6px">Custom domain: <strong>${esc(a.custom_domain)}</strong></div>`:`<div class="muted" style="font-size:12.5px;margin-top:6px">Want your own domain (yourname.com)? <a href="mailto:concierge@homegoinghq.com?subject=Custom%20domain">Ask us to set it up</a>.</div>`}
+
+    <div class="eyebrow" style="margin-top:18px">Brand colors</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px">
+      <div><label>Primary</label><input id="mbInk" type="color" value="${ink}" oninput="mbPreview()" style="height:42px;padding:3px"></div>
+      <div><label>Accent</label><input id="mbAccent" type="color" value="${accent}" oninput="mbPreview()" style="height:42px;padding:3px"></div>
+      <div><label>Accent deep</label><input id="mbAccentD" type="color" value="${accentD}" oninput="mbPreview()" style="height:42px;padding:3px"></div>
+    </div>
+    ${["logo","favicon","hero"].map(k=>{
+      const cur=b[k+"_url"]||"";
+      return `<label style="text-transform:capitalize">${k} image URL</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input id="mb_${k}" value="${esc(cur)}" placeholder="https://…" oninput="mbPreview()" style="flex:1">
+        <label class="btn btn-ghost btn-sm" style="margin:0;cursor:pointer">Upload<input type="file" accept="image/*" style="display:none" onchange="mbUpload('${k}',this)"></label>
+      </div>`;}).join("")}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label>Contact name</label><input id="mbCName" value="${esc(b.contact_name||"")}"></div>
+      <div><label>Contact phone</label><input id="mbCPhone" value="${esc(b.contact_phone||"")}"></div>
+    </div>
+    <label>Contact email</label><input id="mbCEmail" value="${esc(b.contact_email||"")}">
+    <label>Footer note</label><input id="mbFooter" value="${esc(b.footer_note||"")}" placeholder="© 2026 Grace Concierge · Serving Metro Detroit">
+
+    <div class="eyebrow" style="margin-top:18px">Live preview</div>
+    <div id="mbPreview" style="margin-top:6px"></div>
+
+    <div style="display:flex;gap:8px;margin-top:18px">
+      <button class="btn btn-brass" onclick="mbSave()">Save brand</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+    </div>
+  </div></div>`;
+  mbPreview();
+}
+function mbPreview(){
+  const g=id=>($(id)?$(id).value:"");
+  const ink=g("mbInk")||"#26332E", accent=g("mbAccent")||"#8F6A24";
+  const logo=g("mb_logo"), hero=g("mb_hero"), name=g("mbBiz")||"Your practice";
+  const el=$("mbPreview"); if(!el) return;
+  el.innerHTML=`<div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">
+    <div style="background:${esc(ink)};color:#F6F2EA;padding:14px 16px;display:flex;align-items:center;gap:10px;${hero?`background-image:linear-gradient(rgba(38,51,46,.55),rgba(38,51,46,.55)),url('${esc(hero)}');background-size:cover;background-position:center`:""}">
+      ${logo?`<img src="${esc(logo)}" style="height:26px;width:auto" onerror="this.style.display='none'">`:`<span style="width:26px;height:26px;border-radius:7px;background:#F6F2EA;color:${esc(ink)};display:grid;place-items:center;font-weight:600">${esc(name.trim().charAt(0).toUpperCase()||"H")}</span>`}
+      <strong style="font-family:var(--font-display)">${esc(name)}</strong></div>
+    <div style="padding:14px 16px;background:var(--card)">
+      <button style="background:${esc(accent)};color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:600">Begin</button>
+      <div style="font-size:11px;letter-spacing:.04em;color:var(--ink-soft);opacity:.7;margin-top:10px">Powered by HomegoingHQ®</div>
+    </div></div>`;
+}
+async function mbUpload(kind,input){
+  const f=input.files[0]; if(!f) return;
+  if(f.size>4*1024*1024) return toast("Images up to 4 MB, please.");
+  if(!S.myAccount) return;
+  const path=`${S.myAccount.id}/${kind}-${Date.now()}-${f.name.replace(/[^a-zA-Z0-9_.-]/g,"_")}`;
+  const {error}=await sb.storage.from("tenant-assets").upload(path,f,{upsert:true});
+  if(error){ toast("Upload needs setup — paste an image URL instead for now."); return; }
+  const {data}=sb.storage.from("tenant-assets").getPublicUrl(path);
+  const field=$("mb_"+kind); if(field&&data){ field.value=data.publicUrl; mbPreview(); toast("Uploaded."); }
+}
+async function mbSaveBiz(){
+  const {data}=await sb.rpc("owner_set_business",{p_name:$("mbBiz").value.trim()});
+  if(data&&data.ok){ $("mbTitle").textContent=$("mbBiz").value.trim()||"Your practice"; mbPreview(); toast("Practice name saved."); }
+  else toast(data&&data.error==="empty"?"Enter a name.":"Couldn't save name.");
+}
+async function mbSaveSub(){
+  const {data}=await sb.rpc("owner_set_subdomain",{p_sub:$("mbSub").value.trim()});
+  if(data&&data.ok){ toast("Web address saved: "+data.subdomain+".homegoinghq.com"); }
+  else if(data&&data.error==="taken") toast("That address is taken — try another.");
+  else if(data&&data.error==="too_short") toast("Pick at least 3 characters.");
+  else toast("Couldn't save address.");
+}
+async function mbSave(){
+  const {data}=await sb.rpc("owner_update_branding",{
+    p_logo:$("mb_logo").value.trim()||null, p_favicon:$("mb_favicon").value.trim()||null,
+    p_hero:$("mb_hero").value.trim()||null, p_ink:$("mbInk").value, p_accent:$("mbAccent").value,
+    p_accent_deep:$("mbAccentD").value, p_cname:$("mbCName").value.trim()||null,
+    p_cemail:$("mbCEmail").value.trim()||null, p_cphone:$("mbCPhone").value.trim()||null,
+    p_footer:$("mbFooter").value.trim()||null });
+  if(data&&data.ok){ toast("Brand saved. Your client site is updated."); closeModal(); }
+  else toast(data&&data.error==="no_account"?"No practice found.":"Couldn't save brand.");
 }
 function setTab(t){
   ["next","roadmap","funeral","claims","notify","docs","ledger","probate","memories","family"].forEach(x=>{
