@@ -362,12 +362,6 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
   </div>
   <div class="card" style="margin-top:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <div class="eyebrow">Partners (white-label)</div>
-      <button class="btn btn-primary btn-sm" onclick="admPartnerModal()">+ Add partner</button></div>
-    <div id="admPartners" style="margin-top:8px"></div>
-  </div>
-  <div class="card" style="margin-top:16px">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <div class="eyebrow">White-label accounts — Concierge &amp; Funeral Home</div>
       <input id="admAcctSearch" placeholder="Search business or owner email" onkeydown="if(event.key==='Enter')admLoadAccounts()" style="width:auto;flex:1;min-width:200px;max-width:320px">
     </div>
@@ -2489,7 +2483,7 @@ async function openAdmin(){
   if(!stats||stats.error){ $("adminStats").innerHTML='<div class="muted">Not authorized.</div>'; return; }
   const cards=[["Users",stats.users],["New (7d)",stats.users_7d],["Paid",stats.paid_users],["Estates",stats.estates],["Plans",stats.plans],["Tasks done",stats.tasks_done],["Memorials live",stats.memorials_live]];
   $("adminStats").innerHTML=cards.map(([l,v])=>`<div class="card" style="padding:14px"><div class="eyebrow">${l}</div><div style="font-family:var(--font-display);font-size:28px;margin-top:2px">${v??0}</div></div>`).join("");
-  admLoadUsers(); admLoadPartners(); admLoadAccounts(); admLoadPacks(); admLoadCounties();
+  admLoadUsers(); admLoadAccounts(); admLoadPacks(); admLoadCounties();
   const {data:act}=await sb.rpc("admin_recent_activity");
   $("admActivity").innerHTML=(Array.isArray(act)?act:[]).map(a=>{
     const when=new Date(a.created_at).toLocaleDateString(undefined,{month:"short",day:"numeric"})+" "+new Date(a.created_at).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
