@@ -156,6 +156,7 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
 .banner{background:#FCF7EC;border:1px solid #E9D9B4;border-radius:12px;padding:13px 16px;font-size:13.5px;color:var(--ink-soft);margin:14px 0}
 .footer-note{text-align:center;font-size:12px;color:var(--slate);padding:34px 18px 90px;max-width:640px;margin:0 auto}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+summary::-webkit-details-marker{display:none}
 </style>
 </head>
 <body>
@@ -354,46 +355,52 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
 <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="admMessagesModal()">✏️ Messages</button><a class="btn btn-brass btn-sm" href="/accept.html" target="_blank">🕊 Acceptance Sender</a><a class="btn btn-ghost btn-sm" href="/vet.html" target="_blank">✓ Provider Vetting</a></div>
   <div class="estate-head"><div class="eyebrow">HomegoingHQ</div><h1 class="name" style="font-size:26px">Admin console</h1></div>
   <div class="grid" id="adminStats" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))"></div>
-  <div class="card" style="margin-top:16px">
-    <div class="eyebrow">Other HomegoingHQ admin consoles</div>
+  <details class="card" style="margin-top:16px" open>
+    <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">Other HomegoingHQ admin consoles</span> <span style="color:var(--moss)">▾</span></summary>
+    
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
       <a class="btn btn-brass btn-sm" href="https://apply.homegoinghq.com/#admin" target="_blank" rel="noopener">📝 Applications Admin ↗</a>
       <a class="btn btn-brass btn-sm" href="https://crm.homegoinghq.com/" target="_blank" rel="noopener">👥 RelationshipHQ CRM ↗</a>
     </div>
     <div class="muted" style="font-size:12.5px;margin-top:8px">Each opens in a new tab, so this console stays open behind it — closing that tab brings you right back here. (A “← Back to Admin Hub” link on those sites points to <span style="font-family:monospace">app.homegoinghq.com/#admin</span>, which lands directly on this page.)</div>
-  </div>
-  <div class="card" style="margin-top:16px">
-    <div class="eyebrow">Users</div>
+  </details>
+  <details class="card" style="margin-top:16px" open>
+    <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">Users</span> <span style="color:var(--moss)">▾</span></summary>
+    
     <div style="display:flex;gap:8px;margin-top:10px">
       <input id="admSearch" placeholder="Search email or name" onkeydown="if(event.key==='Enter')admLoadUsers()">
       <button class="btn btn-primary btn-sm" onclick="admLoadUsers()">Search</button>
     </div>
     <div id="admUsers" style="margin-top:12px"></div>
-  </div>
-  <div class="card" style="margin-top:16px">
+  </details>
+  <details class="card" style="margin-top:16px" open>
+    <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">White-label accounts — Concierge &amp; Funeral Home</span> <span style="color:var(--moss)">▾</span></summary>
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <div class="eyebrow">White-label accounts — Concierge &amp; Funeral Home</div>
+      
       <input id="admAcctSearch" placeholder="Search business or owner email" onkeydown="if(event.key==='Enter')admLoadAccounts()" style="width:auto;flex:1;min-width:200px;max-width:320px">
     </div>
     <div id="admAccounts" style="margin-top:10px"></div>
-  </div>
-  <div class="card" style="margin-top:16px">
+  </details>
+  <details class="card" style="margin-top:16px" open>
+    <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">State packs (probate content — live edits, no redeploy)</span> <span style="color:var(--moss)">▾</span></summary>
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <div class="eyebrow">State packs (probate content — live edits, no redeploy)</div>
+      
       <button class="btn btn-primary btn-sm" onclick="admEditPack('')">+ New state</button></div>
     <div id="admPacks" style="margin-top:8px"></div>
-  </div>
-  <div class="card" style="margin-top:16px">
+  </details>
+  <details class="card" style="margin-top:16px" open>
+    <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">County court directory</span> <span style="color:var(--moss)">▾</span></summary>
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <div class="eyebrow">County court directory</div>
+      
       <div style="display:flex;gap:8px"><input id="admCtyState" value="MI" maxlength="2" style="width:64px" onchange="admLoadCounties()">
       <button class="btn btn-primary btn-sm" onclick="admCountyModal()">+ Add county</button></div></div>
     <div id="admCounties" style="margin-top:8px"></div>
-  </div>
-  <div class="card" style="margin-top:16px">
-    <div class="eyebrow">Recent activity across all estates</div>
+  </details>
+  <details class="card" style="margin-top:16px" open>
+    <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">Recent activity across all estates</span> <span style="color:var(--moss)">▾</span></summary>
+    
     <div id="admActivity" class="muted" style="font-size:13.5px;margin-top:8px"></div>
-  </div>
+  </details>
   <p class="footer-note" style="padding:20px 0">For anything deeper — resetting a password, deleting an account, inspecting data — use the Supabase dashboard: Authentication → Users, and Database → Tables. This console never displays vault contents; respect that boundary even when debugging.</p>
 </div></section>
 
