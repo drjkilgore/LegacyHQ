@@ -351,7 +351,7 @@ hr.rule{border:none;border-top:1px solid var(--line);margin:18px 0}
 
 <!-- ADMIN -->
 <section id="view-admin" class="hidden"><div class="wrap">
-<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px"><a class="btn btn-brass btn-sm" href="/accept.html" target="_blank">🕊 Acceptance Sender</a><a class="btn btn-ghost btn-sm" href="/vet.html" target="_blank">✓ Provider Vetting</a></div>
+<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="admMessagesModal()">✏️ Messages</button><a class="btn btn-brass btn-sm" href="/accept.html" target="_blank">🕊 Acceptance Sender</a><a class="btn btn-ghost btn-sm" href="/vet.html" target="_blank">✓ Provider Vetting</a></div>
   <div class="estate-head"><div class="eyebrow">HomegoingHQ</div><h1 class="name" style="font-size:26px">Admin console</h1></div>
   <div class="grid" id="adminStats" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))"></div>
   <div class="card" style="margin-top:16px">
@@ -808,6 +808,7 @@ async function handleSession(session){
     $("btnHelp").classList.remove("hidden");
     sb.rpc("is_admin").then(({data})=>{ if(data===true){ $("btnAdmin").classList.remove("hidden"); if(location.hash==="#admin") setTimeout(openAdmin,60); } }).catch(()=>{});
     sb.rpc("my_account").then(({data})=>{ if(data && data.found){ S.myAccount=data; $("btnBrand").classList.remove("hidden"); } else { S.myAccount=null; } }).catch(()=>{});
+    loadAppMessages();
     try{
       const {data:p} = await sb.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
       S.profile = p;
@@ -4551,17 +4552,18 @@ const ENCOURAGE=[
 "Quiet, steady, faithful work. That's what this is."
 ];
 function encourage(){
+  const ENC=activeEncourage();
   const k="lhq_enc_bag";
   let bag=JSON.parse(localStorage.getItem(k)||"[]");
-  if(!bag.length){ bag=[...ENCOURAGE.keys()].sort(()=>Math.random()-.5); }
+  if(!bag.length || bag.some(i=>i>=ENC.length)){ bag=[...ENC.keys()].sort(()=>Math.random()-.5); }
   const idx=bag.pop(); localStorage.setItem(k,JSON.stringify(bag));
   const d=document.createElement("div");
   d.style.cssText="position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--card);border:1px solid var(--line);border-left:4px solid var(--sage);border-radius:12px;padding:13px 20px;z-index:850;box-shadow:0 10px 30px rgba(0,0,0,.16);max-width:92vw;font-size:14.5px;opacity:0;transition:all .4s";
-  d.textContent=ENCOURAGE[idx];
+  d.textContent=ENC[idx];
   document.body.appendChild(d);
   requestAnimationFrame(()=>{d.style.opacity="1";d.style.transform="translateX(-50%) translateY(0)";});
   setTimeout(()=>{d.style.opacity="0";d.style.transform="translateX(-50%) translateY(8px)";setTimeout(()=>d.remove(),450);},4200);
-  if(typeof Voice!=="undefined") Voice.speak(ENCOURAGE[idx]);
+  if(typeof Voice!=="undefined") Voice.speak(ENC[idx]);
 }
 
 /* ---------- Phase milestone celebration ---------- */
@@ -4572,6 +4574,61 @@ const MILESTONE_MSGS={
  days90:{t:"Ninety days — another milestone reached.",m:"The first ninety days are behind you, every step handled. Most of the urgent work is now done; what remains moves at a gentler pace. Take a moment to acknowledge everything you've accomplished."},
  longterm:{t:"You've walked the whole road.",m:"Every step of the roadmap is complete. From the first phone call to the final record, you carried your family through it with steadiness and love. This is a profound accomplishment — one most people never see coming and few handle this well. Be proud."}
 };
+
+/* ---------- EDITABLE MESSAGES (encouragements + milestones) — migration v17 ---------- */
+function activeEncourage(){ return (S.msgEncourage && S.msgEncourage.length) ? S.msgEncourage : ENCOURAGE; }
+function activeMilestone(phase){ return (S.msgMilestone && S.msgMilestone[phase]) || MILESTONE_MSGS[phase]; }
+async function loadAppMessages(){
+  try{
+    const {data}=await sb.from("app_messages").select("*");
+    if(!data) return;
+    const enc=data.find(r=>r.kind==="encourage");
+    if(enc && (enc.body||"").trim()){ S.msgEncourage=enc.body.split("\n").map(s=>s.trim()).filter(Boolean); }
+    const mil={};
+    data.filter(r=>r.kind==="milestone"&&r.phase).forEach(r=>{ mil[r.phase]={t:r.title||"",m:r.body||"",clip:r.clip_url||null}; });
+    if(Object.keys(mil).length) S.msgMilestone=mil;
+  }catch(e){}
+}
+const MS_PHASES=[["first24","First 24–72 hours"],["week1","First week"],["month1","First month"],["days90","First 90 days"],["longterm","Long-term / complete"]];
+function admMessagesModal(){
+  const enc=(S.msgEncourage&&S.msgEncourage.length?S.msgEncourage:ENCOURAGE).join("\n");
+  const milRows=MS_PHASES.map(([k,label])=>{
+    const m=activeMilestone(k)||{t:"",m:""};
+    return `<div class="card" style="padding:12px 14px;margin-top:8px">
+      <div class="eyebrow">${esc(label)}</div>
+      <label>Heading</label><input id="ms_t_${k}" value="${esc(m.t||"")}">
+      <label>Message</label><textarea id="ms_m_${k}" rows="3">${esc(m.m||"")}</textarea>
+    </div>`;
+  }).join("");
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:640px;max-height:88vh;display:flex;flex-direction:column">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Messages & celebrations</div><h3 style="margin-bottom:4px">Edit what families see</h3>
+    <p class="muted" style="font-size:12.5px;margin:0 0 10px">The small pop-ups after each task, and the milestone celebrations. Changes apply for everyone.</p>
+    <div style="overflow:auto;flex:1;margin:0 -2px;padding:0 2px">
+      <label>Task encouragements <span class="muted" style="font-weight:400">— one per line, shown at random</span></label>
+      <textarea id="ms_enc" rows="8">${esc(enc)}</textarea>
+      <div class="eyebrow" style="margin-top:16px">Milestone celebrations</div>
+      ${milRows}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-brass" onclick="admSaveMessages()">Save messages</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>
+  </div></div>`;
+}
+async function admSaveMessages(){
+  const encBody=$("ms_enc").value.split("\n").map(s=>s.trim()).filter(Boolean).join("\n");
+  const rows=[{kind:"encourage",phase:null,title:null,body:encBody,sort_order:0}];
+  MS_PHASES.forEach(([k],i)=>{ rows.push({kind:"milestone",phase:k,title:($("ms_t_"+k).value||"").trim(),body:($("ms_m_"+k).value||"").trim(),sort_order:i}); });
+  try{
+    await sb.from("app_messages").delete().neq("kind","__never__");   // clear all, then rewrite
+    const {error}=await sb.from("app_messages").insert(rows);
+    if(error) throw error;
+  }catch(e){ toast("Couldn't save (admin only)."); return; }
+  await loadAppMessages();
+  closeModal(); toast("Messages saved.");
+}
+
 const MILESTONE_QUOTES=[
 "\u201cWhat we have once enjoyed we can never lose. All that we love deeply becomes a part of us.\u201d — Helen Keller",
 "\u201cGrief is the price we pay for love.\u201d — Queen Elizabeth II",
@@ -4593,7 +4650,7 @@ function checkPhaseMilestone(task){
   if(seen.includes(phase)) return;
   seen.push(phase); localStorage.setItem(k,JSON.stringify(seen));
   const ph=PHASES.find(p=>p.key===phase);
-  const msg=MILESTONE_MSGS[phase]||{t:"Milestone reached.",m:"You've completed the "+(ph?ph.label:"section")+" — steady, faithful progress."};
+  const msg=activeMilestone(phase)||{t:"Milestone reached.",m:"You've completed the "+(ph?ph.label:"section")+" — steady, faithful progress."};
   celebrate(ph?ph.label:phase,msg);
 }
 function celebrate(label,msg){
