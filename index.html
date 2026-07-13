@@ -372,8 +372,9 @@ summary::-webkit-details-marker{display:none}
   <div class="estate-head"><div class="eyebrow">HomegoingHQ</div><h1 class="name" style="font-size:26px">Admin console</h1></div>
   <div class="grid" id="adminStats" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))"></div>
   <details class="card" style="margin-top:16px" open>
-    <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">Provider applications</span> <span style="color:var(--moss)">▾</span></summary>
+    <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">Provider &amp; concierge applications</span> <span style="color:var(--moss)">▾</span></summary>
     <div style="display:flex;gap:8px;margin:10px 0 4px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;gap:4px"><button id="admKindProv" class="btn btn-primary btn-sm" onclick="admSetKind('provider')">Providers</button><button id="admKindConc" class="btn btn-ghost btn-sm" onclick="admSetKind('concierge')">Concierges</button></div>
       <select id="admProvFilter" onchange="admLoadApplications()" style="width:auto">
         <option value="">All statuses</option><option value="pending">Pending</option><option value="under_review">Under Review</option>
         <option value="approved">Approved</option><option value="denied">Denied</option><option value="more_info">Request More Info</option>
@@ -2175,7 +2176,7 @@ function renderFuneral(){
   <div class="card">
     <p class="muted" style="margin-bottom:10px">Tell us what you need and where — we'll find nearby providers with ratings, phone numbers, and directions. Prices for identical services vary widely; comparing is how families save thousands.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <select id="pvCat" style="flex:1;min-width:180px"></select>
+      <select id="pvCat" style="flex:1;min-width:180px" onchange="if(typeof pvRenderPreferred==='function')pvRenderPreferred()"></select>
       <input id="pvAddr" placeholder="City or address (e.g., Detroit, MI)" style="flex:2;min-width:200px">
       <select id="pvRadius" style="width:auto"><option value="10">10 mi</option><option value="20">20 mi</option><option value="30">30 mi</option><option value="50">50 mi</option></select>
     </div>
@@ -2184,6 +2185,7 @@ function renderFuneral(){
       <button class="btn btn-ghost btn-sm" onclick="pvHere()">📍 Use my location</button>
       <button class="btn btn-ghost btn-sm" onclick="pvManualModal()">+ Add one manually</button>
     </div>
+    <div id="pvPreferred" style="margin-top:12px"></div>
     <div id="pvResults" style="margin-top:12px"></div>
   </div>
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px">
@@ -3007,13 +3009,15 @@ const TENANT_ASSET_BUCKET="tenant-assets"; // public bucket; run supabase-storag
 /* ---------- PROVIDER CREDENTIALING DASHBOARD (Phase 2) ---------- */
 const PROV_STATUS=[["pending","Pending"],["under_review","Under Review"],["approved","Approved"],["denied","Denied"],["more_info","Request More Info"]];
 const PROV_VET=[["mystery_shop","Mystery shopping completed"],["website_reviewed","Website reviewed"],["pricing_reviewed","Pricing reviewed"],["reputation_reviewed","Online reputation reviewed"],["references_contacted","References contacted"],["licensing_verified","Licensing verified"],["insurance_verified","Insurance verified"],["background_review","Background review completed"]];
-let PROV_APPS=[], provSelectedStatus=null;
+let PROV_APPS=[], provSelectedStatus=null, PROV_KIND="provider";
+const CONC_VET=[["id_verified","Identity verified"],["academy_certified","Academy certification confirmed"],["eo_verified","E&O / professional liability verified"],["eo_additional_insured","HomegoingHQ named as additional insured"],["eo_cert_holder","Certificate holder is correct"],["eo_current","Policy is current (not expired)"],["agreement_signed","Concierge agreement signed"],["background_review","Background review completed"]];
+function admSetKind(kind){ PROV_KIND=kind; const p=$("admKindProv"),c=$("admKindConc"); if(p)p.className="btn btn-sm "+(kind==="provider"?"btn-primary":"btn-ghost"); if(c)c.className="btn btn-sm "+(kind==="concierge"?"btn-primary":"btn-ghost"); admLoadApplications(); }
 function provStatusLabel(s){ const h=PROV_STATUS.find(x=>x[0]===s); return h?h[1]:s; }
 function provStatusColor(s){ return {pending:"#8F6A24",under_review:"#12A7E6",approved:"#2E7D32",denied:"#8B0000",more_info:"#B0710B"}[s]||"#68756D"; }
 async function admLoadApplications(){
   const el=$("admProvApps"); if(!el) return;
   const filt=$("admProvFilter")?$("admProvFilter").value:"";
-  let q=sb.from("provider_applications").select("*").eq("kind","provider").order("created_at",{ascending:false});
+  let q=sb.from("provider_applications").select("*").eq("kind",PROV_KIND).order("created_at",{ascending:false});
   if(filt) q=q.eq("status",filt);
   const {data,error}=await q;
   if(error){ el.innerHTML=`<p class="muted" style="font-size:13px">Couldn't load (${esc(error.message)}).</p>`; return; }
@@ -3033,7 +3037,10 @@ function admProvAppModal(id){
   const a=PROV_APPS.find(x=>x.id===id); if(!a){ toast("Not found."); return; }
   provSelectedStatus=a.status;
   const vet=a.vetting||{};
-  const rows=[["Contact",a.contact_name],["Email",a.email],["Phone",a.phone],["Address",a.business_address],["Website",a.website],["Category",a.category],["Services",a.services_offered],["Service area",a.service_area],["Years in business",a.years_in_business],["License #",a.license_number]];
+  let rows=[["Contact",a.contact_name],["Email",a.email],["Phone",a.phone],["Address",a.business_address],["Website",a.website],["Service area",a.service_area],["Years in business",a.years_in_business]];
+  if(a.kind==="concierge") rows=rows.concat([["E&O insurer",a.eo_insurer],["E&O policy #",a.eo_policy_number],["E&O expiry",a.eo_expiry],["HomegoingHQ additional insured",a.eo_additional_insured===true?"Yes":a.eo_additional_insured===false?"No":"—"]]);
+  else rows=rows.concat([["Category",a.category],["Services",a.services_offered],["License #",a.license_number]]);
+  const VET=a.kind==="concierge"?CONC_VET:PROV_VET;
   $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:680px;max-height:90vh;display:flex;flex-direction:column">
     <button class="close" onclick="closeModal()">×</button>
     <div class="eyebrow">Provider application</div>
@@ -3050,7 +3057,7 @@ function admProvAppModal(id){
       <div id="admProvDocs"><p class="muted" style="font-size:12.5px">Loading documents…</p></div>
       <div class="eyebrow" style="margin-top:16px">Internal vetting checklist</div>
       <div style="display:grid;gap:5px;margin-top:5px">
-        ${PROV_VET.map(v=>`<label style="font-weight:400;font-size:13.5px;display:flex;gap:8px;align-items:center"><input type="checkbox" id="pv_${v[0]}" ${vet[v[0]]?"checked":""} style="width:auto"> ${v[1]}</label>`).join("")}
+        ${VET.map(v=>`<label style="font-weight:400;font-size:13.5px;display:flex;gap:8px;align-items:center"><input type="checkbox" id="pv_${v[0]}" ${vet[v[0]]?"checked":""} style="width:auto"> ${v[1]}</label>`).join("")}
       </div>
       <label style="margin-top:10px">Final recommendation</label>
       <textarea id="pv_final" rows="2">${esc(vet.final_recommendation||"")}</textarea>
@@ -3094,8 +3101,9 @@ function admProvSetStatus(status,btn){
   btn.classList.remove("btn-ghost"); btn.classList.add("btn-primary");
 }
 async function admProvSave(id){
+  const a0=PROV_APPS.find(x=>x.id===id); const VET=(a0&&a0.kind==="concierge")?CONC_VET:PROV_VET;
   const vetting={};
-  PROV_VET.forEach(v=>{ const c=$("pv_"+v[0]); vetting[v[0]]=c?c.checked:false; });
+  VET.forEach(v=>{ const c=$("pv_"+v[0]); vetting[v[0]]=c?c.checked:false; });
   vetting.final_recommendation=($("pv_final").value||"").trim();
   const upd={ vetting, admin_notes:($("pv_notes").value||"").trim(), reviewed_at:new Date().toISOString(), reviewed_by:(S.session&&S.session.user&&S.session.user.email)||null };
   if(provSelectedStatus){ upd.status=provSelectedStatus; if(provSelectedStatus==="approved"||provSelectedStatus==="denied") upd.decided_at=new Date().toISOString(); }
@@ -3123,7 +3131,8 @@ function admProvEmail(id,kind){
   const out=$("admProvEmailOut"); if(!out) return;
   out.innerHTML='<label>Subject</label><input id="pv_em_subj" value="'+esc(e.subject)+'">'
     +'<label>Body — edit freely before sending</label><textarea id="pv_em_body" rows="10">'+esc(e.body)+'</textarea>'
-    +'<div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-brass btn-sm" onclick="admProvCopyEmail()">Copy</button>'
+    +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn btn-brass btn-sm" onclick="admProvSendEmail(\''+id+'\',this)">Send now</button>'
+    +'<button class="btn btn-ghost btn-sm" onclick="admProvCopyEmail()">Copy</button>'
     +'<button class="btn btn-ghost btn-sm" onclick="admProvMailto(\''+esc(a.email||"")+'\')">Open in Mail</button></div>';
 }
 function admProvCopyEmail(){
@@ -3134,6 +3143,19 @@ function admProvCopyEmail(){
 function admProvMailto(email){
   const s=$("pv_em_subj")?$("pv_em_subj").value:"", b=$("pv_em_body")?$("pv_em_body").value:"";
   window.location.href="mailto:"+encodeURIComponent(email)+"?subject="+encodeURIComponent(s)+"&body="+encodeURIComponent(b);
+}
+async function admProvSendEmail(id,btn){
+  const a=PROV_APPS.find(x=>x.id===id); if(!a) return;
+  const to=a.email, subject=$("pv_em_subj")?$("pv_em_subj").value:"", body=$("pv_em_body")?$("pv_em_body").value:"";
+  if(!to){ toast("No email address on file for this applicant."); return; }
+  const orig=btn?btn.textContent:""; if(btn){ btn.disabled=true; btn.textContent="Sending…"; }
+  try{
+    const r=await fetch("/.netlify/functions/send-provider-email",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to,subject,body})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok&&j.ok) toast("Email sent to "+to+".");
+    else toast("Couldn't send"+(j&&j.detail?" ("+j.detail+")":"")+" — use Copy or Open in Mail.");
+  }catch(e){ toast("Couldn't send — use Copy or Open in Mail."); }
+  if(btn){ btn.disabled=false; btn.textContent=orig||"Send now"; }
 }
 async function admProvSetPayment(id,status){
   const {error}=await sb.from("provider_applications").update({payment_status:status}).eq("id",id);
@@ -4550,7 +4572,36 @@ function pvInit(){
   sel.innerHTML=PV_CATS.map(([v,l])=>`<option value="${v}">${l}</option>`).join("");
   const st=S.estate?.state_code||""; const city=S.estate?.intake?.city||"";
   if(!$("pvAddr").value) $("pvAddr").value=[city,st].filter(Boolean).join(", ");
-  pvDashboard();
+  pvDashboard(); pvLoadPreferred();
+}
+let PV_PREFERRED=[];
+async function pvLoadPreferred(){
+  try{ const {data}=await sb.rpc("list_preferred_providers"); PV_PREFERRED=data||[]; }catch(e){ PV_PREFERRED=[]; }
+  pvRenderPreferred();
+}
+function pvMatchesCat(p){
+  const sel=$("pvCat"); if(!sel||!sel.value) return true;
+  const label=((PV_CATS.find(c=>c[0]===sel.value)||["",""])[1]||"").toLowerCase();
+  const word=(label.split(/[ /]/)[0]||"").replace(/s$/,"");
+  if(word.length<3) return true;
+  const hay=((p.category||"")+" "+(p.services_offered||"")+" "+(p.business_description||"")).toLowerCase();
+  return hay.indexOf(word)>-1;
+}
+function pvRenderPreferred(){
+  const el=$("pvPreferred"); if(!el) return;
+  if(!PV_PREFERRED.length){ el.innerHTML=""; return; }
+  const show=PV_PREFERRED.filter(pvMatchesCat);
+  if(!show.length){ el.innerHTML=""; return; }
+  el.innerHTML=`<div class="eyebrow" style="color:var(--brass)">✦ Preferred providers — vetted by HomegoingHQ</div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr));margin-top:8px">`+show.map(p=>`
+    <div class="card" style="padding:13px 15px;border:1.5px solid var(--brass)">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><strong>${esc(p.business_name)}</strong> <span class="pill" style="background:var(--brass);color:#fff;font-size:10px">Preferred</span></div>
+      <div class="muted" style="font-size:12px;margin:2px 0">${esc(p.category||"")}${p.service_area?" · "+esc(p.service_area):""}</div>
+      ${p.services_offered?`<div class="muted" style="font-size:12px">${esc(p.services_offered)}</div>`:""}
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        ${p.phone?`<a class="btn btn-ghost btn-sm" href="tel:${esc(p.phone)}">Call</a>`:""}
+        ${p.website?`<a class="btn btn-ghost btn-sm" href="${esc(p.website)}" target="_blank" rel="noopener">Website</a>`:""}
+      </div></div>`).join("")+`</div>`;
 }
 function pvHere(){
   if(!navigator.geolocation) return toast("Location isn't available in this browser — type a city instead.");
