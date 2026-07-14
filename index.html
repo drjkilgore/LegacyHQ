@@ -3216,6 +3216,7 @@ async function admAccountModal(id){
   ]);
   if(!acct){ toast("Couldn't load account."); return; }
   const b=brand||{};
+  window.__acLiveUrl = acct.custom_domain ? ("https://"+acct.custom_domain) : (acct.subdomain ? ("https://"+acct.subdomain+".homegoinghq.com") : "");
   const ink=b.color_ink||"#26332E", accent=b.color_accent||"#8F6A24", accentD=b.color_accent_deep||"#75561D";
   $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:620px">
     <button class="close" onclick="closeModal()">×</button>
@@ -3237,6 +3238,7 @@ async function admAccountModal(id){
     <label>Custom domain <span class="muted" style="font-weight:400">(Professional+ — also add it as a Netlify domain alias)</span></label>
     <div style="display:flex;gap:6px"><input id="acDomain" value="${esc(acct.custom_domain||"")}" placeholder="care.example.com" style="flex:1">
       <button class="btn btn-primary btn-sm" onclick="admSaveDomain('${id}')">Save</button></div>
+    <div id="acDomainStatus" class="muted" style="font-size:12px;margin-top:7px">Checking…</div>
 
     <div class="eyebrow" style="margin-top:18px">Branding</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px">
@@ -3261,12 +3263,28 @@ async function admAccountModal(id){
     <div class="eyebrow" style="margin-top:18px">Live preview</div>
     <div id="acPreview" style="margin-top:6px"></div>
 
-    <div style="display:flex;gap:8px;margin-top:18px">
+    <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
       <button class="btn btn-brass" onclick="admSaveBranding('${id}')">Save branding</button>
+      <button class="btn btn-ghost" onclick="admOpenLiveSite()">Open live site \u2197</button>
       <button class="btn btn-ghost" onclick="closeModal()">Close</button>
     </div>
   </div></div>`;
-  admBrandPreview();
+  admBrandPreview(); admCheckDomain();
+}
+async function admCheckDomain(){
+  const el=$("acDomainStatus"); if(!el) return;
+  const u=window.__acLiveUrl;
+  if(!u){ el.innerHTML='<span style="color:var(--muted)">No domain connected yet \u2014 the branded site is not live until a subdomain or custom domain is set up.</span>'; return; }
+  const host=esc(u.replace("https://",""));
+  el.innerHTML="Checking if "+host+" is reachable\u2026";
+  const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(),5000);
+  try{
+    await fetch(u,{mode:"no-cors",cache:"no-store",signal:ctrl.signal}); clearTimeout(t);
+    el.innerHTML='<span style="color:#2E7D32">\u2713 '+host+' is resolving.</span> If it still shows default branding, confirm it is added as a domain alias in Netlify.';
+  }catch(e){
+    clearTimeout(t);
+    el.innerHTML='<span style="color:#8B0000">\u26a0 '+host+' is not resolving yet.</span> Connect its DNS and add it as a domain alias in Netlify.';
+  }
 }
 function admBrandPreview(){
   const g=id=>($(id)?$(id).value:"");
@@ -3278,9 +3296,14 @@ function admBrandPreview(){
       ${logo?`<img src="${esc(logo)}" style="height:26px;width:auto" onerror="this.style.display='none'">`:`<span style="width:26px;height:26px;border-radius:7px;background:#F6F2EA;color:${esc(ink)};display:grid;place-items:center;font-weight:600">${esc(name.trim().charAt(0).toUpperCase()||"H")}</span>`}
       <strong style="font-family:var(--font-display)">${esc(name)}</strong></div>
     <div style="padding:14px 16px;background:var(--card)">
-      <button style="background:${esc(accent)};color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:600">Begin</button>
+      <button onclick="admOpenLiveSite()" title="Open the live branded site" style="background:${esc(accent)};color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer">Begin</button>
       <div style="font-size:11px;letter-spacing:.04em;color:var(--ink-soft);opacity:.7;margin-top:10px">Powered by HomegoingHQ®</div>
     </div></div>`;
+}
+function admOpenLiveSite(){
+  const u=window.__acLiveUrl;
+  if(u){ window.open(u,"_blank","noopener"); }
+  else { toast("This is a live preview. To view the real branded site, connect a subdomain or custom domain first \u2014 the branding loads on the concierge's own domain."); }
 }
 async function admUploadAsset(id,kind,input){
   const f=input.files[0]; if(!f) return;
