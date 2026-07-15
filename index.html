@@ -4583,6 +4583,38 @@ function pgPrint(order){
   pr.querySelectorAll(".fitText").forEach(el=>{let s=12.5,g=0;el.style.fontSize=s+"px";while(el.scrollHeight>el.clientHeight&&s>8.5&&g<40){s-=.5;el.style.fontSize=s+"px";g++;}});
   setTimeout(()=>{ window.print(); setTimeout(()=>pr.remove(),500); }, PG.memorialUrl?450:150);
 }
+
+/* ===================== PROGRAM -> PRINT-READY PDF (for Peecho / download) ===================== */
+/* Reuses pgSheets() + pgQr() + .fitText so the PDF matches the on-screen preview. */
+async function pgBuildPdf(order){
+  let pr=document.getElementById("printRoot"); if(pr) pr.remove();
+  pr=document.createElement("div"); pr.id="printRoot";
+  pr.innerHTML=pgSheets(order);
+  document.body.appendChild(pr);
+  pgQr(pr);
+  pr.querySelectorAll(".fitText").forEach(el=>{let s=12.5,g=0;el.style.fontSize=s+"px";while(el.scrollHeight>el.clientHeight&&s>8.5&&g<40){s-=.5;el.style.fontSize=s+"px";g++;}});
+  await new Promise(r=>setTimeout(r,600)); // let fonts + QR settle
+  // flatten any <canvas> (e.g. the QR) to <img> so it survives serialization
+  pr.querySelectorAll("canvas").forEach(c=>{ try{ const img=document.createElement("img"); img.src=c.toDataURL("image/png"); img.style.cssText=c.style.cssText; if(c.width)img.width=c.width; if(c.height)img.height=c.height; c.replaceWith(img); }catch(_e){} });
+  const fontLink=document.querySelector('link[href*="fonts.googleapis"]')?.outerHTML||'<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Public+Sans:wght@400;600&display=swap" rel="stylesheet">';
+  const styles=[...document.querySelectorAll("style")].map(s=>s.outerHTML).join("\n");
+  const html="<!doctype html><html><head><meta charset='utf-8'>"+fontLink+styles+"</head><body>"+pr.outerHTML+"</body></html>";
+  pr.remove();
+  return html;
+}
+async function pgGeneratePdf(order="front"){
+  const html=await pgBuildPdf(order);
+  if(html.length>5600000) throw new Error("This program's photos make the file too large to send. Use fewer/smaller photos, or upload photos to storage and reference URLs.");
+  const session=(await sb.auth.getSession()).data.session;
+  const res=await fetch("/.netlify/functions/program-pdf",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(session?session.access_token:"")},body:JSON.stringify({estateId:S.estate.id,html})});
+  const j=await res.json();
+  if(!res.ok) throw new Error(j.error||"Couldn't build the PDF");
+  return j; // { url, path, bytes }
+}
+async function pgOrderPrints(order="front"){
+  try{ toast("Preparing your print-ready program…"); const {url}=await pgGeneratePdf(order); window.open(url,"_blank"); toast("Print-ready PDF created ✓"); }
+  catch(e){ toast(e.message); }
+}
 </script>
 <script>
 /* ===================== PROVIDER DISCOVERY & COMPARISON (Release 17) ===================== */
