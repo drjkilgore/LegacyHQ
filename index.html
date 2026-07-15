@@ -4411,6 +4411,7 @@ function pgFormHtml(){
     <div class="scard-actions" style="margin-top:10px">
       <button class="btn btn-brass" onclick="pgPrint('shop')">Print / PDF — print shop</button>
       <button class="btn btn-ghost" onclick="pgPrint('home')">Print — home duplex</button>
+      <button class="btn btn-brass" onclick="pgOrderPrints('shop')">Order printed copies →</button>
     </div>
   </div>`;
 }
@@ -4602,7 +4603,7 @@ async function pgBuildPdf(order){
   pr.remove();
   return html;
 }
-async function pgGeneratePdf(order="front"){
+async function pgGeneratePdf(order="shop"){
   const html=await pgBuildPdf(order);
   if(html.length>5600000) throw new Error("This program's photos make the file too large to send. Use fewer/smaller photos, or upload photos to storage and reference URLs.");
   const session=(await sb.auth.getSession()).data.session;
@@ -4611,7 +4612,7 @@ async function pgGeneratePdf(order="front"){
   if(!res.ok) throw new Error(j.error||"Couldn't build the PDF");
   return j; // { url, path, bytes }
 }
-async function pgOrderPrints(order="front"){
+async function pgOrderPrints(order="shop"){
   try{ toast("Preparing your print-ready program…"); const {url}=await pgGeneratePdf(order); window.open(url,"_blank"); toast("Print-ready PDF created ✓"); }
   catch(e){ toast(e.message); }
 }
