@@ -526,18 +526,29 @@ const ANSWERS={
   "fastest":"The fastest funds are usually: insurance assignment (2–5 days, paid straight to the funeral home), payable-on-death bank accounts (available almost immediately to the beneficiary), and same-day financing like Affirm or Acima. Social Security and VA benefits are reliable but take a few weeks.",
   "assignment":"Insurance assignment means you sign over part of a life or final-expense policy so the insurer pays the funeral home directly, instead of you paying up front and waiting for reimbursement. It typically funds in 2–5 business days. There's usually a modest fee, but it removes the burden of fronting thousands of dollars."
 };
-function askAdvisor(q){
+async function askAdvisor(q){
   if(!q||!q.trim())return;
   const ans=document.getElementById('ans');
-  const key=Object.keys(ANSWERS).find(k=>q.toLowerCase().includes(k.split(' ')[0]));
-  let text;
-  if(q.toLowerCase().includes('insurance')&&q.toLowerCase().includes('assign')) text=ANSWERS.assignment;
-  else if(key) text=ANSWERS[key];
-  else text=`Great question. In the live product this is answered by the AI advisor, which reads your full intake and every source in your plan to give a tailored answer. For "${q.trim()}", the general guidance is to prioritize free benefits and filed claims before any financing, and to lean on insurance assignment or a payment plan when you need funds quickly. Connect the Claude API adapter to enable full conversational answers.`;
-  ans.innerHTML=`<div class="who">AI Advisor</div>${text}`;
-  ans.classList.add('on');
   const box=document.getElementById('askbox'); if(box)box.value='';
+  ans.innerHTML=`<div class="who">AI Advisor</div><span style="opacity:.55">Thinking through your options…</span>`;
+  ans.classList.add('on');
   ans.scrollIntoView({behavior:'smooth',block:'center'});
+  try{
+    const planContext={ intake:(typeof S!=='undefined'?S:{}), plan:(typeof buildPlan==='function'?buildPlan():[]) };
+    const r=await fetch('/.netlify/functions/funding-advisor',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:[{role:'user',content:q.trim()}],planContext})});
+    const j=await r.json();
+    if(!r.ok||!j.text) throw new Error(j.error||'advisor unavailable');
+    const safe=String(j.text).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])).replace(/\n/g,'<br>');
+    ans.innerHTML=`<div class="who">AI Advisor</div>${safe}`;
+  }catch(e){
+    const key=Object.keys(ANSWERS).find(k=>q.toLowerCase().includes(k.split(' ')[0]));
+    let text;
+    if(q.toLowerCase().includes('insurance')&&q.toLowerCase().includes('assign')) text=ANSWERS.assignment;
+    else if(key) text=ANSWERS[key];
+    else text=`For "${q.trim()}", the general guidance is to prioritize free benefits and filed claims before any financing, and to lean on insurance assignment or a payment plan when you need funds quickly.`;
+    ans.innerHTML=`<div class="who">AI Advisor</div>${text}`;
+  }
 }
 
 /* ---------- PROVIDER ADAPTER LAYER ---------- */
