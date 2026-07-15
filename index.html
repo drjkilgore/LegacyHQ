@@ -857,7 +857,7 @@ async function handleSession(session){
     $("btnVoice").classList.remove("hidden");
     $("btnMenu").classList.remove("hidden");
     $("btnHelp").classList.remove("hidden");
-    sb.rpc("is_admin").then(({data})=>{ if(data===true){ $("btnAdmin").classList.remove("hidden"); if(location.hash==="#admin") setTimeout(openAdmin,60); } }).catch(()=>{});
+    sb.rpc("is_admin").then(({data})=>{ if(data===true){ S.isAdmin=true; $("btnAdmin").classList.remove("hidden"); if(location.hash==="#admin") setTimeout(openAdmin,60); } }).catch(()=>{});
     sb.rpc("my_account").then(({data})=>{ if(data && data.found){ S.myAccount=data; $("btnBrand").classList.remove("hidden"); } else { S.myAccount=null; } }).catch(()=>{});
     try{ loadAppMessages(); }catch(e){}
     try{
@@ -2517,7 +2517,7 @@ function renderCasketCard(){
 let CK={results:[],analysis:""};
 function casketResultsHTML(){
   if(!CK.results||!CK.results.length) return "";
-  return `<div class="muted" style="font-size:12.5px;margin:2px 0 6px">${CK.results.length} casket & urn stores found — tap Save to add one to your comparison.</div>
+  return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:2px 0 6px"><div class="muted" style="font-size:12.5px">${CK.results.length} casket & urn stores found — tap Save to add one to your comparison.</div><button class="btn btn-ghost btn-sm" onclick="casketClearResults()">Clear results</button></div>
     <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))">`+CK.results.map((p,i)=>`
     <div class="card" style="padding:12px 14px">
       <strong>${esc(p.name)}</strong>
@@ -2579,6 +2579,67 @@ async function casketAnalyze(){
       <div class="muted" style="font-size:11px;margin-top:8px">General guidance to help you ask better questions \u2014 always confirm details with each seller in writing.</div></div>`;
     if(el) el.innerHTML=CK.analysis;
   }catch(e){ if(el) el.innerHTML=`<div class="banner">Couldn't analyze right now: ${esc(e.message)}</div>`; }
+}
+function pvClear(){ if(typeof PV!=="undefined") PV.results=[]; const el=$("pvResults"); if(el) el.innerHTML=""; }
+function casketClearResults(){ if(typeof CK!=="undefined") CK.results=[]; const el=$("casketResults"); if(el) el.innerHTML=""; }
+
+// Owner-defined design templates — stored in Supabase (program_themes) so they
+// appear in "Choose the design" for every family. Admin-managed.
+async function loadCustomThemes(){
+  try{
+    const {data}=await sb.from("program_themes").select("*").order("created_at");
+    S.customThemes=data||[];
+    (data||[]).forEach(t=>{ PG_THEMES[t.key]={name:t.name,ink:t.ink,accent:t.accent,bg:t.bg,script:t.script,display:t.display,body:t.body,motif:t.motif,swatch:t.swatch||t.bg,sw:t.sw}; });
+  }catch(e){ S.customThemes=S.customThemes||[]; }
+}
+const PG_FONT_OPTS=[["'Great Vibes',cursive","Great Vibes (script)"],["'Playfair Display',serif","Playfair Display"],["'Cinzel',serif","Cinzel (engraved caps)"],["'Cormorant Garamond',serif","Cormorant Garamond"],["'Montserrat',sans-serif","Montserrat (clean sans)"]];
+function themeManagerModal(){
+  const fopts=(sel)=>PG_FONT_OPTS.map(f=>`<option value="${f[0]}" ${f[0]===sel?"selected":""}>${f[1]}</option>`).join("");
+  const custom=(S.customThemes||[]);
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:560px">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Design templates</div><h3 style="margin-bottom:6px">Add a design template</h3>
+    <p class="muted" style="font-size:12.5px;margin-bottom:12px">Templates you add here appear in "Choose the design" for every family, right away.</p>
+    <label>Template name</label><input id="tmName" placeholder="e.g. Ocean Tribute">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label>Text color</label><input id="tmInk" type="color" value="#3a3a3a" style="height:44px;padding:4px"></div>
+      <div><label>Accent color</label><input id="tmAccent" type="color" value="#8f6a24" style="height:44px;padding:4px"></div>
+    </div>
+    <label>Cover background (a color, or a CSS gradient)</label><input id="tmBg" placeholder="#fdf6f0   or   linear-gradient(160deg,#fdf6f0,#f9e8e2)">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label>Heading font</label><select id="tmDisplay">${fopts("'Playfair Display',serif")}</select></div>
+      <div><label>Body font</label><select id="tmBody">${fopts("'Cormorant Garamond',serif")}</select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div><label>Script font</label><select id="tmScript">${fopts("'Great Vibes',cursive")}</select></div>
+      <div><label>Divider glyph</label><input id="tmMotif" placeholder="❦" maxlength="4"></div>
+      <div><label>Picker emoji</label><input id="tmSw" placeholder="🕊" maxlength="4"></div>
+    </div>
+    <div class="scard-actions" style="margin-top:14px"><button class="btn btn-brass" onclick="saveCustomTheme()">Add template</button></div>
+    ${custom.length?`<div style="margin-top:18px"><div class="eyebrow" style="margin-bottom:8px">Your templates (${custom.length})</div>${custom.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line)"><span style="display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:24px;height:24px;border-radius:7px;background:${t.bg};border:1px solid var(--line)"></span>${esc(t.name)}</span><button class="btn btn-ghost btn-sm" onclick="deleteCustomTheme('${t.id}')">Delete</button></div>`).join("")}</div>`:""}
+  </div></div>`;
+}
+async function saveCustomTheme(){
+  const name=($("tmName").value||"").trim(); if(!name) return toast("Give the template a name.");
+  const bg=($("tmBg").value||"").trim()||"#fdf6f0";
+  const key="c_"+name.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"").slice(0,24)+"_"+Math.random().toString(36).slice(2,6);
+  const row={key,name,ink:$("tmInk").value,accent:$("tmAccent").value,bg,
+    script:$("tmScript").value,display:$("tmDisplay").value,body:$("tmBody").value,
+    motif:($("tmMotif").value||"").trim()||"—",swatch:bg,sw:($("tmSw").value||"").trim()||"🕊",created_by:S.session.user.id};
+  const {error}=await sb.from("program_themes").insert(row);
+  if(error) return toast(error.message);
+  toast("Template added — it's now in Choose the design.");
+  await loadCustomThemes();
+  if(typeof renderProgram==="function"&&PG) renderProgram();
+  themeManagerModal();
+}
+async function deleteCustomTheme(id){
+  const {error}=await sb.from("program_themes").delete().eq("id",id);
+  if(error) return toast(error.message);
+  toast("Template removed.");
+  await loadCustomThemes();
+  if(typeof renderProgram==="function"&&PG) renderProgram();
+  themeManagerModal();
 }
 function casketLocal(e){ if(e&&e.preventDefault)e.preventDefault(); const a=($("ckLoc")&&$("ckLoc").value.trim())||($("pvAddr")&&$("pvAddr").value.trim())||""; const q="casket stores "+(a||"near me"); window.open("https://www.google.com/maps/search/"+encodeURIComponent(q),"_blank"); return false; }
 function casketAddModal(){
@@ -4450,7 +4511,7 @@ async function openProgram(){
       if(fo&&fo[0]) PG.funeralHome=fo[0].name;
     }
   }catch(e){}
-  renderProgram(); show("view-program");
+  await loadCustomThemes(); renderProgram(); show("view-program");
 }
 function pgSet(k,v){ PG[k]=v; pgPreview(); }
 function pgShow(k,v){ PG.show[k]=v; pgPreview(); }
@@ -4488,6 +4549,7 @@ function pgFormHtml(){
       <button class="theme-card ${t.theme===k?"on":""}" onclick="pgSet('theme','${k}');renderProgram()">
         <div class="theme-swatch" style="background:${th.swatch}">${th.sw}</div><div class="tn">${th.name}</div></button>`).join("")}
     </div>
+    ${S.isAdmin?`<div style="margin-top:10px"><button class="btn btn-ghost btn-sm" onclick="themeManagerModal()">＋ Add a design template (admin)</button></div>`:""}
     <div class="scard-actions" style="margin-top:14px"><button class="btn btn-primary btn-sm" onclick="pgGo(1)">Next →</button><button class="btn btn-ghost btn-sm" onclick="openFullService()">Prefer a designer do it? →</button></div>
   </div>
   <div class="pg-step">
@@ -4855,7 +4917,7 @@ async function pvSearch(){
     if(d.error){ $("pvResults").innerHTML=`<div class="banner">${esc(d.error)}</div>`; return; }
     PV.results=d.providers||[]; PV.cat=cat;
     if(!PV.results.length){ $("pvResults").innerHTML='<div class="muted">Nothing found within 100 miles — try a different category wording via "Add one manually".</div>'; return; }
-    $("pvResults").innerHTML=`<div class="muted" style="font-size:12.5px;margin-bottom:8px">${PV.results.length} found within ${d.radiusUsed} miles — tap Save on any you want to compare.</div>
+    $("pvResults").innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><div class="muted" style="font-size:12.5px">${PV.results.length} found within ${d.radiusUsed} miles — tap Save on any you want to compare.</div><button class="btn btn-ghost btn-sm" onclick="pvClear()">Clear results</button></div>
       <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">`+PV.results.map((p,i)=>`
       <div class="card" style="padding:13px 15px">
         <strong>${esc(p.name)}</strong>
