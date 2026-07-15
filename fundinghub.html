@@ -211,18 +211,18 @@ const REGISTRY = {
   pod:           {name:"Payable-on-Death Account", cat:"Banking", tier:"free", mode:"guide", note:"Passes directly to the named beneficiary outside probate."},
   state_burial:  {name:"State Burial Assistance", cat:"Government", tier:"free", mode:"referral", url:null},
   county_burial: {name:"County / Indigent Burial Program", cat:"Government", tier:"free", mode:"referral", url:null},
-  medicaid:      {name:"Medicaid Burial Assistance", cat:"Government", tier:"free", mode:"referral"},
+  medicaid:      {name:"Medicaid Burial Assistance", cat:"Government", tier:"free", mode:"referral", url:"https://www.medicaid.gov/"},
   fema:          {name:"FEMA Funeral Assistance", cat:"Government", tier:"free", mode:"referral", url:"https://www.fema.gov/disaster/coronavirus/economic/funeral-assistance", note:"Only for deaths tied to a federally declared disaster."},
   tribal:        {name:"Tribal Burial Assistance", cat:"Government", tier:"free", mode:"referral"},
   workers_comp:  {name:"Workers' Comp Death Benefit", cat:"Government", tier:"claim", mode:"guide", note:"For work-related deaths — often covers funeral costs in full."},
   gofundme:      {name:"Memorial Crowdfunding", cat:"Crowdfunding", tier:"free", mode:"referral", url:"https://www.gofundme.com/"},
   church:        {name:"Church / Community Assistance", cat:"Crowdfunding", tier:"free", mode:"guide"},
-  lending_usa:   {name:"LendingUSA", cat:"Financing", tier:"loan", apr:0.1499, mode:"referral", url:null, sameday:true, credit:"Soft check", note:"Funeral-specific installment loans."},
-  carecredit:    {name:"CareCredit", cat:"Financing", tier:"loan", apr:0.1790, mode:"referral", url:null, credit:"Fair+", note:"Promotional interest-free windows on approved plans."},
-  affirm:        {name:"Affirm", cat:"Financing", tier:"loan", apr:0.15, mode:"referral", url:null, sameday:true, credit:"Soft check"},
-  synchrony:     {name:"Synchrony", cat:"Financing", tier:"loan", apr:0.1699, mode:"referral"},
-  bread:         {name:"Bread Financial", cat:"Financing", tier:"loan", apr:0.1599, mode:"referral"},
-  acima:         {name:"Acima (no credit check)", cat:"Financing", tier:"loan", apr:0.0, lto:true, mode:"referral", credit:"No credit check", sameday:true, note:"Lease-to-own; total cost can exceed cash price."},
+  lending_usa:   {name:"LendingUSA", cat:"Financing", tier:"loan", apr:0.1499, mode:"referral", url:"https://www.lendingusa.com/", sameday:true, credit:"Soft check", note:"Funeral-specific installment loans."},
+  carecredit:    {name:"CareCredit", cat:"Financing", tier:"loan", apr:0.1790, mode:"referral", url:"https://www.carecredit.com/", credit:"Fair+", note:"Promotional interest-free windows on approved plans."},
+  affirm:        {name:"Affirm", cat:"Financing", tier:"loan", apr:0.15, mode:"referral", url:"https://www.affirm.com/", sameday:true, credit:"Soft check"},
+  synchrony:     {name:"Synchrony", cat:"Financing", tier:"loan", apr:0.1699, mode:"referral", url:"https://www.synchrony.com/"},
+  bread:         {name:"Bread Financial", cat:"Financing", tier:"loan", apr:0.1599, mode:"referral", url:"https://www.breadfinancial.com/"},
+  acima:         {name:"Acima (no credit check)", cat:"Financing", tier:"loan", apr:0.0, lto:true, mode:"referral", url:"https://www.acima.com/", credit:"No credit check", sameday:true, note:"Lease-to-own; total cost can exceed cash price."},
   payplan:       {name:"HomegoingHQ Payment Plan", cat:"Payment Plan", tier:"loan", apr:0.0, mode:"internal", note:"Split the remaining balance into interest-free monthly installments."},
 };
 
@@ -557,8 +557,12 @@ async function askAdvisor(q){
 function providerAction(id,mode){
   const p=REGISTRY[id]; if(!p){return;}
   if(p.url){ window.open(p.url,'_blank'); return; }
-  const label=p.mode==='api'?'API application':p.mode==='internal'?'HomegoingHQ payment plan':p.mode==='guide'?'step-by-step claim guide':'referral hand-off';
-  alert(`${p.name}\n\nAdapter mode: ${p.mode}\nAction: ${mode==='compare'?'Compare details':label}\n\nThis is where FundingHub ${p.mode==='referral'?'hands off to the provider (drop the real referral URL or API endpoint in the REGISTRY entry once the partner agreement is signed)':p.mode==='internal'?'creates the payment plan via a Supabase edge function':'opens the guided claim workflow'}.`);
+  // No direct link → generate a real, plan-aware guide through the AI advisor.
+  const verb=p.tier==='claim'?'file a claim for':p.tier==='loan'?'apply for':'access';
+  const q = mode==='compare'
+    ? `How does "${p.name}" compare with my other funding options — the pros, cons, speed, and cost — and should I use it in my situation?`
+    : `Walk me through, step by step, how to ${verb} "${p.name}" for my situation — who to contact, what documents I'll need, and how long it usually takes.`;
+  if(typeof askAdvisor==='function') askAdvisor(q);
 }
 </script>
 </body>
