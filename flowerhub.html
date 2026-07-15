@@ -381,7 +381,7 @@ const FLOWER_CATEGORY="fs";   // Florist One: Funeral & Sympathy   // adjust to 
 async function loadLive(){
   try{
     const r=await fetch('/.netlify/functions/flower-api',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'products',category:FLOWER_CATEGORY,count:24})});
+      body:JSON.stringify({action:'products',category:FLOWER_CATEGORY,count:60})});
     if(!r.ok) return;
     const j=await r.json();
     const list=j.PRODUCTS||j.products||j.Products||[];
