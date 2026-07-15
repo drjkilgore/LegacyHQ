@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlowerHub — HomegoingHQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#26332E; --parch:#F6F2EA; --brass:#8F6A24; --gold:#C9A24B;
+  --ink-70:rgba(38,51,46,.7); --ink-12:rgba(38,51,46,.12); --ink-06:rgba(38,51,46,.06);
+  --card:#FCFAF5; --line:rgba(38,51,46,.14); --good:#3d6b4f; --warn:#9a5b1f;
+  --serif:'Fraunces',Georgia,serif; --sans:'Public Sans',system-ui,sans-serif;
+  --sh:0 1px 2px rgba(38,51,46,.06),0 8px 24px rgba(38,51,46,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--parch);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--serif);font-weight:600;line-height:1.15;letter-spacing:-.01em}
+button{font-family:var(--sans);cursor:pointer;border:none;background:none;color:inherit}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+.wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+
+/* Header */
+header{position:sticky;top:0;z-index:50;background:rgba(246,242,234,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.hd{display:flex;align-items:center;gap:20px;height:64px}
+.brand{display:flex;align-items:center;gap:11px;font-family:var(--serif);font-weight:600;font-size:19px}
+.brand .mark{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 32% 30%,var(--gold),var(--brass) 70%);position:relative;flex:none}
+.brand .mark::after{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--parch);opacity:.28}
+.brand small{font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-70);display:block;margin-top:-3px}
+nav.top{display:flex;gap:4px;margin-left:auto}
+nav.top button{padding:8px 14px;border-radius:8px;font-size:14px;font-weight:500;color:var(--ink-70)}
+nav.top button.on,nav.top button:hover{background:var(--ink-06);color:var(--ink)}
+.cartbtn{position:relative;background:var(--ink);color:var(--parch);padding:9px 16px;border-radius:9px;font-weight:600;font-size:14px}
+.cartbtn .b{position:absolute;top:-7px;right:-7px;background:var(--gold);color:var(--ink);min-width:20px;height:20px;border-radius:10px;font-size:11px;font-weight:700;display:grid;place-items:center;padding:0 5px}
+
+/* views */
+.view{display:none;padding:34px 0 90px;animation:fade .3s ease}
+.view.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,var(--ink),#1a231f);color:var(--parch);border-radius:20px;padding:52px 44px;position:relative;overflow:hidden;margin-bottom:30px}
+.hero::before{content:"";position:absolute;right:-70px;top:-70px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(201,162,75,.5),transparent 62%)}
+.hero-eyebrow{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:14px}
+.hero h1{font-size:clamp(30px,5vw,50px);max-width:16ch;color:var(--parch)}
+.hero p{max-width:52ch;margin-top:16px;color:rgba(246,242,234,.82);font-size:17px;position:relative}
+.hero-cta{margin-top:26px;display:inline-flex;background:var(--gold);color:var(--ink);padding:13px 26px;border-radius:11px;font-weight:700;position:relative}
+
+/* controls */
+.bar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:22px}
+.search{flex:1;min-width:220px;display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 15px}
+.search input{border:none;outline:none;background:none;font-size:15px;width:100%;font-family:var(--sans)}
+.sel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:14px;font-family:var(--sans);color:var(--ink);outline:none}
+.zip{width:130px}
+
+/* product grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:15px;overflow:hidden;box-shadow:var(--sh);transition:transform .18s,box-shadow .18s;display:flex;flex-direction:column}
+.card:hover{transform:translateY(-3px);box-shadow:0 12px 34px rgba(38,51,46,.13)}
+.card .ph{aspect-ratio:4/3;position:relative;display:grid;place-items:center;overflow:hidden}
+.card .ph svg{width:100%;height:100%}
+.tag{position:absolute;top:11px;left:11px;background:rgba(38,51,46,.86);color:var(--parch);font-size:11px;font-weight:600;padding:4px 9px;border-radius:20px;letter-spacing:.03em}
+.tag.sd{background:var(--good);top:11px;left:auto;right:11px}
+.fav{position:absolute;bottom:11px;right:11px;width:34px;height:34px;border-radius:50%;background:rgba(252,250,245,.9);display:grid;place-items:center;font-size:16px;transition:transform .15s}
+.fav:hover{transform:scale(1.12)}
+.fav.on{color:#b23}
+.card .body{padding:15px 16px 17px;flex:1;display:flex;flex-direction:column}
+.card h3{font-size:17px;margin-bottom:5px}
+.card .meaning{font-size:12.5px;color:var(--ink-70);font-style:italic;margin-bottom:11px;flex:1}
+.card .price{display:flex;align-items:baseline;gap:8px;margin-bottom:12px}
+.card .price b{font-family:var(--serif);font-size:22px}
+.card .price .from{font-size:12px;color:var(--ink-70)}
+.addbtn{background:var(--ink);color:var(--parch);border-radius:9px;padding:10px;font-weight:600;font-size:14px;width:100%;transition:background .15s}
+.addbtn:hover{background:var(--brass)}
+
+/* AI panel */
+.ai{background:linear-gradient(135deg,#2c3a34,#26332E);color:var(--parch);border-radius:16px;padding:24px;margin-bottom:26px}
+.ai h3{color:var(--parch);font-size:20px;display:flex;align-items:center;gap:9px}
+.ai .spark{width:22px;height:22px;border-radius:6px;background:var(--gold);display:grid;place-items:center;color:var(--ink);font-size:13px}
+.ai p{color:rgba(246,242,234,.78);font-size:14px;margin:8px 0 16px;max-width:60ch}
+.ai-row{display:flex;gap:10px;flex-wrap:wrap}
+.ai-row select,.ai-row input{background:rgba(246,242,234,.1);border:1px solid rgba(246,242,234,.2);color:var(--parch);border-radius:9px;padding:10px 12px;font-family:var(--sans);font-size:14px;outline:none}
+.ai-row select option{color:var(--ink)}
+.ai-go{background:var(--gold);color:var(--ink);font-weight:700;padding:10px 20px;border-radius:9px}
+.ai-out{margin-top:16px;display:grid;gap:10px}
+.ai-rec{background:rgba(246,242,234,.08);border:1px solid rgba(246,242,234,.15);border-radius:11px;padding:13px 15px}
+.ai-rec b{color:var(--gold)}
+.ai-rec p{margin:4px 0 0;color:rgba(246,242,234,.85)}
+
+/* cart / checkout */
+.split{display:grid;grid-template-columns:1fr 360px;gap:26px;align-items:start}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:22px;box-shadow:var(--sh)}
+.panel h2{font-size:23px;margin-bottom:5px}
+.panel .sub{color:var(--ink-70);font-size:14px;margin-bottom:18px}
+.li{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}
+.li:last-child{border:none}
+.li .thumb{width:70px;height:70px;border-radius:10px;overflow:hidden;flex:none;border:1px solid var(--line)}
+.li .info{flex:1}
+.li .info h4{font-family:var(--sans);font-weight:600;font-size:15px}
+.li .info small{color:var(--ink-70);font-size:12.5px}
+.qty{display:inline-flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:7px}
+.qty button{width:28px;height:28px;font-size:16px;background:var(--ink-06)}
+.qty span{width:34px;text-align:center;font-size:14px;font-weight:600}
+.li .amt{text-align:right;font-family:var(--serif);font-weight:600}
+.rm{color:var(--ink-70);font-size:12px;margin-top:6px;text-decoration:underline}
+
+.summary .row{display:flex;justify-content:space-between;font-size:14px;padding:7px 0}
+.summary .row.tot{border-top:1px solid var(--line);margin-top:8px;padding-top:14px;font-size:19px;font-weight:700;font-family:var(--serif)}
+.summary .muted{color:var(--ink-70)}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-70);margin-bottom:5px}
+.field input,.field textarea,.field select{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-family:var(--sans);font-size:14px;outline:none;background:#fff}
+.field textarea{resize:vertical;min-height:64px}
+.coupon-row{display:flex;gap:8px}
+.coupon-row input{flex:1}
+.coupon-row button{background:var(--ink-06);border-radius:9px;padding:0 16px;font-weight:600;font-size:13px}
+.pay{background:var(--gold);color:var(--ink);width:100%;padding:14px;border-radius:11px;font-weight:700;font-size:16px;margin-top:8px}
+.pay:hover{background:var(--brass);color:var(--parch)}
+.trust{display:flex;align-items:center;justify-content:center;gap:7px;font-size:12px;color:var(--ink-70);margin-top:12px}
+
+/* tracking */
+.track-steps{display:flex;flex-direction:column;gap:0;margin-top:8px}
+.tstep{display:flex;gap:15px;padding-bottom:26px;position:relative}
+.tstep:not(:last-child)::before{content:"";position:absolute;left:13px;top:28px;bottom:0;width:2px;background:var(--line)}
+.tstep.done:not(:last-child)::before{background:var(--good)}
+.tdot{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);background:var(--card);display:grid;place-items:center;flex:none;z-index:1;font-size:13px;color:var(--ink-70)}
+.tstep.done .tdot{background:var(--good);border-color:var(--good);color:#fff}
+.tstep.active .tdot{border-color:var(--gold);color:var(--brass);box-shadow:0 0 0 4px rgba(201,162,75,.18)}
+.tstep .tc h4{font-family:var(--sans);font-weight:600;font-size:15px}
+.tstep .tc small{color:var(--ink-70);font-size:13px}
+
+/* admin */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--sh)}
+.kpi .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-70);font-weight:600}
+.kpi .val{font-family:var(--serif);font-size:30px;font-weight:600;margin-top:6px}
+.kpi .delta{font-size:12.5px;margin-top:4px;font-weight:600}
+.kpi .up{color:var(--good)} .kpi .down{color:#b23}
+.bars{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:var(--sh);margin-bottom:20px}
+.bars h3{font-size:18px;margin-bottom:16px}
+.barrow{display:flex;align-items:center;gap:12px;margin-bottom:11px}
+.barrow .n{width:150px;font-size:13.5px;flex:none}
+.bartrack{flex:1;height:22px;background:var(--ink-06);border-radius:6px;overflow:hidden}
+.barfill{height:100%;background:linear-gradient(90deg,var(--brass),var(--gold));border-radius:6px}
+.barrow .v{width:64px;text-align:right;font-size:13px;font-weight:600;font-family:var(--serif)}
+table.prov{width:100%;border-collapse:collapse;font-size:13.5px}
+table.prov th{text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-70);border-bottom:1px solid var(--line)}
+table.prov td{padding:11px 12px;border-bottom:1px solid var(--line)}
+.pill{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
+.pill.active{background:rgba(61,107,79,.14);color:var(--good)}
+.pill.degraded{background:rgba(154,91,31,.16);color:var(--warn)}
+
+.section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px}
+.section-head h2{font-size:26px}
+.section-head p{color:var(--ink-70);font-size:14px}
+.wl-note{display:inline-flex;align-items:center;gap:7px;background:var(--ink-06);border-radius:20px;padding:5px 13px;font-size:12px;color:var(--ink-70);font-weight:500}
+.empty{text-align:center;padding:60px 20px;color:var(--ink-70)}
+.empty h3{font-size:20px;color:var(--ink);margin-bottom:6px}
+
+footer{border-top:1px solid var(--line);padding:26px 0;color:var(--ink-70);font-size:13px;text-align:center;background:var(--card)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:var(--parch);padding:13px 22px;border-radius:11px;font-weight:600;font-size:14px;box-shadow:0 10px 30px rgba(38,51,46,.3);opacity:0;transition:.3s;z-index:100}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+@media(max-width:820px){.split{grid-template-columns:1fr}nav.top{display:none}.hero{padding:36px 26px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hd">
+    <a class="brand" href="#" onclick="go('shop');return false">
+      <span class="mark"></span>
+      <span>FlowerHub<small>by HomegoingHQ</small></span>
+    </a>
+    <nav class="top" id="nav">
+      <button data-v="shop" class="on" onclick="go('shop')">Shop</button>
+      <button data-v="favorites" onclick="go('favorites')">Favorites</button>
+      <button data-v="track" onclick="go('track')">Track Order</button>
+      <button data-v="admin" onclick="go('admin')">Admin</button>
+    </nav>
+    <button class="cartbtn" onclick="go('cart')">Cart<span class="b" id="cartBadge">0</span></button>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- SHOP -->
+<section class="view on" id="v-shop">
+  <div class="hero">
+    <div class="hero-eyebrow">Sympathy · Celebration · Everyday</div>
+    <h1>Flowers that carry what words can't.</h1>
+    <p>Thoughtfully designed arrangements, delivered on time to funeral homes, churches, cemeteries, and homes nationwide — arranged and cared for by HomegoingHQ.</p>
+    <a class="hero-cta" href="#cat" onclick="document.getElementById('cat').scrollIntoView();return false">Browse arrangements →</a>
+  </div>
+
+  <div class="ai">
+    <h3><span class="spark">✦</span> Arrangement Concierge</h3>
+    <p>Tell us who you're honoring and your budget. We'll recommend arrangements, help word your card, and suggest a fitting verse.</p>
+    <div class="ai-row">
+      <select id="aiRel">
+        <option value="parent">For a parent</option>
+        <option value="spouse">For a spouse</option>
+        <option value="grandparent">For a grandparent</option>
+        <option value="friend">For a friend</option>
+        <option value="colleague">For a colleague</option>
+      </select>
+      <select id="aiBudget">
+        <option value="75">Around $75</option>
+        <option value="150" selected>Around $150</option>
+        <option value="250">Around $250</option>
+        <option value="400">$400+</option>
+      </select>
+      <button class="ai-go" onclick="runAI()">Recommend</button>
+    </div>
+    <div class="ai-out" id="aiOut"></div>
+  </div>
+
+  <div id="cat" class="bar">
+    <div class="search">
+      <span>⌕</span>
+      <input id="q" placeholder="Search arrangements, plants, baskets…" oninput="render()">
+    </div>
+    <select class="sel" id="fCat" onchange="render()">
+      <option value="">All categories</option>
+      <option>Standing Spray</option><option>Casket Spray</option>
+      <option>Wreath</option><option>Cross</option><option>Plant</option>
+      <option>Sympathy Bouquet</option><option>Basket</option>
+    </select>
+    <select class="sel" id="fColor" onchange="render()">
+      <option value="">Any color</option>
+      <option>White</option><option>Red</option><option>Pink</option>
+      <option>Yellow</option><option>Mixed</option>
+    </select>
+    <select class="sel" id="fSort" onchange="render()">
+      <option value="feat">Featured</option>
+      <option value="lo">Price: Low to High</option>
+      <option value="hi">Price: High to Low</option>
+    </select>
+    <input class="sel zip" id="fZip" placeholder="ZIP" maxlength="5" oninput="render()">
+  </div>
+
+  <div class="grid" id="grid"></div>
+</section>
+
+<!-- FAVORITES -->
+<section class="view" id="v-favorites">
+  <div class="section-head"><h2>Saved favorites</h2></div>
+  <div class="grid" id="favGrid"></div>
+  <div class="empty" id="favEmpty" style="display:none">
+    <h3>No favorites yet</h3><p>Tap the heart on any arrangement to save it here.</p>
+  </div>
+</section>
+
+<!-- CART -->
+<section class="view" id="v-cart">
+  <div class="section-head">
+    <div><h2>Your cart</h2></div>
+    <span class="wl-note">🔒 Arranged & fulfilled by HomegoingHQ</span>
+  </div>
+  <div class="split">
+    <div class="panel" id="cartItems"></div>
+    <div class="panel summary">
+      <h2>Order summary</h2>
+      <div class="sub">Delivery & tax calculated at your ZIP</div>
+      <div class="field"><label>Delivery ZIP</label><input id="coZip" value="48170" maxlength="5" oninput="calcTotals()"></div>
+      <div class="field"><label>Delivery date</label><input id="coDate" type="date"></div>
+      <div class="field"><label>Delivery type</label>
+        <select id="coType" onchange="calcTotals()">
+          <option value="std">Standard delivery</option>
+          <option value="sameday">Same-day (+$15)</option>
+        </select>
+      </div>
+      <div class="field"><label>Enclosure card message</label>
+        <textarea id="coCard" placeholder="With deepest sympathy…"></textarea>
+        <button class="rm" style="background:none" onclick="aiCard()">✦ Help me word this</button>
+      </div>
+      <div class="field"><label>Coupon</label>
+        <div class="coupon-row">
+          <input id="coCoupon" placeholder="e.g. GRACE10">
+          <button onclick="applyCoupon()">Apply</button>
+        </div>
+      </div>
+      <div id="totals"></div>
+      <button class="pay" onclick="placeOrder()">Place order</button>
+      <div class="trust">🔒 Secure checkout · HomegoingHQ</div>
+    </div>
+  </div>
+  <div class="empty" id="cartEmpty" style="display:none">
+    <h3>Your cart is empty</h3><p>Browse arrangements to get started.</p>
+  </div>
+</section>
+
+<!-- TRACK -->
+<section class="view" id="v-track">
+  <div class="section-head">
+    <div><h2>Track your order</h2><p id="trackNum" class="sub"></p></div>
+    <span class="wl-note">Delivered by HomegoingHQ</span>
+  </div>
+  <div class="split">
+    <div class="panel">
+      <h2 style="font-size:19px">Delivery progress</h2>
+      <div class="track-steps" id="trackSteps"></div>
+    </div>
+    <div class="panel">
+      <h2 style="font-size:19px">Details</h2>
+      <div id="trackDetails"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ADMIN -->
+<section class="view" id="v-admin">
+  <div class="section-head">
+    <div><h2>FlowerHub operations</h2><p class="sub">Live view across all providers & funeral homes</p></div>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="bars">
+    <h3>Top-selling arrangements (30d)</h3>
+    <div id="topBars"></div>
+  </div>
+  <div class="bars">
+    <h3>Provider routing & health</h3>
+    <table class="prov">
+      <thead><tr><th>Provider</th><th>Status</th><th>Orders</th><th>Success</th><th>Avg fulfill</th><th>Rating</th><th>Routed %</th></tr></thead>
+      <tbody id="provRows"></tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  FlowerHub is a HomegoingHQ service. All arrangements are curated, priced, and delivered under the HomegoingHQ brand.
+  <br>Ink &amp; Cedar · Fraunces + Public Sans · Demo build
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- Ink & Cedar SVG flower art (no external images needed) ----------
+function bloom(seed){
+  const pals=[['#C9A24B','#8F6A24','#F6F2EA'],['#b23a48','#7a2531','#f6e6e8'],
+    ['#d98cae','#a85c80','#f7ecf1'],['#e0b84c','#a6832a','#f7f0da'],
+    ['#e8e2d4','#c7bda6','#fbf9f3']];
+  const p=pals[seed%pals.length];
+  let petals='';
+  for(let i=0;i<8;i++){const a=i*45;petals+=`<ellipse cx="100" cy="62" rx="15" ry="30" fill="${p[0]}" opacity="0.92" transform="rotate(${a} 100 100)"/>`;}
+  let petals2='';
+  for(let i=0;i<8;i++){const a=i*45+22;petals2+=`<ellipse cx="100" cy="72" rx="11" ry="22" fill="${p[1]}" opacity="0.8" transform="rotate(${a} 100 100)"/>`;}
+  return `<svg viewBox="0 0 200 150" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <rect width="200" height="150" fill="#26332E"/>
+    <g transform="translate(0,15)">${petals}${petals2}<circle cx="100" cy="72" r="13" fill="${p[2]}"/><circle cx="100" cy="72" r="7" fill="${p[1]}"/></g>
+    <path d="M30 150 Q60 120 60 150 M150 150 Q140 118 168 150" stroke="${p[0]}" stroke-width="2" fill="none" opacity="0.5"/>
+  </svg>`;
+}
+
+// ---------- Catalog (DB-driven in production; seeded here) ----------
+const CATALOG=[
+  {id:1,name:"Cedar & Ivory Standing Spray",cat:"Standing Spray",color:"White",meaning:"Peace, reverence, remembrance",wholesale:96,retail:169,sd:true,feat:9},
+  {id:2,name:"Gilded Rose Casket Spray",cat:"Casket Spray",color:"Red",meaning:"Deep love and honor",wholesale:210,retail:349,sd:false,feat:10},
+  {id:3,name:"Serene Lily Standing Wreath",cat:"Wreath",color:"White",meaning:"Eternity, the circle of life",wholesale:118,retail:199,sd:true,feat:8},
+  {id:4,name:"Standing Cross of Grace",cat:"Cross",color:"White",meaning:"Faith and eternal rest",wholesale:132,retail:225,sd:false,feat:7},
+  {id:5,name:"Blushing Sympathy Bouquet",cat:"Sympathy Bouquet",color:"Pink",meaning:"Gentle comfort and grace",wholesale:52,retail:89,sd:true,feat:6},
+  {id:6,name:"Peace Lily Tribute Plant",cat:"Plant",color:"White",meaning:"Rebirth and lasting peace",wholesale:44,retail:79,sd:true,feat:5},
+  {id:7,name:"Golden Harvest Basket",cat:"Basket",color:"Yellow",meaning:"Warmth and gratitude",wholesale:58,retail:99,sd:true,feat:4},
+  {id:8,name:"Sunset Mixed Standing Spray",cat:"Standing Spray",color:"Mixed",meaning:"A life vividly lived",wholesale:104,retail:179,sd:false,feat:8},
+  {id:9,name:"Ivory Orchid Memorial",cat:"Plant",color:"White",meaning:"Refined, enduring love",wholesale:68,retail:119,sd:true,feat:5},
+  {id:10,name:"Crimson Rose Standing Heart",cat:"Wreath",color:"Red",meaning:"Devotion that endures",wholesale:145,retail:249,sd:false,feat:9},
+  {id:11,name:"Whispering Willow Bouquet",cat:"Sympathy Bouquet",color:"Mixed",meaning:"Consolation and hope",wholesale:46,retail:79,sd:true,feat:4},
+  {id:12,name:"Brass & Bloom Fruit Basket",cat:"Basket",color:"Mixed",meaning:"Nourishment and care",wholesale:54,retail:95,sd:true,feat:3},
+];
+
+let CART=[], FAVS=new Set(), COUPON=null, LAST_TOTALS=null;
+
+// ---------- routing / views ----------
+function go(v){
+  document.querySelectorAll('.view').forEach(s=>s.classList.remove('on'));
+  document.getElementById('v-'+v).classList.add('on');
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  window.scrollTo(0,0);
+  if(v==='favorites')renderFavs();
+  if(v==='cart')renderCart();
+  if(v==='track')renderTrack();
+  if(v==='admin')renderAdmin();
+}
+
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
+
+// ---------- shop render ----------
+function render(){
+  const q=(document.getElementById('q').value||'').toLowerCase();
+  const cat=document.getElementById('fCat').value;
+  const col=document.getElementById('fColor').value;
+  const sort=document.getElementById('fSort').value;
+  const zip=document.getElementById('fZip').value;
+  let list=CATALOG.filter(p=>
+    (!q||p.name.toLowerCase().includes(q)||p.meaning.toLowerCase().includes(q))&&
+    (!cat||p.cat===cat)&&(!col||p.color===col));
+  if(zip.length===5){/* would call zip_availability; demo shows same-day flag only */}
+  if(sort==='lo')list.sort((a,b)=>a.retail-b.retail);
+  else if(sort==='hi')list.sort((a,b)=>b.retail-a.retail);
+  else list.sort((a,b)=>b.feat-a.feat);
+  document.getElementById('grid').innerHTML=list.map(card).join('')||
+    `<div class="empty"><h3>No matches</h3><p>Try clearing a filter.</p></div>`;
+}
+function card(p){
+  const zipOK=(document.getElementById('fZip').value||'').length===5;
+  return `<div class="card">
+    <div class="ph">${bloom(p.id)}
+      <span class="tag">${p.cat}</span>
+      ${p.sd?`<span class="tag sd">${zipOK?'Same-day here':'Same-day'}</span>`:''}
+      <button class="fav ${FAVS.has(p.id)?'on':''}" onclick="toggleFav(${p.id})">${FAVS.has(p.id)?'♥':'♡'}</button>
+    </div>
+    <div class="body">
+      <h3>${p.name}</h3>
+      <div class="meaning">${p.meaning}</div>
+      <div class="price"><b>$${p.retail}</b></div>
+      <button class="addbtn" onclick="addToCart(${p.id})">Add to cart</button>
+    </div></div>`;
+}
+function toggleFav(id){FAVS.has(id)?FAVS.delete(id):FAVS.add(id);render();toast(FAVS.has(id)?'Saved to favorites':'Removed');}
+function renderFavs(){
+  const list=CATALOG.filter(p=>FAVS.has(p.id));
+  document.getElementById('favGrid').innerHTML=list.map(card).join('');
+  document.getElementById('favEmpty').style.display=list.length?'none':'block';
+}
+
+// ---------- cart ----------
+function addToCart(id){
+  const ex=CART.find(i=>i.id===id);
+  if(ex)ex.qty++; else{const p=CATALOG.find(x=>x.id===id);CART.push({...p,qty:1});}
+  updateBadge();toast('Added to cart');
+}
+function updateBadge(){document.getElementById('cartBadge').textContent=CART.reduce((s,i)=>s+i.qty,0);}
+function chQty(id,d){const i=CART.find(x=>x.id===id);if(!i)return;i.qty+=d;if(i.qty<=0)CART=CART.filter(x=>x.id!==id);updateBadge();renderCart();}
+function rmItem(id){CART=CART.filter(x=>x.id!==id);updateBadge();renderCart();}
+function renderCart(){
+  const box=document.getElementById('cartItems');
+  const empty=document.getElementById('cartEmpty');
+  const summary=document.querySelector('#v-cart .split');
+  if(!CART.length){summary.style.display='none';empty.style.display='block';return;}
+  summary.style.display='grid';empty.style.display='none';
+  box.innerHTML=`<h2>${CART.reduce((s,i)=>s+i.qty,0)} item(s)</h2><div class="sub">Curated by HomegoingHQ · white-label fulfillment</div>`+
+    CART.map(i=>`<div class="li">
+      <div class="thumb">${bloom(i.id)}</div>
+      <div class="info"><h4>${i.name}</h4><small>${i.meaning}</small>
+        <div class="qty"><button onclick="chQty(${i.id},-1)">−</button><span>${i.qty}</span><button onclick="chQty(${i.id},1)">+</button></div>
+        <div class="rm" onclick="rmItem(${i.id})">Remove</div>
+      </div>
+      <div class="amt">$${(i.retail*i.qty).toFixed(2)}</div>
+    </div>`).join('');
+  const d=document.getElementById('coDate');if(!d.value){const t=new Date(Date.now()+864e5);d.value=t.toISOString().slice(0,10);}
+  calcTotals();
+}
+
+// ---------- pricing engine (mirror of edge computePrice) ----------
+function applyCoupon(){
+  const code=(document.getElementById('coCoupon').value||'').trim().toUpperCase();
+  const table={GRACE10:{kind:'percent',value:10},PEACE25:{kind:'fixed',value:25}};
+  if(table[code]){COUPON=table[code];toast('Coupon applied');}
+  else{COUPON=null;toast('Invalid coupon');}
+  calcTotals();
+}
+function calcTotals(){
+  const zip=document.getElementById('coZip').value;
+  const type=document.getElementById('coType').value;
+  const retailSubtotal=CART.reduce((s,i)=>s+i.retail*i.qty,0);
+  const wholesaleTotal=CART.reduce((s,i)=>s+i.wholesale*i.qty,0);
+  const deliveryFee=zip.length===5?14.99:0;
+  const serviceFee=9.99+(type==='sameday'?15:0);
+  const platformFee=+(retailSubtotal*0.03).toFixed(2);
+  let discount=0;
+  if(COUPON)discount=COUPON.kind==='percent'?+(retailSubtotal*COUPON.value/100).toFixed(2):COUPON.value;
+  const taxRate=0.06;
+  const tax=+(Math.max(0,retailSubtotal+serviceFee+deliveryFee-discount)*taxRate).toFixed(2);
+  const grand=+(retailSubtotal+serviceFee+platformFee+deliveryFee+tax-discount).toFixed(2);
+  const profit=+(retailSubtotal+serviceFee-wholesaleTotal-discount).toFixed(2);
+  const margin=retailSubtotal?((profit/retailSubtotal)*100).toFixed(1):0;
+  LAST_TOTALS={grand,profit,margin};
+  document.getElementById('totals').innerHTML=`
+    <div class="summary">
+      <div class="row"><span class="muted">Subtotal</span><span>$${retailSubtotal.toFixed(2)}</span></div>
+      <div class="row"><span class="muted">Delivery</span><span>${deliveryFee?'$'+deliveryFee.toFixed(2):'—'}</span></div>
+      <div class="row"><span class="muted">Service fee</span><span>$${serviceFee.toFixed(2)}</span></div>
+      <div class="row"><span class="muted">Platform fee</span><span>$${platformFee.toFixed(2)}</span></div>
+      ${discount?`<div class="row"><span class="muted">Discount</span><span style="color:var(--good)">−$${discount.toFixed(2)}</span></div>`:''}
+      <div class="row"><span class="muted">Tax</span><span>$${tax.toFixed(2)}</span></div>
+      <div class="row tot"><span>Total</span><span>$${grand.toFixed(2)}</span></div>
+    </div>`;
+}
+
+// ---------- AI (simulated locally; wired to fh-ai/Claude in prod) ----------
+function runAI(){
+  const rel=document.getElementById('aiRel').value;
+  const budget=+document.getElementById('aiBudget').value;
+  const pool=CATALOG.filter(p=>p.retail<=budget*1.25).sort((a,b)=>Math.abs(a.retail-budget)-Math.abs(b.retail-budget));
+  const picks=pool.slice(0,3);
+  const relText={parent:'a beloved parent',spouse:'a cherished spouse',grandparent:'a treasured grandparent',friend:'a dear friend',colleague:'a respected colleague'}[rel];
+  document.getElementById('aiOut').innerHTML=picks.map(p=>`
+    <div class="ai-rec"><b>${p.name}</b> · $${p.retail}
+      <p>${p.meaning}. A fitting tribute for ${relText}, within your budget.</p>
+      <button class="rm" style="color:var(--gold);margin-top:8px" onclick="addToCart(${p.id})">Add to cart →</button>
+    </div>`).join('');
+  toast('Recommendations ready');
+}
+function aiCard(){
+  const samples=["With heartfelt sympathy — may loving memories bring you comfort in the days ahead.",
+    "Holding you close in thought and prayer. With deepest condolences.",
+    "A life so beautifully lived leaves a memory too beautiful to fade. With love."];
+  document.getElementById('coCard').value=samples[Math.floor(Math.random()*samples.length)];
+  toast('✦ Card message suggested');
+}
+
+// ---------- place order -> track ----------
+let ORDER=null;
+function placeOrder(){
+  if(!CART.length){toast('Cart is empty');return;}
+  const num='FH-'+new Date().toISOString().slice(2,10).replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,8).toUpperCase();
+  ORDER={num,items:[...CART],total:LAST_TOTALS?LAST_TOTALS.grand:0,provider:'Routed automatically',
+    zip:document.getElementById('coZip').value,date:document.getElementById('coDate').value,
+    card:document.getElementById('coCard').value,step:1};
+  CART=[];COUPON=null;updateBadge();
+  toast('Order placed — thank you');
+  go('track');
+}
+function renderTrack(){
+  if(!ORDER){document.getElementById('trackSteps').innerHTML='<div class="empty"><h3>No active order</h3><p>Place an order to see live tracking.</p></div>';
+    document.getElementById('trackDetails').innerHTML='';document.getElementById('trackNum').textContent='';return;}
+  document.getElementById('trackNum').textContent='Order '+ORDER.num;
+  const steps=[['Order confirmed','We received your order and routed it to the best florist.'],
+    ['In the studio','Your arrangement is being designed by hand.'],
+    ['Out for delivery','On the way to your delivery address.'],
+    ['Delivered','A photo confirmation will appear here when available.']];
+  document.getElementById('trackSteps').innerHTML=steps.map((s,i)=>{
+    const st=i<ORDER.step?'done':i===ORDER.step?'active':'';
+    return `<div class="tstep ${st}"><div class="tdot">${i<ORDER.step?'✓':i+1}</div>
+      <div class="tc"><h4>${s[0]}</h4><small>${s[1]}</small></div></div>`;
+  }).join('');
+  document.getElementById('trackDetails').innerHTML=`
+    <div class="summary">
+      <div class="row"><span class="muted">Order</span><span>${ORDER.num}</span></div>
+      <div class="row"><span class="muted">Delivery ZIP</span><span>${ORDER.zip}</span></div>
+      <div class="row"><span class="muted">Delivery date</span><span>${ORDER.date||'—'}</span></div>
+      <div class="row"><span class="muted">Fulfillment</span><span>HomegoingHQ</span></div>
+      <div class="row tot"><span>Total</span><span>$${(ORDER.total||0).toFixed(2)}</span></div>
+    </div>
+    <p style="font-size:12.5px;color:var(--ink-70);margin-top:14px">Provider branding hidden per white-label policy. All updates and receipts are issued by HomegoingHQ.</p>`;
+  if(ORDER.step<4){setTimeout(()=>{if(ORDER){ORDER.step++;if(document.getElementById('v-track').classList.contains('on'))renderTrack();}},4000);}
+}
+
+// ---------- admin ----------
+function renderAdmin(){
+  const kpis=[['Revenue (30d)','$248,910','+18.4%','up'],['Orders','1,842','+12.1%','up'],
+    ['Gross profit','$104,540','+21.7%','up'],['Avg order value','$135.10','+3.2%','up'],
+    ['Delivery success','98.6%','+0.4%','up'],['Refund rate','1.1%','−0.3%','up']];
+  document.getElementById('kpis').innerHTML=kpis.map(k=>`
+    <div class="kpi"><div class="lbl">${k[0]}</div><div class="val">${k[1]}</div>
+    <div class="delta ${k[3]}">${k[2]} vs prior</div></div>`).join('');
+  const top=[['Gilded Rose Casket Spray',312],['Cedar & Ivory Standing Spray',268],
+    ['Serene Lily Standing Wreath',201],['Crimson Rose Standing Heart',176],['Peace Lily Tribute Plant',158]];
+  const max=top[0][1];
+  document.getElementById('topBars').innerHTML=top.map(t=>`
+    <div class="barrow"><div class="n">${t[0]}</div>
+    <div class="bartrack"><div class="barfill" style="width:${t[1]/max*100}%"></div></div>
+    <div class="v">${t[1]}</div></div>`).join('');
+  const prov=[['Florist One','active',1024,'99.1%','18h','4.8',56],
+    ['Good Choice Flowers','active',612,'98.2%','22h','4.6',33],
+    ['Local Independent Network','degraded',206,'96.4%','9h','4.7',11]];
+  document.getElementById('provRows').innerHTML=prov.map(p=>`
+    <tr><td><b>${p[0]}</b></td><td><span class="pill ${p[1]}">${p[1]}</span></td>
+    <td>${p[2]}</td><td>${p[3]}</td><td>${p[4]}</td><td>${p[5]} ★</td><td>${p[6]}%</td></tr>`).join('');
+}
+
+// init
+render();updateBadge();
+</script>
+</body>
+</html>

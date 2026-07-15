@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FundingHub — HomegoingHQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#26332E; --parch:#F6F2EA; --brass:#8F6A24; --gold:#C9A24B;
+  --ink-2:#33443C; --line:#DED6C6; --parch-2:#EFE9DC;
+  --free:#4A7C59; --claim:#3E6B8C; --loan:#8F6A24; --gap:#A5453B;
+  --shadow:0 1px 2px rgba(38,51,46,.06),0 8px 28px rgba(38,51,46,.09);
+  --serif:"Fraunces",Georgia,serif; --sans:"Public Sans",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--parch);color:var(--ink);font-family:var(--sans);line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--serif);font-weight:600;line-height:1.12;letter-spacing:-.01em}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+.btn{background:var(--ink);color:var(--parch);padding:13px 26px;border-radius:10px;font-weight:600;font-size:15px;transition:.15s;letter-spacing:.01em}
+.btn:hover{background:var(--ink-2);transform:translateY(-1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn-ghost:hover{background:var(--parch-2);transform:none}
+.btn-gold{background:var(--brass);color:#fff}
+.btn-gold:hover{background:#7d5c1e}
+
+/* Header */
+header{border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(246,242,234,.92);backdrop-filter:blur(10px);z-index:50}
+.hbar{display:flex;align-items:center;justify-content:space-between;height:66px}
+.brand{display:flex;align-items:center;gap:11px;font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:-.01em}
+.mark{width:30px;height:30px;border-radius:8px;background:var(--ink);position:relative;flex:0 0 auto}
+.mark:after{content:"";position:absolute;inset:8px 13px;background:var(--gold);border-radius:1px}
+.mark:before{content:"";position:absolute;left:13px;top:6px;width:4px;height:18px;background:var(--gold);border-radius:1px;transform:rotate(0)}
+.tag{font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);padding-left:11px;margin-left:2px;border-left:1px solid var(--line)}
+
+/* Hero */
+.hero{padding:78px 0 20px;text-align:center}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--brass);margin-bottom:20px}
+.hero h1{font-size:clamp(38px,6vw,62px);font-weight:600;max-width:15ch;margin:0 auto 22px}
+.hero h1 em{font-style:italic;color:var(--brass)}
+.hero p{font-size:18px;max-width:52ch;margin:0 auto 34px;color:var(--ink-2)}
+.hero-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.trust{margin-top:44px;display:flex;gap:34px;justify-content:center;flex-wrap:wrap;font-size:13px;color:var(--ink-2)}
+.trust b{font-family:var(--serif);display:block;font-size:26px;color:var(--ink);font-weight:600}
+.hero-note{margin-top:52px;font-size:13px;color:#8a8578;max-width:56ch;margin-left:auto;margin-right:auto}
+
+/* Sources marquee */
+.sources{padding:20px 0 70px;text-align:center}
+.sources .lab{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#8a8578;margin-bottom:22px;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;max-width:820px;margin:0 auto}
+.chip{background:#fff;border:1px solid var(--line);border-radius:100px;padding:7px 16px;font-size:13px;font-weight:500;color:var(--ink-2)}
+
+/* App shell */
+.app{display:none;min-height:calc(100vh - 66px)}
+.app.on{display:block}
+.progress{height:3px;background:var(--parch-2)}
+.progress .bar{height:100%;background:var(--brass);transition:width .4s ease;width:0}
+.stage{padding:44px 0 90px}
+.step-head{margin-bottom:6px;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--brass)}
+.stage h2{font-size:clamp(26px,4vw,36px);margin-bottom:10px}
+.stage .sub{color:var(--ink-2);margin-bottom:32px;font-size:16px;max-width:60ch}
+
+/* Form */
+.qgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.q{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px}
+.q.full{grid-column:1/-1}
+.q label{display:block;font-weight:600;font-size:14.5px;margin-bottom:11px}
+.q .hint{font-weight:400;color:#8a8578;font-size:12.5px;margin-top:2px}
+.seg{display:flex;gap:7px;flex-wrap:wrap}
+.seg button{border:1px solid var(--line);background:var(--parch);border-radius:8px;padding:8px 15px;font-size:13.5px;font-weight:500;color:var(--ink-2);transition:.12s}
+.seg button:hover{border-color:var(--brass)}
+.seg button.sel{background:var(--ink);color:var(--parch);border-color:var(--ink)}
+input[type=text],input[type=number],select{width:100%;border:1px solid var(--line);background:var(--parch);border-radius:8px;padding:10px 12px;font-size:14.5px;font-family:inherit;color:var(--ink)}
+input:focus,select:focus{outline:2px solid var(--brass);outline-offset:1px;border-color:transparent}
+.dollar{position:relative}
+.dollar:before{content:"$";position:absolute;left:12px;top:10px;color:#8a8578;font-size:14.5px}
+.dollar input{padding-left:24px}
+.section-div{grid-column:1/-1;font-family:var(--serif);font-size:15px;font-weight:600;color:var(--brass);margin:14px 0 -2px;padding-top:8px;border-top:1px dashed var(--line)}
+.nav{display:flex;justify-content:space-between;margin-top:30px;gap:12px}
+
+/* Results */
+.res-hero{background:var(--ink);color:var(--parch);border-radius:20px;padding:36px 34px;margin-bottom:26px;position:relative;overflow:hidden}
+.res-hero:after{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(201,162,75,.22),transparent 70%)}
+.res-hero .lab{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:14px}
+.res-nums{display:flex;gap:40px;flex-wrap:wrap}
+.res-num .k{font-size:12px;color:#c9c3b4;letter-spacing:.05em;margin-bottom:4px}
+.res-num .v{font-family:var(--serif);font-size:34px;font-weight:600}
+.res-num .v.gap{color:var(--gold)}
+.res-bar{margin-top:26px;height:16px;border-radius:8px;overflow:hidden;display:flex;background:rgba(255,255,255,.1)}
+.res-bar span{height:100%}
+.res-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:12.5px;color:#c9c3b4}
+.res-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
+
+.tier{margin-bottom:30px}
+.tier-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.tier-head .n{font-family:var(--serif);font-size:21px;font-weight:600}
+.tier-head .badge{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:100px;color:#fff}
+.tier-head .amt{margin-left:auto;font-family:var(--serif);font-size:19px;font-weight:600}
+.b-free{background:var(--free)} .b-claim{background:var(--claim)} .b-loan{background:var(--loan)}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:11px;display:flex;gap:16px;align-items:flex-start}
+.card .dot{width:9px;height:9px;border-radius:50%;margin-top:7px;flex:0 0 auto}
+.card .body{flex:1}
+.card .top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.card .title{font-weight:600;font-size:15.5px}
+.card .est{margin-left:auto;font-family:var(--serif);font-weight:600;font-size:16px;white-space:nowrap}
+.card .desc{color:var(--ink-2);font-size:13.5px;margin-top:5px}
+.card .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.pill{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:6px;background:var(--parch-2);color:var(--ink-2)}
+.pill.odds-high{background:#e3efe6;color:var(--free)}
+.pill.odds-med{background:#eef4d9;color:#6b6a1e}
+.pill.odds-low{background:#f6e6e4;color:var(--gap)}
+.card .act{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+.mini{font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;border:1px solid var(--line);color:var(--ink);background:var(--parch)}
+.mini:hover{border-color:var(--brass)}
+.mini.go{background:var(--ink);color:var(--parch);border-color:var(--ink)}
+
+/* Advisor */
+.advisor{background:var(--parch-2);border:1px solid var(--line);border-radius:16px;padding:22px;margin:28px 0}
+.advisor h3{font-size:18px;margin-bottom:4px;display:flex;align-items:center;gap:9px}
+.advisor .ai-badge{font-size:10px;font-weight:700;letter-spacing:.1em;background:var(--brass);color:#fff;padding:2px 8px;border-radius:5px;text-transform:uppercase}
+.advisor .strat{margin-top:14px;font-size:14.5px;line-height:1.62;color:var(--ink-2)}
+.advisor .strat p{margin-bottom:10px}
+.advisor .strat b{color:var(--ink)}
+.ask{display:flex;gap:8px;margin-top:16px}
+.ask input{flex:1}
+.ans{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;font-size:14px;line-height:1.6;color:var(--ink-2);display:none}
+.ans.on{display:block}
+.ans .who{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--brass);margin-bottom:7px}
+.chipset{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.chipset button{font-size:12.5px;border:1px solid var(--line);background:#fff;border-radius:100px;padding:6px 13px;color:var(--ink-2)}
+.chipset button:hover{border-color:var(--brass)}
+
+.roadmap{background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px;margin-top:8px}
+.roadmap h3{font-size:18px;margin-bottom:16px}
+.rstep{display:flex;gap:14px;padding:12px 0;border-top:1px solid var(--parch-2)}
+.rstep:first-of-type{border-top:none}
+.rstep .num{width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--parch);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-family:var(--serif)}
+.rstep .rc .rt{font-weight:600;font-size:14.5px}
+.rstep .rc .rd{font-size:13px;color:var(--ink-2);margin-top:2px}
+.rstep .when{margin-left:auto;font-size:12px;color:#8a8578;white-space:nowrap;font-weight:600}
+
+.disclaimer{margin-top:34px;font-size:12px;color:#8a8578;background:var(--parch-2);border-radius:12px;padding:16px 18px;line-height:1.6}
+footer{border-top:1px solid var(--line);padding:30px 0;text-align:center;font-size:12.5px;color:#8a8578}
+@media(max-width:720px){.qgrid{grid-template-columns:1fr}.res-nums{gap:24px}.trust{gap:22px}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap hbar">
+    <div class="brand"><span class="mark"></span>HomegoingHQ<span class="tag">FundingHub</span></div>
+    <button class="btn-ghost btn" id="restart" style="display:none;padding:9px 18px;font-size:14px">Start over</button>
+  </div>
+</header>
+
+<!-- LANDING -->
+<section id="landing">
+  <div class="wrap hero">
+    <div class="eyebrow">Funeral Funding Intelligence</div>
+    <h1>Every way to pay for a funeral, <em>found for you</em>.</h1>
+    <p>Answer a few questions and FundingHub identifies every benefit, claim, and financing option your family qualifies for — free money first, loans last.</p>
+    <div class="hero-cta">
+      <button class="btn" onclick="startIntake()">Find my funding sources</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('sources').scrollIntoView()">See what we search</button>
+    </div>
+    <div class="trust">
+      <div><b>60+</b>funding sources searched</div>
+      <div><b>$0</b>to get your plan</div>
+      <div><b>3 min</b>guided intake</div>
+    </div>
+    <p class="hero-note">FundingHub prioritizes benefits and assistance you never have to repay before it ever shows you a loan. Estimates are informational and not an offer of credit, insurance, or a guarantee of benefits.</p>
+  </div>
+  <div class="wrap sources" id="sources">
+    <div class="lab">Sources searched in every plan</div>
+    <div class="chips" id="chiplist"></div>
+  </div>
+</section>
+
+<!-- APP -->
+<div class="app" id="app">
+  <div class="progress"><div class="bar" id="bar"></div></div>
+  <div class="wrap stage" id="stage"></div>
+</div>
+
+<footer class="wrap">HomegoingHQ FundingHub · Ink &amp; Cedar · Informational estimates only, not financial, insurance, or legal advice.</footer>
+
+<script>
+/* ---------- FUNDING SOURCE REGISTRY (drop real adapters here) ---------- */
+/* Each source: an adapter stub. `mode:'referral'` today; swap to 'api' with
+   endpoint+auth once a partner agreement is signed. The engine is agnostic. */
+const REGISTRY = {
+  ss_death:      {name:"Social Security Death Benefit", cat:"Government", tier:"free",  fixed:255, mode:"referral", url:"https://www.ssa.gov/", apr:null, note:"One-time $255 lump-sum to a qualifying spouse or child."},
+  va_burial:     {name:"VA Burial Allowance", cat:"Veterans", tier:"free", mode:"referral", url:"https://www.va.gov/burials-memorials/veterans-burial-allowance/", apr:null},
+  va_plot:       {name:"National Cemetery Burial", cat:"Veterans", tier:"free", fixed:0, mode:"referral", url:"https://www.va.gov/burials-memorials/", apr:null, note:"Gravesite, opening/closing, headstone, and perpetual care at no cost."},
+  va_headstone:  {name:"Government Headstone / Marker", cat:"Veterans", tier:"free", fixed:0, mode:"referral", url:"https://www.va.gov/burials-memorials/memorial-items/headstones-markers/"},
+  va_honors:     {name:"Military Funeral Honors", cat:"Veterans", tier:"free", fixed:0, mode:"referral", url:"https://www.dpaa.mil/"},
+  va_pmc:        {name:"Presidential Memorial Certificate", cat:"Veterans", tier:"free", fixed:0, mode:"referral", url:"https://www.va.gov/"},
+  life_ins:      {name:"Life Insurance Claim", cat:"Insurance", tier:"claim", mode:"guide", url:null},
+  final_exp:     {name:"Final Expense / Burial Policy", cat:"Insurance", tier:"claim", mode:"guide"},
+  ins_assign:    {name:"Insurance Assignment (advance)", cat:"Insurance", tier:"claim", mode:"referral", url:null, note:"Advances funds from a policy directly to the funeral home in days."},
+  employer_life: {name:"Employer Group Life", cat:"Employer", tier:"claim", mode:"guide"},
+  bereavement:   {name:"Bereavement / EAP Assistance", cat:"Employer", tier:"free", mode:"guide"},
+  pension:       {name:"Pension / 401(k) Survivor Benefit", cat:"Employer", tier:"claim", mode:"guide"},
+  pto:           {name:"Unused PTO Payout", cat:"Employer", tier:"claim", mode:"guide"},
+  union:         {name:"Union Death Benefit", cat:"Employer", tier:"claim", mode:"guide"},
+  pod:           {name:"Payable-on-Death Account", cat:"Banking", tier:"free", mode:"guide", note:"Passes directly to the named beneficiary outside probate."},
+  state_burial:  {name:"State Burial Assistance", cat:"Government", tier:"free", mode:"referral", url:null},
+  county_burial: {name:"County / Indigent Burial Program", cat:"Government", tier:"free", mode:"referral", url:null},
+  medicaid:      {name:"Medicaid Burial Assistance", cat:"Government", tier:"free", mode:"referral"},
+  fema:          {name:"FEMA Funeral Assistance", cat:"Government", tier:"free", mode:"referral", url:"https://www.fema.gov/disaster/coronavirus/economic/funeral-assistance", note:"Only for deaths tied to a federally declared disaster."},
+  tribal:        {name:"Tribal Burial Assistance", cat:"Government", tier:"free", mode:"referral"},
+  workers_comp:  {name:"Workers' Comp Death Benefit", cat:"Government", tier:"claim", mode:"guide", note:"For work-related deaths — often covers funeral costs in full."},
+  gofundme:      {name:"Memorial Crowdfunding", cat:"Crowdfunding", tier:"free", mode:"referral", url:"https://www.gofundme.com/"},
+  church:        {name:"Church / Community Assistance", cat:"Crowdfunding", tier:"free", mode:"guide"},
+  lending_usa:   {name:"LendingUSA", cat:"Financing", tier:"loan", apr:0.1499, mode:"referral", url:null, sameday:true, credit:"Soft check", note:"Funeral-specific installment loans."},
+  carecredit:    {name:"CareCredit", cat:"Financing", tier:"loan", apr:0.1790, mode:"referral", url:null, credit:"Fair+", note:"Promotional interest-free windows on approved plans."},
+  affirm:        {name:"Affirm", cat:"Financing", tier:"loan", apr:0.15, mode:"referral", url:null, sameday:true, credit:"Soft check"},
+  synchrony:     {name:"Synchrony", cat:"Financing", tier:"loan", apr:0.1699, mode:"referral"},
+  bread:         {name:"Bread Financial", cat:"Financing", tier:"loan", apr:0.1599, mode:"referral"},
+  acima:         {name:"Acima (no credit check)", cat:"Financing", tier:"loan", apr:0.0, lto:true, mode:"referral", credit:"No credit check", sameday:true, note:"Lease-to-own; total cost can exceed cash price."},
+  payplan:       {name:"HomegoingHQ Payment Plan", cat:"Payment Plan", tier:"loan", apr:0.0, mode:"internal", note:"Split the remaining balance into interest-free monthly installments."},
+};
+
+const CHIP_LABELS = ["Social Security","VA Burial Allowance","National Cemetery","Life Insurance","Final Expense","Insurance Assignment","Employer Life","Pension / 401(k)","Union Benefits","Workers' Comp","Medicaid Burial","State & County Aid","FEMA","Tribal Assistance","Payable-on-Death","Crowdfunding","Church Assistance","LendingUSA","CareCredit","Affirm","Synchrony","Bread","Acima","Payment Plans"];
+
+/* ---------- INTAKE MODEL ---------- */
+const S = {budget:12000, cash:2000, veteran:null, employed:null, retired:null, union:null,
+  ss:null, workRelated:false, lifeIns:null, finalExp:null, prepaid:null, church:null,
+  pod:null, medicaid:null, disaster:false, state:"", crowd:null, resp:""};
+
+const STEPS = [
+  {id:"basics", title:"The basics", head:"Step 1 of 4",
+   sub:"We start with the cost and what's on hand. Everything else, FundingHub finds for you."},
+  {id:"person", title:"About your loved one", head:"Step 2 of 4",
+   sub:"These answers unlock benefit programs most families never know exist."},
+  {id:"coverage", title:"Insurance & accounts", head:"Step 3 of 4",
+   sub:"Money that may already be waiting — we'll show you how to claim it."},
+  {id:"community", title:"Community & circumstances", head:"Step 4 of 4",
+   sub:"The last few questions open up assistance and one-time programs."},
+];
+let step=0;
+
+/* ---------- RENDER ---------- */
+const stage=document.getElementById('stage'), bar=document.getElementById('bar');
+document.getElementById('restart').onclick=()=>location.reload();
+
+function chip(list){document.getElementById('chiplist').innerHTML=list.map(c=>`<span class="chip">${c}</span>`).join('')}
+chip(CHIP_LABELS);
+
+function startIntake(){
+  document.getElementById('landing').style.display='none';
+  document.getElementById('app').classList.add('on');
+  document.getElementById('restart').style.display='block';
+  step=0; renderStep(); window.scrollTo(0,0);
+}
+function setBar(){bar.style.width=((step)/(STEPS.length))*100+"%"}
+
+function segField(key,label,opts,hint){
+  const cur=S[key];
+  return `<div class="q"><label>${label}${hint?`<span class="hint">${hint}</span>`:''}</label>
+    <div class="seg">${opts.map(o=>`<button data-k="${key}" data-v="${o.v}" class="${cur===o.v?'sel':''}">${o.t}</button>`).join('')}</div></div>`;
+}
+function money(key,label,hint){
+  return `<div class="q"><label>${label}${hint?`<span class="hint">${hint}</span>`:''}</label>
+    <div class="dollar"><input type="number" data-money="${key}" value="${S[key]}" min="0" step="500"></div></div>`;
+}
+
+function renderStep(){
+  setBar();
+  const st=STEPS[step]; let body="";
+  if(st.id==="basics"){
+    body=`<div class="qgrid">
+      ${money('budget','Estimated funeral budget','A typical U.S. funeral runs $7,000–$12,000.')}
+      ${money('cash','Cash available now','What the family can put toward costs immediately.')}
+      <div class="q full"><label>What state did your loved one reside in?</label>
+        <input type="text" data-text="state" value="${S.state}" placeholder="e.g. Michigan" list="states"></div>
+      <div class="q full"><label>Who is legally responsible for arrangements?</label>
+        <input type="text" data-text="resp" value="${S.resp}" placeholder="e.g. Spouse, adult child, executor"></div>
+    </div>`;
+  }
+  if(st.id==="person"){
+    body=`<div class="qgrid">
+      ${segField('veteran','Was your loved one a Veteran or active military?',[{t:"Yes",v:true},{t:"No",v:false},{t:"Not sure",v:"unsure"}])}
+      ${segField('employed','Were they employed at the time of passing?',[{t:"Yes",v:true},{t:"No",v:false}])}
+      ${segField('retired','Were they retired with a pension or 401(k)?',[{t:"Yes",v:true},{t:"No",v:false},{t:"Not sure",v:"unsure"}])}
+      ${segField('union','Did they belong to a union?',[{t:"Yes",v:true},{t:"No",v:false},{t:"Not sure",v:"unsure"}])}
+      ${segField('ss','Did they receive Social Security?',[{t:"Yes",v:true},{t:"No",v:false}])}
+      ${segField('workRelated','Was the death work-related?',[{t:"Yes",v:true},{t:"No",v:false}])}
+    </div>`;
+  }
+  if(st.id==="coverage"){
+    body=`<div class="qgrid">
+      ${segField('lifeIns','Did they have life insurance?',[{t:"Yes",v:true},{t:"No",v:false},{t:"Not sure",v:"unsure"}])}
+      ${segField('finalExp','A final expense or burial policy?',[{t:"Yes",v:true},{t:"No",v:false},{t:"Not sure",v:"unsure"}])}
+      ${segField('prepaid','Did they prepay any funeral expenses?',[{t:"Yes",v:true},{t:"No",v:false},{t:"Not sure",v:"unsure"}])}
+      ${segField('pod','Any payable-on-death or joint bank accounts?',[{t:"Yes",v:true},{t:"No",v:false},{t:"Not sure",v:"unsure"}])}
+    </div>`;
+  }
+  if(st.id==="community"){
+    body=`<div class="qgrid">
+      ${segField('church','Did they belong to a church or faith community?',[{t:"Yes",v:true},{t:"No",v:false}])}
+      ${segField('medicaid','Were they on Medicaid or low-income assistance?',[{t:"Yes",v:true},{t:"No",v:false},{t:"Not sure",v:"unsure"}])}
+      ${segField('disaster','Was the death related to a federally declared disaster?',[{t:"Yes",v:true},{t:"No",v:false}])}
+      ${segField('crowd','Open to community crowdfunding?',[{t:"Yes",v:true},{t:"No",v:false}])}
+    </div>`;
+  }
+  stage.innerHTML=`<div class="step-head">${st.head}</div><h2>${st.title}</h2><p class="sub">${st.sub}</p>${body}
+    <div class="nav">
+      <button class="btn btn-ghost" onclick="prev()" ${step===0?'style="visibility:hidden"':''}>Back</button>
+      <button class="btn" onclick="next()">${step===STEPS.length-1?'See my funding plan':'Continue'}</button>
+    </div>`;
+  bind();
+}
+function bind(){
+  stage.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{
+    let v=b.dataset.v; if(v==="true")v=true; else if(v==="false")v=false;
+    S[b.dataset.k]=v; renderStep();
+  });
+  stage.querySelectorAll('[data-money]').forEach(i=>i.oninput=()=>S[i.dataset.money]=Math.max(0,+i.value||0));
+  stage.querySelectorAll('[data-text]').forEach(i=>i.oninput=()=>S[i.dataset.text]=i.value);
+}
+function next(){ if(step<STEPS.length-1){step++;renderStep();window.scrollTo(0,0);} else {renderResults();} }
+function prev(){ if(step>0){step--;renderStep();window.scrollTo(0,0);} }
+
+/* ---------- RECOMMENDATION ENGINE (deterministic) ---------- */
+function fmt(n){return "$"+Math.round(n).toLocaleString()}
+function odds(p){return p>=.7?["High","odds-high"]:p>=.4?["Likely","odds-med"]:["Possible","odds-low"]}
+
+function buildPlan(){
+  const rec=[]; const add=(id,x)=>rec.push({...REGISTRY[id],id,...x});
+  const yes=v=>v===true, maybe=v=>v===true||v==="unsure";
+
+  // FREE / BENEFITS — no repayment
+  if(yes(S.ss)) add('ss_death',{est:255,odds:.9,why:"Received Social Security — surviving spouse/child qualifies."});
+  if(maybe(S.veteran)){
+    add('va_burial',{est:S.disaster?2000:948,odds:S.veteran===true?.75:.4,why:"Veteran status — VA pays a burial & plot allowance."});
+    add('va_plot',{est:2500,odds:S.veteran===true?.8:.4,why:"Burial in a national cemetery is provided at no cost.",noSum:true});
+    add('va_honors',{est:0,odds:.85,why:"Military honors, headstone, and memorial certificate are free.",noSum:true});
+  }
+  if(yes(S.workRelated)) add('workers_comp',{est:Math.min(S.budget,10000),odds:.6,why:"Work-related death — workers' comp often covers funeral costs."});
+  if(yes(S.medicaid)){ add('medicaid',{est:0,odds:.5,why:"Medicaid recipient — state burial assistance may apply.",noSum:true});
+    add('county_burial',{est:0,odds:.55,why:"Low-income — county indigent-burial programs can help.",noSum:true}); }
+  if(!yes(S.medicaid)) add('state_burial',{est:0,odds:.35,why:"Many states offer need-based burial assistance.",noSum:true});
+  if(yes(S.disaster)) add('fema',{est:Math.min(S.budget,9000),odds:.7,why:"Disaster-related death — FEMA funeral assistance may cover most costs."});
+  if(yes(S.bereav)) {}
+  if(maybe(S.employed)) add('bereavement',{est:0,odds:.5,why:"Employer EAP/bereavement funds may be available.",noSum:true});
+  if(maybe(S.pod)) add('pod',{est:0,odds:.6,why:"POD/joint accounts pass directly to a beneficiary — often fast.",noSum:true});
+  if(yes(S.church)) add('church',{est:0,odds:.5,why:"Faith communities frequently assist with funeral costs.",noSum:true});
+  if(yes(S.crowd)) add('gofundme',{est:Math.round(Math.min(S.budget*.35,3500)),odds:.6,why:"Community crowdfunding — HomegoingHQ can launch a branded page."});
+
+  // CLAIMS — money owed, needs filing
+  if(maybe(S.lifeIns)) add('life_ins',{est:Math.min(S.budget*1.5,15000),odds:S.lifeIns===true?.85:.45,why:"Existing policy — proceeds can cover costs; assignment speeds payout.",noSum:true});
+  if(maybe(S.finalExp)) add('final_exp',{est:Math.min(S.budget,10000),odds:S.finalExp===true?.85:.4,why:"Final-expense policies are built to pay funeral costs directly."});
+  if((maybe(S.lifeIns)||maybe(S.finalExp))) add('ins_assign',{est:0,odds:.7,why:"Assign the policy so the funeral home is paid in days, not weeks.",noSum:true});
+  if(maybe(S.employed)) add('employer_life',{est:Math.min(S.budget,25000),odds:.5,why:"Group life is common — often 1–2x salary at no cost to employee.",noSum:true});
+  if(maybe(S.retired)){ add('pension',{est:0,odds:.5,why:"Pension/401(k) survivor benefits and balances may be claimable.",noSum:true});
+    add('pto',{est:0,odds:.5,why:"Unused PTO is typically paid out to the estate.",noSum:true}); }
+  if(maybe(S.union)) add('union',{est:Math.min(S.budget,5000),odds:.55,why:"Many unions pay a death benefit to members' families."});
+  if(yes(S.prepaid)) add('final_exp',{est:0,odds:.9,why:"Prepaid arrangements may already cover part of the cost.",noSum:true,dupOk:true});
+
+  return rec;
+}
+
+function renderResults(){
+  setBar(); bar.style.width="100%";
+  const rec=buildPlan();
+  const free=rec.filter(r=>r.tier==="free");
+  const claim=rec.filter(r=>r.tier==="claim");
+
+  // Estimated non-loan funding: expected value = est * odds, only summable items
+  const evFree=free.filter(r=>!r.noSum).reduce((a,r)=>a+r.est*r.odds,0);
+  const evClaim=claim.filter(r=>!r.noSum).reduce((a,r)=>a+r.est*r.odds,0);
+  const nonLoan=S.cash+evFree+evClaim;
+  const gap=Math.max(0,S.budget-nonLoan);
+
+  // Loans sized to gap
+  const loans=[];
+  const loanIds=gap>0?['lending_usa','affirm','carecredit','acima','payplan']:[];
+  loanIds.forEach(id=>{
+    const p=REGISTRY[id]; const term=24;
+    let monthly;
+    if(id==='payplan') monthly=gap/12;
+    else if(p.apr===0) monthly=gap/term;
+    else { const r=p.apr/12; monthly=gap*r/(1-Math.pow(1+r,-term)); }
+    loans.push({...p,id,gap,monthly,term:id==='payplan'?12:term,
+      approx:odds(id==='acima'?.85:id==='payplan'?.95:.6)});
+  });
+
+  const cashPct=Math.min(100,S.cash/S.budget*100);
+  const freePct=Math.min(100-cashPct,evFree/S.budget*100);
+  const claimPct=Math.min(100-cashPct-freePct,evClaim/S.budget*100);
+  const gapPct=Math.max(0,100-cashPct-freePct-claimPct);
+
+  const strat=advisorStrategy(rec,{evFree,evClaim,gap,nonLoan});
+
+  let html=`<div class="step-head">Your Funding Plan</div>
+  <div class="res-hero">
+    <div class="lab">Estimated funding picture · ${S.state||"your state"}</div>
+    <div class="res-nums">
+      <div class="res-num"><div class="k">Funeral budget</div><div class="v">${fmt(S.budget)}</div></div>
+      <div class="res-num"><div class="k">Est. non-loan funding</div><div class="v">${fmt(nonLoan)}</div></div>
+      <div class="res-num"><div class="k">Remaining gap</div><div class="v gap">${fmt(gap)}</div></div>
+    </div>
+    <div class="res-bar">
+      <span style="width:${cashPct}%;background:#C9C3B4"></span>
+      <span style="width:${freePct}%;background:var(--free)"></span>
+      <span style="width:${claimPct}%;background:var(--claim)"></span>
+      <span style="width:${gapPct}%;background:var(--gold)"></span>
+    </div>
+    <div class="res-legend">
+      <span><i style="background:#C9C3B4"></i>Cash on hand</span>
+      <span><i style="background:var(--free)"></i>Benefits (no repayment)</span>
+      <span><i style="background:var(--claim)"></i>Claims &amp; policies</span>
+      <span><i style="background:var(--gold)"></i>Gap to finance</span>
+    </div>
+  </div>`;
+
+  // Advisor
+  html+=`<div class="advisor">
+    <h3><span class="ai-badge">AI Advisor</span> Your recommended funding strategy</h3>
+    <div class="strat">${strat}</div>
+    <div class="chipset">
+      ${["How do I file a life insurance claim?","What if a loan is declined?","Which of these is fastest?","How does insurance assignment work?"].map(q=>`<button onclick="askAdvisor(this.textContent)">${q}</button>`).join('')}
+    </div>
+    <div class="ask">
+      <input type="text" id="askbox" placeholder="Ask about your funding options…" onkeydown="if(event.key==='Enter')askAdvisor(this.value)">
+      <button class="btn btn-gold" onclick="askAdvisor(document.getElementById('askbox').value)">Ask</button>
+    </div>
+    <div class="ans" id="ans"></div>
+  </div>`;
+
+  // Tiers
+  html+=tierBlock("Free money — claim these first","No repayment. Always exhaust these before financing.","b-free",free,evFree,true);
+  html+=tierBlock("Money owed to your family","Already yours — these just need to be filed and claimed.","b-claim",claim,evClaim,true);
+  if(loans.length){
+    html+=`<div class="tier"><div class="tier-head"><span class="badge b-loan">Financing</span><span class="n">Cover the remaining ${fmt(gap)}</span></div>`;
+    loans.forEach(l=>{
+      const [ol,oc]=l.approx;
+      html+=`<div class="card"><span class="dot" style="background:var(--loan)"></span><div class="body">
+        <div class="top"><span class="title">${l.name}</span><span class="est">${fmt(l.monthly)}/mo</span></div>
+        <div class="desc">${l.note||''} ${l.lto?'':`Est. ${l.apr===0?'0% APR':(l.apr*100).toFixed(2)+'% APR'} · ${l.term} mo`}</div>
+        <div class="meta">
+          <span class="pill ${oc}">${ol} approval</span>
+          ${l.credit?`<span class="pill">${l.credit}</span>`:''}
+          ${l.sameday?`<span class="pill">Same-day funding</span>`:''}
+          ${l.mode==='internal'?`<span class="pill">Interest-free</span>`:''}
+        </div>
+        <div class="act">
+          <button class="mini go" onclick="providerAction('${l.id}')">${l.mode==='internal'?'Set up plan':'Prequalify'}</button>
+          <button class="mini" onclick="providerAction('${l.id}','compare')">Details</button>
+        </div>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+
+  html+=renderRoadmap(free,claim,loans,gap);
+
+  html+=`<div class="disclaimer"><b>How to read this plan.</b> Dollar figures are expected-value estimates — each amount is weighted by how likely your family is to qualify, based on your answers. They are informational only and are not an offer of credit, an insurance determination, or a guarantee of any government benefit. Actual amounts depend on policy terms, state and program rules, and provider underwriting. FundingHub is not a lender, insurer, or law firm. Loan providers shown are integrated by referral; APRs are illustrative until you prequalify with the provider. Verify eligibility with each program before relying on these numbers.</div>`;
+
+  stage.innerHTML=html;
+  window.scrollTo(0,0);
+}
+
+function tierBlock(title,sub,badge,items,ev,showTotal){
+  if(!items.length) return "";
+  // de-dup by id keeping first
+  const seen=new Set(); const uniq=items.filter(r=>{if(seen.has(r.id)&&!r.dupOk)return false;seen.add(r.id);return true;});
+  let h=`<div class="tier"><div class="tier-head">
+    <span class="badge ${badge}">${badge==='b-free'?'Free':'Claim'}</span>
+    <span class="n">${title}</span>${showTotal&&ev>0?`<span class="amt">≈ ${fmt(ev)}</span>`:''}</div>
+    <p class="sub" style="margin:-6px 0 14px">${sub}</p>`;
+  uniq.forEach(r=>{
+    const [ol,oc]=odds(r.odds);
+    const dotc=badge==='b-free'?'var(--free)':'var(--claim)';
+    h+=`<div class="card"><span class="dot" style="background:${dotc}"></span><div class="body">
+      <div class="top"><span class="title">${r.name}</span>
+        ${(!r.noSum&&r.est>0)?`<span class="est">≈ ${fmt(r.est)}</span>`:(r.noSum?`<span class="est" style="color:#8a8578;font-size:13px">varies</span>`:'')}</div>
+      <div class="desc">${r.why}${r.note?' '+r.note:''}</div>
+      <div class="meta"><span class="pill ${oc}">${ol} likelihood</span><span class="pill">${r.cat}</span></div>
+      <div class="act">
+        <button class="mini go" onclick="providerAction('${r.id}')">${r.mode==='guide'?'How to claim':'Start application'}</button>
+        <button class="mini" onclick="askAdvisor('Tell me more about ${r.name}')">Ask advisor</button>
+      </div>
+    </div></div>`;
+  });
+  return h+`</div>`;
+}
+
+function renderRoadmap(free,claim,loans,gap){
+  const steps=[];
+  steps.push(["Notify &amp; gather","Get 10+ certified death certificates and the funeral home's itemized estimate.","Day 1"]);
+  if(free.some(f=>f.id.startsWith('va')||f.id==='ss_death')) steps.push(["File fast free benefits","Submit Social Security and VA claims — these have deadlines and quick turnaround.","Days 1–3"]);
+  if(claim.some(c=>c.id==='ins_assign'||c.id==='life_ins')) steps.push(["Assign insurance","Use insurance assignment so the funeral home is paid directly within days.","Days 2–5"]);
+  if(claim.length) steps.push(["File all claims","Life, employer, pension, and union benefits — file everything you may be owed.","Week 1"]);
+  if(free.some(f=>f.id==='gofundme'||f.id==='church')) steps.push(["Launch community support","Start a branded crowdfunding page and reach out to your faith community.","Week 1"]);
+  if(gap>0&&loans.length) steps.push(["Cover the gap",`Prequalify for financing to bridge the remaining ${fmt(gap)} — soft checks won't affect credit.`,"As needed"]);
+  steps.push(["Coordinate payment","FundingHub combines every source into one plan and tracks each payment to close.","Ongoing"]);
+  return `<div class="roadmap"><h3>Your personalized funding roadmap</h3>${steps.map((s,i)=>
+    `<div class="rstep"><span class="num">${i+1}</span><div class="rc"><div class="rt">${s[0]}</div><div class="rd">${s[1]}</div></div><span class="when">${s[2]}</span></div>`).join('')}</div>`;
+}
+
+/* ---------- ADVISOR (rules-based explanation; swap for API later) ---------- */
+function advisorStrategy(rec,x){
+  const freeCount=rec.filter(r=>r.tier==='free').length;
+  const claimCount=rec.filter(r=>r.tier==='claim').length;
+  let p=`<p>Based on your answers, FundingHub found <b>${freeCount} benefit source${freeCount!==1?'s':''}</b> you never repay and <b>${claimCount} claim${claimCount!==1?'s':''}</b> your family may already be owed. The strategy is simple: <b>free money first, claims second, financing only for what's left.</b></p>`;
+  if(x.gap<=0){
+    p+=`<p>Your estimated benefits and claims of <b>${fmt(x.evFree+x.evClaim)}</b> plus cash on hand may cover the full budget — you may not need a loan at all. Start filing today, since some funds take days to arrive.</p>`;
+  } else {
+    p+=`<p>After benefits and claims, an estimated gap of <b>${fmt(x.gap)}</b> remains. File every free and claim source first — that gap usually shrinks. Bridge whatever's left with an interest-free plan or a soft-check loan so you're never paying more than you must.</p>`;
+  }
+  if(S.veteran===true) p+=`<p><b>Veteran note:</b> National cemetery burial, honors, headstone, and a memorial certificate are all free — these alone can remove thousands from your budget.</p>`;
+  if(S.lifeIns===true||S.finalExp===true) p+=`<p><b>Speed tip:</b> Insurance assignment lets the funeral home be paid directly from the policy in days, so you don't have to front the cost.</p>`;
+  return p;
+}
+
+const ANSWERS={
+  "life insurance":"To file a life insurance claim: request 10+ certified death certificates, contact each insurer to request a claim packet, complete the beneficiary claim form, and submit it with a certified death certificate. Payouts usually take 2–4 weeks. If you need funds sooner, an insurance assignment advances money from the policy directly to the funeral home in a few days.",
+  "declined":"If financing is declined, don't stop there. First, make sure every free benefit and claim is filed — that often removes the need to borrow. Then try a no-credit-check option like Acima or an interest-free HomegoingHQ payment plan, which approves nearly everyone. Family split-payments and crowdfunding can cover the rest.",
+  "fastest":"The fastest funds are usually: insurance assignment (2–5 days, paid straight to the funeral home), payable-on-death bank accounts (available almost immediately to the beneficiary), and same-day financing like Affirm or Acima. Social Security and VA benefits are reliable but take a few weeks.",
+  "assignment":"Insurance assignment means you sign over part of a life or final-expense policy so the insurer pays the funeral home directly, instead of you paying up front and waiting for reimbursement. It typically funds in 2–5 business days. There's usually a modest fee, but it removes the burden of fronting thousands of dollars."
+};
+function askAdvisor(q){
+  if(!q||!q.trim())return;
+  const ans=document.getElementById('ans');
+  const key=Object.keys(ANSWERS).find(k=>q.toLowerCase().includes(k.split(' ')[0]));
+  let text;
+  if(q.toLowerCase().includes('insurance')&&q.toLowerCase().includes('assign')) text=ANSWERS.assignment;
+  else if(key) text=ANSWERS[key];
+  else text=`Great question. In the live product this is answered by the AI advisor, which reads your full intake and every source in your plan to give a tailored answer. For "${q.trim()}", the general guidance is to prioritize free benefits and filed claims before any financing, and to lean on insurance assignment or a payment plan when you need funds quickly. Connect the Claude API adapter to enable full conversational answers.`;
+  ans.innerHTML=`<div class="who">AI Advisor</div>${text}`;
+  ans.classList.add('on');
+  const box=document.getElementById('askbox'); if(box)box.value='';
+  ans.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+/* ---------- PROVIDER ADAPTER LAYER ---------- */
+/* Single entry point. Today: referral / guide. Swap per-provider to real API
+   calls or Supabase edge functions as partner agreements are signed. */
+function providerAction(id,mode){
+  const p=REGISTRY[id]; if(!p){return;}
+  if(p.url){ window.open(p.url,'_blank'); return; }
+  const label=p.mode==='api'?'API application':p.mode==='internal'?'HomegoingHQ payment plan':p.mode==='guide'?'step-by-step claim guide':'referral hand-off';
+  alert(`${p.name}\n\nAdapter mode: ${p.mode}\nAction: ${mode==='compare'?'Compare details':label}\n\nThis is where FundingHub ${p.mode==='referral'?'hands off to the provider (drop the real referral URL or API endpoint in the REGISTRY entry once the partner agreement is signed)':p.mode==='internal'?'creates the payment plan via a Supabase edge function':'opens the guided claim workflow'}.`);
+}
+</script>
+</body>
+</html>

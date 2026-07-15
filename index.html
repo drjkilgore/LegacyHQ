@@ -272,6 +272,7 @@ summary::-webkit-details-marker{display:none}
     <button data-tab="next" class="active" onclick="setTab('next')">Next</button>
     <button data-tab="roadmap" onclick="setTab('roadmap')">Roadmap</button>
     <button data-tab="funeral" onclick="setTab('funeral')">Funeral</button>
+    <button data-tab="funding" onclick="setTab('funding')">Funding</button>
     <button data-tab="claims" onclick="setTab('claims')">Insurance</button>
     <button data-tab="notify" onclick="setTab('notify')">Notify</button>
     <button data-tab="docs" onclick="setTab('docs')">Documents</button>
@@ -329,6 +330,7 @@ summary::-webkit-details-marker{display:none}
   </div>
 
   <div id="tab-funeral" class="hidden"></div>
+  <div id="tab-funding" class="hidden"><iframe src="fundinghub.html" title="FundingHub" style="width:100%;height:82vh;min-height:640px;border:0;border-radius:12px;background:#F6F2EA"></iframe></div>
   <div id="tab-claims" class="hidden"></div>
   <div id="tab-ledger" class="hidden"></div>
   <div id="tab-probate" class="hidden"></div>
@@ -1184,7 +1186,7 @@ async function mbSave(){
   else toast(data&&data.error==="no_account"?"No practice found.":"Couldn't save brand.");
 }
 function setTab(t){
-  ["next","roadmap","funeral","claims","notify","docs","ledger","probate","memories","family"].forEach(x=>{
+  ["next","roadmap","funeral","funding","claims","notify","docs","ledger","probate","memories","family"].forEach(x=>{
     $("tab-"+x).classList.toggle("hidden",x!==t);
     document.querySelector(`#eTabs [data-tab="${x}"]`).classList.toggle("active",x===t);
   });
@@ -5395,5 +5397,25 @@ function toggleComfort(){
 </script>
 <!-- =================== END FULL-SERVICE DESIGNER =================== -->
 
+<!-- ===================== FLOWER HUB (funeral tab) ===================== -->
+<script>
+(function(){
+  function mountFlowerHub(){
+    var tab=document.getElementById("tab-funeral"); if(!tab) return;
+    if(tab.querySelector("#flowerHubCard")) return;
+    var card=document.createElement("div"); card.id="flowerHubCard"; card.className="card";
+    card.innerHTML='<div class="eyebrow">Sympathy Flowers</div>'+
+      '<p class="muted" style="margin:8px 0 12px">Order flowers for the service \u2014 arrangements delivered to the funeral home or the family.</p>'+
+      '<iframe src="flowerhub.html" title="FlowerHub" style="width:100%;height:720px;border:0;border-radius:12px;background:#F6F2EA"></iframe>';
+    var ebs=Array.prototype.slice.call(tab.querySelectorAll(".eyebrow"));
+    var eb=ebs.filter(function(e){return /program designer/i.test(e.textContent||"");})[0];
+    var pgCard=eb?eb.closest(".card"):null;
+    if(pgCard&&pgCard.parentNode){ pgCard.insertAdjacentElement("afterend",card); } else { tab.appendChild(card); }
+  }
+  var tab=document.getElementById("tab-funeral");
+  if(tab&&window.MutationObserver){ new MutationObserver(function(){ mountFlowerHub(); }).observe(tab,{childList:true}); }
+})();
+</script>
+<!-- =================== END FLOWER HUB =================== -->
 </body>
 </html>
