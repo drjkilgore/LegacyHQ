@@ -4411,7 +4411,7 @@ function pgFormHtml(){
     <div class="scard-actions" style="margin-top:10px">
       <button class="btn btn-brass" onclick="pgPrint('shop')">Print / PDF — print shop</button>
       <button class="btn btn-ghost" onclick="pgPrint('home')">Print — home duplex</button>
-      <button class="btn btn-brass" onclick="pgOrderPrints('shop')">Order printed copies →</button>
+      <button class="btn btn-brass" onclick="pgPrintAtFedEx('shop')">Print at FedEx Office →</button>
     </div>
   </div>`;
 }
@@ -4615,6 +4615,15 @@ async function pgGeneratePdf(order="shop"){
 async function pgOrderPrints(order="shop"){
   try{ toast("Preparing your print-ready program…"); const {url}=await pgGeneratePdf(order); window.open(url,"_blank"); toast("Print-ready PDF created ✓"); }
   catch(e){ toast(e.message); }
+}
+/* Print at FedEx Office: no account/API needed — the family saves the program as
+   a PDF and uploads it to FedEx Office for same-day local pickup. */
+function pgPrintAtFedEx(order="shop"){
+  // Open FedEx Office's upload-and-print page first (direct click → no popup block)
+  window.open("https://www.office.fedex.com/default/document-printing", "_blank");
+  toast("Save your program as a PDF, then upload it to the FedEx Office tab — often ready for same-day pickup.");
+  // Trigger the Save-as-PDF dialog so they have the file to upload
+  pgPrint(order);
 }
 </script>
 <script>
