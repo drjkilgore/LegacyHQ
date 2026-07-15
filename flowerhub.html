@@ -392,7 +392,7 @@ async function loadLive(){
       name:g(p,'name')||'Sympathy Arrangement',
       cat:g(p,'category')||g(p,'type')||'Sympathy', color:'',
       meaning:String(g(p,'description')||'').replace(/<[^>]+>/g,'').slice(0,90),
-      retail:Math.round(parseFloat(g(p,'price'))||0), wholesale:0, sd:false, feat:100-i,
+      retail:parseFloat(g(p,'price'))||0, wholesale:0, sd:false, feat:100-i,
       img:g(p,'SMALL')||g(p,'image')||g(p,'IMAGE')||g(p,'LARGE')||''
     }));
     LIVE=true;
@@ -577,7 +577,7 @@ async function placeOrder(){
   if(!CART.length){toast('Cart is empty');return;}
   const sn={NAME:val('snName'),EMAIL:val('snEmail'),PHONE:val('snPhone'),ADDRESS1:val('snA1'),ADDRESS2:' ',CITY:val('snCity'),STATE:val('snState'),ZIPCODE:val('snZip'),COUNTRY:'US',IP:''};
   const rc={NAME:val('rcName'),INSTITUTION:val('rcInst')||' ',ADDRESS1:val('rcA1'),ADDRESS2:' ',CITY:val('rcCity'),STATE:val('rcState'),ZIPCODE:val('rcZip'),PHONE:val('rcPhone'),COUNTRY:'US'};
-  const date=val('coDate'), msg=val('coCard')||' ';
+  const date=val('coDate'), msg=val('coCard')||'With heartfelt sympathy';
   const ev={TYPE:val('evType')||' ',DATE:val('evDate')||' ',TIME:val('evTime')||' '};
   const card={number:val('ccNum').replace(/\s/g,''),month:val('ccMonth'),year:val('ccYear'),cvv:val('ccCvv')};
   if(!sn.NAME||!sn.EMAIL||!sn.ZIPCODE){toast('Please complete your sender details');return;}
