@@ -4253,6 +4253,28 @@ const PG_THEMES={
    script:"'Cinzel',serif",display:"'Cinzel',serif",body:"'EB Garamond','Cormorant Garamond',serif",
    motif:"★",swatch:"linear-gradient(135deg,#e8edf5,#c9d3e2)",sw:"🎖"}
 };
+
+/* =====================================================================
+   DROP-IN DESIGN TEMPLATES
+   Add your own program designs here. Each key automatically appears as a
+   card in step "1. Choose the design" — no other change needed.
+   Copy the shape of an existing theme:
+     key:{ name, ink, accent, bg, script, display, body, motif, swatch, sw }
+   - ink / accent : text + accent colors (hex)
+   - bg           : cover background (solid color or CSS gradient)
+   - panel, dark  : optional — for dark themes (see "luxury" above)
+   - script/display/body : font-families. If you use a NEW font, add its
+     Google Fonts <link> in the <head> so it loads.
+   - motif        : a small glyph used as a divider
+   - swatch / sw  : the picker card's swatch gradient + emoji
+   ===================================================================== */
+const PG_CUSTOM_THEMES = {
+  // rose:{ name:"Rose Remembrance", ink:"#4a3540", accent:"#a15c74",
+  //   bg:"linear-gradient(160deg,#fdf3f6,#f7eef2)", script:"'Great Vibes',cursive",
+  //   display:"'Playfair Display',serif", body:"'Cormorant Garamond',serif",
+  //   motif:"\u2767", swatch:"linear-gradient(135deg,#fbe7ee,#f3d9e2)", sw:"\ud83c\udf39" },
+};
+Object.assign(PG_THEMES, PG_CUSTOM_THEMES);
 let PG=null, PG_STEP=0;
 const PG_STEPS=["Design","Their name","The service","Cover photo","Obituary","Order of service","Family & honors","Photos & extras","Finish & print"];
 
@@ -4299,8 +4321,6 @@ function renderProgram(){
      <div><div class="eyebrow">Program Designer</div><h1 class="name" style="font-size:24px">A program worthy of the life</h1></div>
      <div style="display:flex;gap:8px;flex-wrap:wrap">
        <button class="btn btn-ghost btn-sm" onclick="pgSave()">Save draft</button>
-       <button class="btn btn-brass btn-sm" onclick="pgPrint('shop')">Print / PDF — print shop</button>
-       <button class="btn btn-ghost btn-sm" onclick="pgPrint('home')">Print — home duplex</button>
        <button class="btn btn-ghost btn-sm" onclick="openEstate(S.estate.id);setTab('funeral')">← Back</button>
      </div>
    </div>
