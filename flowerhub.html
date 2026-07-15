@@ -381,19 +381,17 @@ let LIVE=false;
 // (Funeral&Sympathy=fs, Love&Romance=lr). Invalid guesses return nothing and
 // are skipped. fs is last so it only fills in items not already in a sub-type.
 const FS_TYPES=[
-  {code:'ss',label:'Standing Sprays'},
-  {code:'cs',label:'Casket Sprays'},
-  {code:'ta',label:'Table Arrangements'},
-  {code:'ua',label:'Urn Arrangements'},
-  {code:'ic',label:'Inside Casket'},
-  {code:'pt',label:'Plant Trees'},
-  {code:'wr',label:'Wreaths'},
-  {code:'he',label:'Hearts'},
-  {code:'cr',label:'Crosses'},
-  {code:'pl',label:'Plants'},
-  {code:'ba',label:'Baskets'},
-  {code:'dc',label:"Designer's Choice"},
-  {code:'fs',label:'Sympathy'},
+  {code:'fbs',label:'Best Sellers'},
+  {code:'fs', label:'Standing Sprays'},
+  {code:'fc', label:'Casket Sprays'},
+  {code:'fw', label:'Wreaths'},
+  {code:'fh', label:'Hearts'},
+  {code:'fx', label:'Crosses'},
+  {code:'fu', label:'Urn Arrangements'},
+  {code:'fl', label:'Inside Casket'},
+  {code:'fa', label:'Table Arrangements'},
+  {code:'fb', label:'Baskets'},
+  {code:'fp', label:'Plants'},
 ];
 async function loadLive(){
   const g=(p,k)=>p[k]??p[k.toUpperCase()]??p[k.toLowerCase()]??'';
