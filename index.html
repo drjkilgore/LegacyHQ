@@ -2288,7 +2288,6 @@ function renderMusicCard(){
       h+=`</div>`;
     });
   }
-  h+=`<div id="casketAnalysis" style="margin-top:10px">${CK.analysis||""}</div>`;
   h+=`</div>`;
   el.innerHTML=h;
 }
@@ -2444,10 +2443,7 @@ function renderCasketCard(){
   const low=prices.length?Math.min.apply(null,prices):null;
   let h=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
     <div class="eyebrow">Caskets & urns</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-sm" onclick="casketAnalyze()">✨ AI cost analysis</button>
-      <button class="btn btn-brass btn-sm" onclick="casketAddModal()">+ Add a casket to compare</button>
-    </div></div>`;
+    <button class="btn btn-brass btn-sm" onclick="casketAddModal()">+ Add a casket to compare</button></div>`;
 
   // your right to shop elsewhere + links to real sources
   h+=`<div style="margin-top:10px;background:#edf3ed;border:1px solid var(--sage);border-radius:10px;padding:11px 14px;font-size:13.5px;line-height:1.55">
@@ -2487,6 +2483,10 @@ function renderCasketCard(){
   if(!rows.length){
     h+=`<p class="muted" style="margin-top:10px;font-size:13px">Add the caskets you're considering — from the funeral home or an outside seller — and compare them side by side before you decide.</p>`;
   } else {
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px">
+      <div class="eyebrow">Your comparison</div>
+      <button class="btn btn-brass btn-sm" onclick="casketAnalyze()">✨ AI cost analysis</button></div>`;
+    h+=`<div id="casketAnalysis" style="margin-top:8px">${CK.analysis||""}</div>`;
     h+=`<div style="margin-top:12px;display:grid;gap:10px">`;
     rows.forEach(o=>{
       const isLow = low!=null && o.quote!=null && Number(o.quote)===Number(low) && prices.length>1;
