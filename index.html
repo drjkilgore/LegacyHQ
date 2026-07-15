@@ -4322,7 +4322,7 @@ function pgFormHtml(){
       <button class="theme-card ${t.theme===k?"on":""}" onclick="pgSet('theme','${k}');renderProgram()">
         <div class="theme-swatch" style="background:${th.swatch}">${th.sw}</div><div class="tn">${th.name}</div></button>`).join("")}
     </div>
-    <div class="scard-actions" style="margin-top:14px"><button class="btn btn-primary btn-sm" onclick="pgGo(1)">Next →</button></div>
+    <div class="scard-actions" style="margin-top:14px"><button class="btn btn-primary btn-sm" onclick="pgGo(1)">Next →</button><button class="btn btn-ghost btn-sm" onclick="openFullService()">Prefer a designer do it? →</button></div>
   </div>
   <div class="pg-step">
     <div class="eyebrow">Their name</div>
@@ -5215,6 +5215,7 @@ function toggleComfort(){
   /* ---- CONFIG: designer tiers are real; printing prices are PLACEHOLDERS. ---- */
   const CONFIG = {
     MARKUP_PCT: 50,
+    EXTRA_DESIGN_FEE: 39,   // per additional product design beyond the tier's included count
     designerTiers: [
       { id:"review",  name:"Designer Review",         price:49,  pages:null, includedAddons:0,
         desc:"A designer checks formatting, grammar, photo quality, and layout." },
@@ -5243,7 +5244,7 @@ function toggleComfort(){
   const esc=(s)=> String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const note=(m)=>{ try{ if(typeof window.toast==="function"){ window.toast(m); return; } }catch(e){} alert(m); };
 
-  const FS = { tier:null, tierPages:null, fold:"bi-fold", programQty:100, addons:{}, prefill:{} };
+  const FS = { tier:null, tierPages:null, fold:"bi-fold", programQty:100, addons:{}, addonOrder:[], prefill:{} };
   let root=null;
 
   window.openFullService = function(){
@@ -5274,15 +5275,16 @@ function toggleComfort(){
     const programUnit=t?retail(CONFIG.program.wholesaleByPages[programPages()]??0.80):0;
     const programTotal=t?programUnit*(FS.programQty||0):0;
     const lines=[];
-    for(const a of CONFIG.addons){ const c=FS.addons[a.id]; if(c&&c.qty>0){ const u=retail(a.wholesale(c.opts||{})); lines.push({name:a.name,qty:c.qty,unit:u,total:u*c.qty}); } }
+    for(const id of FS.addonOrder){ const a=CONFIG.addons.find(x=>x.id===id); const c=FS.addons[id]; if(a&&c&&c.qty>0){ const u=retail(a.wholesale(c.opts||{})); lines.push({name:a.name,qty:c.qty,unit:u,total:u*c.qty}); } }
     const asum=lines.reduce((s,l)=>s+l.total,0), tp=tierPrice();
-    return { tier:FS.tier, tierName:t?t.name:"", tierPrice:tp, programUnit, programTotal, addonLines:lines, total:tp+programTotal+asum };
+    const extraCount=Math.max(0, FS.addonOrder.length - includedAddons());
+    const extraDesign=extraCount*CONFIG.EXTRA_DESIGN_FEE;
+    return { tier:FS.tier, tierName:t?t.name:"", tierPrice:tp, programUnit, programTotal, addonLines:lines, extraCount, extraDesign, total:tp+programTotal+asum+extraDesign };
   }
   function addonBanner(){
-    const inc=includedAddons(), used=usedAddons(), t=tierObj();
-    if(inc===0) return `<div class="fs-note">Additional-product design isn't included with this service — your designer can quote it separately, or choose Premium (1) or Luxury (2) to include matching product designs.</div>`;
-    const over=used>inc;
-    return `<div class="fs-note" style="${over?'background:#fdeee7;border-color:#c67a4a;color:#8a3d16':''}"><b>${inc} additional product design${inc>1?'s':''} included</b> with ${t.name} — using ${used} of ${inc}.${over?` You've added ${used-inc} more; your designer will quote the extra design separately (printing is still in your total).`:''}</div>`;
+    const inc=includedAddons(), n=FS.addonOrder.length, t=tierObj(), extra=Math.max(0,n-inc), fee=CONFIG.EXTRA_DESIGN_FEE;
+    if(inc===0) return `<div class="fs-note">Each additional product design is <b>$${fee}</b>.${n>0?` You've added ${n} — <b>$${n*fee}</b> in design.`:''} (Premium includes 1 free, Luxury includes 2.)</div>`;
+    return `<div class="fs-note"><b>${inc} product design${inc>1?'s':''} included</b> with ${t.name}.${n>inc?` ${extra} extra at $${fee} each — <b>+$${extra*fee}</b> design.`:(n>0?` Using ${n} of ${inc}.`:'')} Additional products are $${fee} each.</div>`;
   }
 
   function render(){
@@ -5309,13 +5311,20 @@ function toggleComfort(){
       <div class="fs-field"><label>Quantity</label><input id="fsPQty" type="number" min="25" step="25" value="${FS.programQty}"></div></div>
       <div class="fs-ph">Placeholder printing price — update from the DisciplePress list.</div></div>`;
   }
-  function addonSec(){ if(!tierObj())return "";
+  function addonSec(){ if(!tierObj())return ""; const inc=includedAddons(), fee=CONFIG.EXTRA_DESIGN_FEE;
+    const avail=CONFIG.addons.filter(a=>!FS.addonOrder.includes(a.id));
+    const dd=`<div class="fs-field" style="max-width:340px"><label>Add a matching product</label>
+      <select id="fsAddSel"><option value="">＋ Choose a product…</option>${avail.map(a=>`<option value="${a.id}">${a.name}</option>`).join("")}</select></div>`;
+    const rows=FS.addonOrder.map((id,i)=>{ const a=CONFIG.addons.find(x=>x.id===id); const c=FS.addons[id]||{qty:0,opts:{}};
+      const tag=i<inc?`<span class="fs-ph" style="color:#3f6b4f">design included</span>`:`<span class="fs-ph">+$${fee} design</span>`;
+      const sels=Object.entries(a.opts||{}).map(([k,vals])=>`<select data-aopt="${id}" data-key="${k}">${vals.map(v=>`<option ${c.opts[k]===v?'selected':''}>${v}</option>`).join("")}</select>`).join("");
+      return `<div class="fs-addon"><div><div class="fs-anm">${a.name} · ${tag}</div><div class="fs-op">${sels||'<span class="fs-ph">no options</span>'}</div></div>
+        <div style="display:flex;gap:8px;align-items:end"><div><label>Qty</label><input class="fs-q" type="number" min="0" step="25" value="${c.qty}" data-aqty="${id}"></div>
+        <button class="fs-x" style="border-color:var(--fsline);color:var(--fsmuted);padding:8px 10px" data-arem="${id}">✕</button></div></div>`;
+    }).join("");
     return `<div class="fs-sec"><h2><span class="fs-step">3</span>Matching keepsakes <span style="font-weight:400;font-size:13px;color:var(--fsmuted)">(optional)</span></h2>
-      <p class="fs-hint">Add matching items in the same design.</p><div id="fsBanner">${addonBanner()}</div>
-      ${CONFIG.addons.map(a=>{ const c=FS.addons[a.id]||{qty:0,opts:{}};
-        const sels=Object.entries(a.opts||{}).map(([k,vals])=>`<select data-aopt="${a.id}" data-key="${k}">${vals.map(v=>`<option ${c.opts[k]===v?'selected':''}>${v}</option>`).join("")}</select>`).join("");
-        return `<div class="fs-addon"><div><div class="fs-anm">${a.name}</div><div class="fs-op">${sels||'<span class="fs-ph">no options</span>'}</div></div><div><label>Qty</label><input class="fs-q" type="number" min="0" step="25" value="${c.qty}" data-aqty="${a.id}"></div></div>`;
-      }).join("")}</div>`;
+      <p class="fs-hint">Add matching items in the same design — each additional product design is $${fee} (${inc} included with your service).</p>
+      <div id="fsBanner">${addonBanner()}</div>${dd}${rows}</div>`;
   }
   function detailSec(){ if(!tierObj())return ""; const p=FS.prefill;
     return `<div class="fs-sec"><h2><span class="fs-step">4</span>Details for your designer</h2>
@@ -5337,6 +5346,7 @@ function toggleComfort(){
       ${q.tier?`<div class="fs-ql"><span>${q.tierName}<div class="fs-s">design service</div></span><span>${money(q.tierPrice)}</span></div>`:`<div class="fs-ql"><span class="fs-s">Choose a design service to begin</span></div>`}
       ${q.programTotal>0?`<div class="fs-ql"><span>Programs ×${FS.programQty}<div class="fs-s">${programPages()}pg ${FS.fold} · ${money(q.programUnit)}/ea</div></span><span>${money(q.programTotal)}</span></div>`:''}
       ${q.addonLines.map(l=>`<div class="fs-ql"><span>${l.name} ×${l.qty}<div class="fs-s">${money(l.unit)}/ea</div></span><span>${money(l.total)}</span></div>`).join("")}
+      ${q.extraDesign>0?`<div class="fs-ql"><span>Additional design ×${q.extraCount}<div class="fs-s">$${CONFIG.EXTRA_DESIGN_FEE} per extra product</div></span><span>${money(q.extraDesign)}</span></div>`:''}
       <div class="fs-ql fs-tot"><span>Total</span><span>${money(q.total)}</span></div>
       <button class="fs-btn" ${q.tier?'':'disabled'} id="fsSubmit">Request this design →</button>
       <div class="fs-note">Printing prices are placeholders until the DisciplePress list is loaded. You'll approve a proof before paying.</div></div>`;
@@ -5350,6 +5360,8 @@ function toggleComfort(){
     const pq=root.querySelector("#fsPQty"); if(pq)pq.oninput=()=>{ FS.programQty=Math.max(0,parseInt(pq.value)||0); soft(); };
     root.querySelectorAll("[data-aqty]").forEach(el=>el.oninput=()=>{ const id=el.getAttribute("data-aqty"); FS.addons[id]=FS.addons[id]||{qty:0,opts:{}}; FS.addons[id].qty=Math.max(0,parseInt(el.value)||0); soft(); });
     root.querySelectorAll("[data-aopt]").forEach(el=>el.onchange=()=>{ const id=el.getAttribute("data-aopt"); FS.addons[id]=FS.addons[id]||{qty:0,opts:{}}; FS.addons[id].opts[el.getAttribute("data-key")]=el.value; soft(); });
+    const addSel=root.querySelector("#fsAddSel"); if(addSel)addSel.onchange=()=>{ const id=addSel.value; if(id&&!FS.addonOrder.includes(id)){ FS.addonOrder.push(id); FS.addons[id]=FS.addons[id]||{qty:25,opts:{}}; render(); } };
+    root.querySelectorAll("[data-arem]").forEach(el=>el.onclick=()=>{ const id=el.getAttribute("data-arem"); FS.addonOrder=FS.addonOrder.filter(x=>x!==id); delete FS.addons[id]; render(); });
     const sb=root.querySelector("#fsSubmit"); if(sb)sb.onclick=submit;
   }
   function soft(){ const p=root.querySelector(".fs-quote"); if(p){ const t=document.createElement("div"); t.innerHTML=quotePanel(); p.replaceWith(t.firstElementChild); bind(); } const b=root.querySelector("#fsBanner"); if(b)b.innerHTML=addonBanner(); }
