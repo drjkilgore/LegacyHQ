@@ -7,6 +7,20 @@ exports.handler = async (event) => {
   const KEY = process.env.GOOGLE_MAPS_API_KEY;
   if (!KEY) return { statusCode: 200, headers, body: JSON.stringify({ error: "Provider discovery isn't configured yet — add GOOGLE_MAPS_API_KEY." }) };
   const FIELDS = "places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.nationalPhoneNumber,places.websiteUri,places.googleMapsUri,places.currentOpeningHours.openNow,places.businessStatus";
+
+  // Turn a Google error payload into a clear, actionable message.
+  const googleError = (g) => {
+    if (!g || !g.error) return null;
+    const status = g.error.status || g.error.code || "";
+    const msg = g.error.message || "";
+    let hint = "";
+    if (/PERMISSION_DENIED|REQUEST_DENIED|API key not valid|has not been used|disabled/i.test(status + " " + msg))
+      hint = " — check that the Places API (New) is enabled for this key and any key restrictions allow it.";
+    else if (/billing/i.test(msg)) hint = " — billing is not enabled on the Google Cloud project.";
+    else if (/RESOURCE_EXHAUSTED|quota/i.test(status + " " + msg)) hint = " — the API quota/limit has been reached.";
+    return "Google Places error (" + status + "): " + msg + hint;
+  };
+
   const search = async (textQuery, center, radiusMeters) => {
     const body = { textQuery, pageSize: 15 };
     if (center) body.locationBias = { circle: { center, radius: Math.min(radiusMeters, 50000) } };
@@ -33,14 +47,19 @@ exports.handler = async (event) => {
         headers: { "Content-Type": "application/json", "X-Goog-Api-Key": KEY, "X-Goog-FieldMask": "places.location,places.formattedAddress" },
         body: JSON.stringify({ textQuery: address, pageSize: 1 })
       }).then(r => r.json());
+      // Surface a real API/key/billing/quota problem instead of hiding it.
+      const ge = googleError(g);
+      if (ge) return { statusCode: 200, headers, body: JSON.stringify({ error: ge }) };
       if (g.places && g.places[0]) center = g.places[0].location;
     }
-    if (!center) return { statusCode: 200, headers, body: JSON.stringify({ error: "Couldn't find that location — try a fuller address or city, state." }) };
+    if (!center) return { statusCode: 200, headers, body: JSON.stringify({ error: "Couldn't find that location — try a fuller entry like city and state (e.g., \u201CBirmingham, AL\u201D), not just a state." }) };
     // 2) search with auto-expanding radius
     const ladder = [radiusMiles || 10, 20, 30, 50, 75, 100].filter((v, i, a) => a.indexOf(v) === i && v >= (radiusMiles || 10));
     let places = [], usedRadius = ladder[0];
     for (const mi of ladder) {
       const d = await search(category + " near " + (address || "me"), center, mi * 1609);
+      const ge = googleError(d);
+      if (ge) return { statusCode: 200, headers, body: JSON.stringify({ error: ge }) };
       places = (d.places || []).filter(p => p.businessStatus !== "CLOSED_PERMANENTLY");
       usedRadius = mi;
       if (places.length >= 5) break;
