@@ -894,6 +894,7 @@ async function handleSession(session){
       await loadEstates();
       try{ const {data:dz}=await sb.from("designers").select("*").eq("user_id",session.user.id).maybeSingle(); S.designer=dz||null; }catch(e){ S.designer=null; }
       try{ await completePendingDesignerApp(); }catch(e){}
+      try{ refreshUnread().then(function(any){ if(any) setTimeout(function(){ toast("💬 You have a new message on a design order."); },1300); }); }catch(e){}
     }catch(err){ toast("Loading issue: "+err.message); }
     if(S.designer){ const _b=$("btnDesigner"); if(_b){ _b.textContent="Designer portal"; _b.classList.remove("hidden"); } }
     try{ const {data:_ia}=await sb.rpc("is_admin"); if(_ia===true){ S.isAdmin=true; const _ba=$("btnAdmin"); if(_ba) _ba.classList.remove("hidden"); } }catch(e){}
@@ -923,7 +924,19 @@ if(CONFIGURED) sb.auth.onAuthStateChange((_e, session)=>{
 // Deep-link: opening app.homegoinghq.com/#admin (e.g. the "Back to Admin Hub"
 // link on the other sites) jumps straight to this console — for admins only.
 /* ---------- Phase 5: order messaging ---------- */
+async function refreshUnread(){
+  window.__unread=window.__unread||{}; var any=false;
+  try{
+    if(!S.session) return false;
+    const {data}=await sb.from("order_messages").select("order_id,created_at,sender_id").order("created_at",{ascending:false}).limit(400);
+    const myId=S.session.user.id; const latest={};
+    (data||[]).forEach(function(m){ if(!latest[m.order_id]) latest[m.order_id]={t:m.created_at,sender:m.sender_id}; });
+    Object.keys(latest).forEach(function(oid){ var l=latest[oid]; var lr=localStorage.getItem("msgRead:"+oid); var unread=(l.sender!==myId)&&(!lr||new Date(l.t)>new Date(lr)); window.__unread[oid]=unread; if(unread) any=true; });
+  }catch(e){}
+  return any;
+}
 async function openOrderMessages(orderId){
+  try{ localStorage.setItem("msgRead:"+orderId,new Date().toISOString()); if(window.__unread) window.__unread[orderId]=false; }catch(e){}
   $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:520px;max-height:88vh;display:flex;flex-direction:column">
     <button class="close" onclick="closeModal()">×</button>
     <div class="eyebrow">Order messages</div><h3 style="margin:4px 0 8px">Conversation</h3>
@@ -932,6 +945,7 @@ async function openOrderMessages(orderId){
     <div class="muted" style="font-size:11px;margin-top:6px">The family, the designer, and HomegoingHQ can all see this thread.</div>
   </div></div>`;
   loadOrderMessages(orderId);
+  try{ if(typeof loadFsOrders==="function") loadFsOrders(); if(typeof loadDesignerAssignments==="function"&&S.designer) loadDesignerAssignments(); }catch(e){}
 }
 async function loadOrderMessages(orderId){
   const el=document.getElementById("omThread"); if(!el) return;
@@ -1008,13 +1022,13 @@ function fsOrderCard(o,asDesigner){
   }
   return `<div class="card" style="padding:14px 16px;margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><strong>${esc(tier)}</strong><span class="pill" style="background:var(--sage);color:#fff;font-size:11px">${esc(badge)}</span></div>
-    <div class="muted" style="font-size:12.5px;margin-top:2px">${esc(nm)}${created?" · "+created:""}${bal>0?" · balance "+fmt(bal):""}</div>${action}<div style="margin-top:8px"><button class="btn btn-ghost btn-sm" onclick="openOrderMessages('${o.id}')">💬 Messages</button></div></div>`;
+    <div class="muted" style="font-size:12.5px;margin-top:2px">${esc(nm)}${created?" · "+created:""}${bal>0?" · balance "+fmt(bal):""}</div>${action}<div style="margin-top:8px"><button class="btn btn-ghost btn-sm" onclick="openOrderMessages('${o.id}')">💬 Messages${(window.__unread&&window.__unread[o.id])?' <span style="background:#c0392b;color:#fff;border-radius:9px;padding:0 6px;font-size:10px">new</span>':""}</button></div></div>`;
 }
 async function loadFsOrders(){
   const el=$("fsOrders"); if(!el) return;
   el.innerHTML='<div class="muted" style="font-size:13px">Loading…</div>';
   try{ const {data}=await sb.from("fullservice_requests").select("*").order("created_at",{ascending:false});
-    const orders=data||[];
+    const orders=data||[]; await refreshUnread();
     if(!orders.length){ el.innerHTML='<div class="muted" style="font-size:13px">No design orders yet. When you request a full-service design, it appears here with its status and proof.</div>'; return; }
     el.innerHTML=(S.isAdmin?'<div class="muted" style="font-size:12px;margin-bottom:8px">Admin view — all orders. Upload a proof and set the status; each family sees updates in their own list.</div>':"")+orders.map(fsOrderCard).join("");
   }catch(e){ el.innerHTML='<div class="muted" style="font-size:13px">Couldn\'t load orders right now.</div>'; }
@@ -5682,7 +5696,7 @@ async function admViewDoc(path){ try{ const {data,error}=await sb.storage.from("
 async function loadDesignerAssignments(){
   const el=document.getElementById("dsAssignments"); if(!el) return;
   try{ const {data}=await sb.from("fullservice_requests").select("*").order("created_at",{ascending:false});
-    const mine=(data||[]).filter(o=>o.assigned_designer_id&&S.designer&&o.assigned_designer_id===S.designer.id);
+    const mine=(data||[]).filter(o=>o.assigned_designer_id&&S.designer&&o.assigned_designer_id===S.designer.id); await refreshUnread();
     if(!mine.length){ el.innerHTML='<div class="muted" style="font-size:13px">No assignments yet. When a family you serve places an order, it lands here — you upload the proof and move it forward right from these cards.</div>'; return; }
     const c={nw:mine.filter(o=>o.assignment_status!=="accepted").length,prog:mine.filter(o=>o.assignment_status==="accepted"&&o.status!=="proof_ready"&&o.status!=="balance_paid"&&o.status!=="shipped").length,aw:mine.filter(o=>o.status==="proof_ready").length,done:mine.filter(o=>o.status==="balance_paid"||o.status==="shipped").length};
     const summary=`<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:13px"><span><b>${c.nw}</b> new</span><span><b>${c.prog}</b> in progress</span><span><b>${c.aw}</b> awaiting approval</span><span><b>${c.done}</b> completed</span></div>`;
