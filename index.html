@@ -227,7 +227,7 @@ summary::-webkit-details-marker{display:none}
   <div id="clientsSection"></div>
   <div class="estate-head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div><div class="eyebrow">Your workspace</div><h1 class="name" style="font-size:26px">Welcome<span id="homeName"></span></h1></div><button class="btn btn-ghost btn-sm" onclick="takeTour()">Take a tour</button></div>
   <div class="grid" id="estateList"></div>
-  <div class="card" style="margin-top:14px">
+  <div class="card" style="margin-top:14px" id="startCard">
     <div class="eyebrow">Start</div>
     <div class="triage">
       <button onclick="startIntake()"><span class="t-title">Someone close to me has died</span><span class="t-sub">Build a step-by-step settlement roadmap in about two minutes.</span></button>
@@ -6261,7 +6261,7 @@ function chooseDesigner(id,name){ FS.chosenDesigner = id?{id:id,name:name}:null;
 (function(){
   var PHASE_LABELS = {first24:"First 24 hours", week1:"First week", month1:"First month", days90:"First 90 days", longterm:"Long-term", other:"Other"};
   function pct(done,total){ total=+total||0; done=+done||0; return total? Math.round(done/total*100) : 0; }
-  function fmtD(d){ try{ return d? (window.fmtDate? window.fmtDate(d) : new Date(d).toLocaleDateString()) : ""; }catch(e){ return ""; } }
+  function fmtD(d){ if(!d) return ""; try{ var dt=new Date(String(d).replace(" ","T")); if(isNaN(dt.getTime())) return ""; return dt.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }catch(e){ return ""; } }
   function E(s){ return window.esc? window.esc(s) : String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
 
   /* ---- data load: called after every loadEstates ---- */
@@ -6454,7 +6454,7 @@ function chooseDesigner(id,name){ FS.chosenDesigner = id?{id:id,name:name}:null;
    (family side). No document/ledger access is involved — notes are plain text. */
 (function(){
   function E(s){ return window.esc? window.esc(s) : String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
-  function fmtD(d){ try{ return d? (window.fmtDate? window.fmtDate(d) : new Date(d).toLocaleDateString()) : ""; }catch(e){ return ""; } }
+  function fmtD(d){ if(!d) return ""; try{ var dt=new Date(String(d).replace(" ","T")); if(isNaN(dt.getTime())) return ""; return dt.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }catch(e){ return ""; } }
 
   async function fetchNotes(estateId){
     try{
@@ -6878,6 +6878,55 @@ function chooseDesigner(id,name){ FS.chosenDesigner = id?{id:id,name:name}:null;
     window.__admPayoutsWrapped = true;
     var _admLoad = window.admLoadDesigners;
     window.admLoadDesigners = function(){ var r=_admLoad.apply(this,arguments); setTimeout(function(){ try{ renderAdminPayouts(); }catch(e){} },0); return r; };
+  }
+})();
+
+</script>
+
+<script>
+/* ============ CONCIERGE-FIRST HOME LAYOUT ============
+   When the signed-in user is a concierge (has a concierge_accounts row →
+   S.myAccount), lead the home view with the families they support, tuck their
+   personal family workspace into a collapsed "My own affairs" drawer, and hide
+   the plan upsell (their own affairs are included with the concierge account).
+   Non-concierges are unaffected. Self-contained: wraps goHome. */
+(function(){
+  function applyConciergeLayout(){
+    if(!S.myAccount) return;                       // families: leave home as-is
+    var home = document.getElementById("view-home"); if(!home) return;
+
+    // hide the plan upsell for concierges (their own affairs are included)
+    var up = document.getElementById("upgradeCard");
+    if(up) up.classList.add("hidden");
+
+    // build (once) the collapsed "My own affairs" drawer
+    var drawer = document.getElementById("myAffairs");
+    if(!drawer){
+      drawer = document.createElement("details");
+      drawer.id = "myAffairs"; drawer.className = "card"; drawer.style.marginTop = "14px";
+      drawer.innerHTML =
+        '<summary style="cursor:pointer;font-weight:600;list-style:none">My own affairs '+
+        '<span class="muted" style="font-weight:400;font-size:12.5px">— included with your concierge account</span></summary>'+
+        '<p class="muted" style="font-size:12.5px;margin:8px 0 10px">Plan ahead for yourself, or manage a loved one\u2019s estate here. This is your personal workspace, separate from the families you support above.</p>'+
+        '<div id="myAffairsBody"></div>';
+      var head = home.querySelector(".estate-head");
+      if(head && head.parentNode) head.parentNode.insertBefore(drawer, head.nextSibling);
+      else home.querySelector(".wrap").appendChild(drawer);
+    }
+
+    // move the personal sections into the drawer (idempotent — only if not already there)
+    var body = drawer.querySelector("#myAffairsBody");
+    ["estateList","startCard"].forEach(function(id){
+      var elx = document.getElementById(id);
+      if(elx && elx.parentNode !== body) body.appendChild(elx);
+    });
+  }
+
+  if(window.goDesigner){}  // no-op guard so minifiers keep order
+  if(window.goHome && !window.__conciergeHomeWrapped){
+    window.__conciergeHomeWrapped = true;
+    var _goHome = window.goHome;
+    window.goHome = function(){ _goHome.apply(this, arguments); try{ applyConciergeLayout(); }catch(e){} };
   }
 })();
 
