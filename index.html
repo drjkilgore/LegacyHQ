@@ -922,6 +922,67 @@ if(CONFIGURED) sb.auth.onAuthStateChange((_e, session)=>{
 });
 // Deep-link: opening app.homegoinghq.com/#admin (e.g. the "Back to Admin Hub"
 // link on the other sites) jumps straight to this console — for admins only.
+/* ---------- Phase 5: order messaging ---------- */
+async function openOrderMessages(orderId){
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:520px;max-height:88vh;display:flex;flex-direction:column">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Order messages</div><h3 style="margin:4px 0 8px">Conversation</h3>
+    <div id="omThread" style="flex:1;overflow:auto;min-height:180px;max-height:52vh;padding-right:4px">Loading…</div>
+    <div style="display:flex;gap:8px;margin-top:10px"><input id="omInput" placeholder="Write a message…" onkeydown="if(event.key==='Enter')sendOrderMessage('${orderId}')" style="flex:1"><button class="btn btn-brass btn-sm" onclick="sendOrderMessage('${orderId}')">Send</button></div>
+    <div class="muted" style="font-size:11px;margin-top:6px">The family, the designer, and HomegoingHQ can all see this thread.</div>
+  </div></div>`;
+  loadOrderMessages(orderId);
+}
+async function loadOrderMessages(orderId){
+  const el=document.getElementById("omThread"); if(!el) return;
+  try{ const {data}=await sb.from("order_messages").select("*").eq("order_id",orderId).order("created_at");
+    const msgs=data||[]; const myId=(S.session&&S.session.user&&S.session.user.id)||"";
+    if(!msgs.length){ el.innerHTML='<div class="muted" style="font-size:13px">No messages yet — say hello.</div>'; return; }
+    el.innerHTML=msgs.map(function(m){ const mine=m.sender_id===myId; return '<div style="margin-bottom:10px;text-align:'+(mine?'right':'left')+'"><div style="display:inline-block;max-width:82%;background:'+(mine?'var(--ink,#26332E)':'var(--parch,#f6f2ea)')+';color:'+(mine?'#fff':'inherit')+';padding:8px 11px;border-radius:12px;text-align:left"><div style="font-size:11px;opacity:.7;margin-bottom:2px">'+esc(m.sender_name||'')+(m.sender_role?' \u00b7 '+m.sender_role:'')+'</div><div style="font-size:13.5px;white-space:pre-wrap">'+esc(m.body)+'</div></div></div>'; }).join("");
+    el.scrollTop=el.scrollHeight;
+  }catch(e){ el.innerHTML='<div class="muted" style="font-size:13px">Couldn\'t load messages.</div>'; }
+}
+async function sendOrderMessage(orderId){
+  const inp=document.getElementById("omInput"); if(!inp) return; const body=inp.value.trim(); if(!body) return;
+  const role = S.isAdmin?"admin":((S.designer&&S.designer.status==="approved")?"designer":"family");
+  inp.value="";
+  try{ await sb.from("order_messages").insert({ order_id:orderId, sender_id:S.session.user.id, sender_name:(S.profile&&S.profile.full_name)||(S.session&&S.session.user&&S.session.user.email)||"", sender_role:role, body:body }); loadOrderMessages(orderId); }
+  catch(e){ toast(e.message||"Couldn't send."); inp.value=body; }
+}
+
+/* ---------- Phase 5: ratings ---------- */
+function rateDesignerModal(orderId){
+  window.__rateVal=5;
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:420px">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Your designer</div><h3 style="margin:4px 0 8px">How was your experience?</h3>
+    <div id="rateStars" style="font-size:30px;cursor:pointer;letter-spacing:6px">${[1,2,3,4,5].map(n=>`<span onclick="setRate(${n})" data-star="${n}">\u2605</span>`).join("")}</div>
+    <textarea id="rateComment" placeholder="A few words about your designer (optional)\u2026" style="margin-top:10px"></textarea>
+    <div class="scard-actions" style="margin-top:12px"><button class="btn btn-brass" onclick="submitRating('${orderId}')">Submit rating</button></div>
+  </div></div>`;
+  setRate(5);
+}
+function setRate(n){ window.__rateVal=n; const el=document.getElementById("rateStars"); if(el) el.querySelectorAll("[data-star]").forEach(function(s){ s.style.color=(parseInt(s.getAttribute("data-star"))<=n)?"#C9A24B":"#ccc"; }); }
+async function submitRating(orderId){
+  const rating=window.__rateVal||5, comment=(document.getElementById("rateComment")||{}).value||"";
+  try{ await fetch("/.netlify/functions/rate-designer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orderId:orderId,rating:rating,comment:comment})});
+    closeModal(); toast("Thank you \u2014 your rating helps other families."); if(typeof loadFsOrders==="function") loadFsOrders();
+  }catch(e){ toast("Couldn't submit rating."); }
+}
+
+/* ---------- Phase 6 (buildable slice): AI design ideas for the designer ---------- */
+async function dsAiAssist(orderId){
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:560px;max-height:88vh;overflow:auto"><button class="close" onclick="closeModal()">×</button><div class="eyebrow">AI design ideas</div><h3 style="margin:4px 0 8px">Suggestions for this program</h3><div id="aiOut" class="muted" style="font-size:13.5px;line-height:1.55">Thinking\u2026</div><div class="muted" style="font-size:11px;margin-top:10px">A starting point, not a rule \u2014 your judgment as the designer comes first.</div></div></div>`;
+  try{
+    const {data:o}=await sb.from("fullservice_requests").select("*").eq("id",orderId).maybeSingle();
+    const c=(o&&o.details&&o.details.content)||{};
+    const prompt="You are a funeral program designer's assistant. Suggest a tasteful, respectful design direction for a homegoing/memorial program. Give: (1) a color palette of 3-4 colors with hex codes, (2) a font pairing (a heading font and a body font), (3) a one-line cover/layout idea, and (4) two short scripture or verse suggestions. Keep it brief, warm, and dignified.\n\nDetails:\nName: "+(c.name||"\u2014")+"\nDates: "+(c.dates||"\u2014")+"\nNotes: "+(c.notes||"\u2014")+"\nService: "+((o&&o.quote&&o.quote.tierName)||"\u2014");
+    const r=await fetch("/.netlify/functions/ai-guide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:prompt}]})});
+    const d=await r.json();
+    const out=document.getElementById("aiOut");
+    if(out) out.innerHTML=String(d.text||d.reply||"No suggestions right now.").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/\n/g,"<br>");
+  }catch(e){ const out=document.getElementById("aiOut"); if(out) out.textContent="Couldn't get suggestions right now."; }
+}
 function fsOrderCard(o,asDesigner){
   const steps=[["requested","Requested"],["design_fee_paid","Design fee paid"],["proof_ready","Proof ready"],["balance_paid","Paid / complete"],["shipped","Shipped"]];
   const st=o.status||"requested"; const nm=(o.details&&o.details.content&&o.details.content.name)||"Design order";
@@ -935,19 +996,19 @@ function fsOrderCard(o,asDesigner){
     action=`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">Upload proof<input type="file" accept="image/*,application/pdf" style="display:none" onchange="fsUploadProof('${o.id}',this)"></label>
       ${o.proof_url?`<a class="btn btn-ghost btn-sm" href="${esc(o.proof_url)}" target="_blank" rel="noopener">View proof</a>`:""}
-      <select onchange="fsSetStatus('${o.id}',this.value)" style="width:auto;padding:6px 8px;font-size:12px">${steps.map(s=>`<option value="${s[0]}" ${st===s[0]?"selected":""}>${s[1]}</option>`).join("")}</select>${st==="proof_ready"?(bal>0?`<button class="btn btn-brass btn-sm" onclick="payBalance('${o.id}',${bal})">Approve &amp; pay balance ${fmt(bal)} →</button>`:`<button class="btn btn-brass btn-sm" onclick="fsSetStatus('${o.id}','balance_paid')">Mark approved →</button>`):""}</div>
+      <select onchange="fsSetStatus('${o.id}',this.value)" style="width:auto;padding:6px 8px;font-size:12px">${steps.map(s=>`<option value="${s[0]}" ${st===s[0]?"selected":""}>${s[1]}</option>`).join("")}</select>${st==="proof_ready"?(bal>0?`<button class="btn btn-brass btn-sm" onclick="payBalance('${o.id}',${bal})">Approve &amp; pay balance ${fmt(bal)} →</button>`:`<button class="btn btn-brass btn-sm" onclick="fsSetStatus('${o.id}','balance_paid')">Mark approved →</button>`):""}${asDesigner?`<button class="btn btn-ghost btn-sm" onclick="dsAiAssist('${o.id}')">✨ AI ideas</button>`:""}</div>
       <div class="muted" style="font-size:11.5px;margin-top:5px">${esc((o.contact&&o.contact.email)||"")}${o.contact&&o.contact.phone?" · "+esc(o.contact.phone):""}${!asDesigner?(o.assigned_designer_id?' · <span style="color:#3f6b4f">assigned</span>':' · <span style="color:#8F6A24">unassigned</span>'):""}</div>`;
   } else if(st==="proof_ready"){
     action=`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${o.proof_url?`<a class="btn btn-ghost btn-sm" href="${esc(o.proof_url)}" target="_blank" rel="noopener">View your proof</a>`:""}
       ${bal>0?`<button class="btn btn-brass btn-sm" onclick="payBalance('${o.id}',${bal})">Approve &amp; pay balance ${fmt(bal)} →</button>`:`<button class="btn btn-brass btn-sm" onclick="fsSetStatus('${o.id}','balance_paid')">Approve proof →</button>`}</div>`;
   } else if(st==="balance_paid"||st==="shipped"){
-    action=`<div class="muted" style="font-size:12px;margin-top:6px">${st==="shipped"?"Shipped — on its way to you.":"Approved &amp; paid — printing now."}</div>`;
+    action=`<div class="muted" style="font-size:12px;margin-top:6px">${st==="shipped"?"Shipped — on its way to you.":"Approved &amp; paid — printing now."}</div>${(o.assigned_designer_id&&!o.rating)?`<button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="rateDesignerModal('${o.id}')">★ Rate your designer</button>`:(o.rating?`<div class="muted" style="font-size:12px;margin-top:4px">You rated ${o.rating}★</div>`:"")}`;
   } else {
     action=`<div class="muted" style="font-size:12px;margin-top:6px">Your designer is preparing your proof. You'll review and approve it right here.</div>`;
   }
   return `<div class="card" style="padding:14px 16px;margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><strong>${esc(tier)}</strong><span class="pill" style="background:var(--sage);color:#fff;font-size:11px">${esc(badge)}</span></div>
-    <div class="muted" style="font-size:12.5px;margin-top:2px">${esc(nm)}${created?" · "+created:""}${bal>0?" · balance "+fmt(bal):""}</div>${action}</div>`;
+    <div class="muted" style="font-size:12.5px;margin-top:2px">${esc(nm)}${created?" · "+created:""}${bal>0?" · balance "+fmt(bal):""}</div>${action}<div style="margin-top:8px"><button class="btn btn-ghost btn-sm" onclick="openOrderMessages('${o.id}')">💬 Messages</button></div></div>`;
 }
 async function loadFsOrders(){
   const el=$("fsOrders"); if(!el) return;
