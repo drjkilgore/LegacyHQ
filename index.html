@@ -181,6 +181,7 @@ summary::-webkit-details-marker{display:none}
     <button class="btn btn-ghost btn-sm hidden topbar-menu-btn" id="btnMenu" onclick="toggleTopMenu()" aria-label="Menu">☰</button>
     <div class="topbar-actions" id="topActions">
     <button class="btn btn-ghost btn-sm hidden" id="btnHelp" onclick="openHelp()">? Help</button>
+    <button class="btn btn-ghost btn-sm hidden" id="btnDesigner" onclick="designerApplyModal()">Become a designer</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnBrand" onclick="openMyBrand()">My Brand</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnAdmin" onclick="openAdmin()">Admin</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnComfort" onclick="toggleComfort()" title="Comfort mode — gentle sound">🔈 Comfort</button>
@@ -389,6 +390,9 @@ summary::-webkit-details-marker{display:none}
 <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="admMessagesModal()">✏️ Messages</button><a class="btn btn-brass btn-sm" href="/accept.html" target="_blank">🕊 Acceptance Sender</a><a class="btn btn-ghost btn-sm" href="/vet.html" target="_blank">✓ Provider Vetting</a></div>
   <div class="estate-head"><div class="eyebrow">HomegoingHQ</div><h1 class="name" style="font-size:26px">Admin console</h1></div>
   <div class="grid" id="adminStats" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))"></div>
+  <div class="card" style="margin-top:16px"><div class="eyebrow">Designer applications</div>
+    <p class="muted" style="font-size:13px;margin:4px 0 8px">Review and approve designers. Approved designers can receive assignments (Phase 2).</p>
+    <div id="admDesigners"></div></div>
   <details class="card" style="margin-top:16px" open>
     <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">Provider &amp; concierge applications</span> <span style="color:var(--moss)">▾</span></summary>
     <div style="display:flex;gap:8px;margin:10px 0 4px;align-items:center;flex-wrap:wrap">
@@ -860,7 +864,7 @@ async function handleSession(session){
     $("btnComfort").classList.remove("hidden");
     $("btnVoice").classList.remove("hidden");
     $("btnMenu").classList.remove("hidden");
-    $("btnHelp").classList.remove("hidden");
+    $("btnHelp").classList.remove("hidden"); $("btnDesigner").classList.remove("hidden");
     sb.rpc("is_admin").then(({data})=>{ if(data===true){ S.isAdmin=true; $("btnAdmin").classList.remove("hidden"); if(location.hash==="#admin") setTimeout(openAdmin,60); } }).catch(()=>{});
     sb.rpc("my_account").then(({data})=>{ if(data && data.found){ S.myAccount=data; $("btnBrand").classList.remove("hidden"); } else { S.myAccount=null; } }).catch(()=>{});
     try{ loadAppMessages(); }catch(e){}
@@ -879,6 +883,7 @@ async function handleSession(session){
     }catch(err){ toast("Loading issue: "+err.message); }
     goHome();
     try{ checkBalanceLink(); }catch(e){}
+    try{ if(new URLSearchParams(location.search).get("designer")==="apply") setTimeout(designerApplyModal,600); }catch(e){}
   } else {
     lastSessionUser = null;
     $("btnSignOut").classList.add("hidden"); $("whoami").textContent="";
@@ -3259,7 +3264,7 @@ async function openAdmin(){
   if(!stats||stats.error){ $("adminStats").innerHTML='<div class="muted">Not authorized.</div>'; return; }
   const cards=[["Users",stats.users],["New (7d)",stats.users_7d],["Paid",stats.paid_users],["Estates",stats.estates],["Plans",stats.plans],["Tasks done",stats.tasks_done],["Memorials live",stats.memorials_live]];
   $("adminStats").innerHTML=cards.map(([l,v])=>`<div class="card" style="padding:14px"><div class="eyebrow">${l}</div><div style="font-family:var(--font-display);font-size:28px;margin-top:2px">${v??0}</div></div>`).join("");
-  admLoadUsers(); admLoadAccounts(); admLoadPacks(); admLoadCounties(); admLoadApplications();
+  admLoadUsers(); admLoadAccounts(); admLoadPacks(); admLoadCounties(); admLoadApplications(); admLoadDesigners();
   const {data:act}=await sb.rpc("admin_recent_activity");
   $("admActivity").innerHTML=(Array.isArray(act)?act:[]).map(a=>{
     const when=new Date(a.created_at).toLocaleDateString(undefined,{month:"short",day:"numeric"})+" "+new Date(a.created_at).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
@@ -5462,6 +5467,104 @@ function toggleVoice(){
   if(Voice.on){ hhqSpeak("Voice is on. I will read the encouragements as you go."); toast("Spoken affirmations on."); }
   else { try{ window.speechSynthesis&&window.speechSynthesis.cancel(); }catch(e){} toast("Spoken affirmations off."); }
 }
+/* ---------- Designer Marketplace — Phase 1 ---------- */
+const DS_SPECIALTIES=["Funeral programs","Prayer cards","Memorial books","Banners","Photo restoration","Invitations","Keepsakes","Obituaries"];
+function dsToggle(field,val,on){ window.DS=window.DS||{photo:"",portfolio:[],idDoc:"",w9Doc:"",specialties:[],states:[]}; const a=window.DS[field]||[]; if(on){ if(!a.includes(val))a.push(val); } else { const i=a.indexOf(val); if(i>=0)a.splice(i,1); } window.DS[field]=a; }
+function designerApplyModal(){
+  if(!S.session){ toast("Please sign in first, then apply to design."); return; }
+  window.DS={photo:"",portfolio:[],idDoc:"",w9Doc:"",specialties:[],states:[]};
+  const STATES=[...new Set(Object.values(US_STATE_ABBR))].sort();
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:620px;max-height:88vh;overflow:auto">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Designer Marketplace</div><h3 style="margin:4px 0 4px">Apply to design for HomegoingHQ</h3>
+    <p class="muted" style="font-size:13px;margin-bottom:14px">Tell us about your work. Every application is reviewed before you receive assignments.</p>
+    <label>Full name</label><input id="dsName" value="${esc((S.profile&&S.profile.full_name)||'')}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><label>Email</label><input id="dsEmail" value="${esc((S.session.user&&S.session.user.email)||'')}"></div><div><label>Phone</label><input id="dsPhone"></div></div>
+    <label>Short bio</label><textarea id="dsBio" placeholder="Your background, experience, and design style…"></textarea>
+    <label style="margin-top:8px">Specialties</label>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${DS_SPECIALTIES.map(s=>`<label class="pill" style="cursor:pointer;border:1px solid var(--line);background:#fff;font-weight:400"><input type="checkbox" value="${s}" onchange="dsToggle('specialties',this.value,this.checked)" style="margin-right:5px">${s}</label>`).join("")}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px"><div><label>Typical turnaround (days)</label><input id="dsTurn" type="number" min="1" placeholder="e.g. 3"></div><div><label>Languages</label><input id="dsLangs" placeholder="English, Spanish…"></div></div>
+    <label style="margin-top:8px">States you'll serve</label>
+    <div style="max-height:120px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:3px">${STATES.map(st=>`<label style="font-size:12px"><input type="checkbox" value="${st}" onchange="dsToggle('states',this.value,this.checked)"> ${st}</label>`).join("")}</div>
+    <label style="margin-top:10px">Profile photo</label><input type="file" accept="image/*" onchange="dsUpload(this,'photo')"><div id="dsPhotoS" class="muted" style="font-size:12px"></div>
+    <label style="margin-top:8px">Portfolio (images / PDFs)</label><input type="file" accept="image/*,application/pdf" multiple onchange="dsUpload(this,'portfolio')"><div id="dsPortS" class="muted" style="font-size:12px"></div>
+    <label style="margin-top:8px">Photo ID <span class="muted" style="font-weight:400">(private — verification only)</span></label><input type="file" accept="image/*,application/pdf" onchange="dsUpload(this,'id')"><div id="dsIdS" class="muted" style="font-size:12px"></div>
+    <label style="margin-top:8px">W-9 / tax form <span class="muted" style="font-weight:400">(private)</span></label><input type="file" accept="image/*,application/pdf" onchange="dsUpload(this,'w9')"><div id="dsW9S" class="muted" style="font-size:12px"></div>
+    <label style="margin-top:10px;display:flex;gap:8px;align-items:flex-start;font-size:13px;font-weight:400"><input type="checkbox" id="dsAgree" style="margin-top:3px">I agree to HomegoingHQ's confidentiality and copyright terms, and confirm the portfolio is my own original work.</label>
+    <div class="scard-actions" style="margin-top:14px"><button class="btn btn-brass" onclick="submitDesignerApplication()">Submit application</button></div>
+    <div id="dsMsg" class="muted" style="font-size:12.5px;margin-top:8px"></div>
+  </div></div>`;
+}
+async function dsUpload(input,kind){
+  if(!input.files||!input.files.length) return;
+  const statusEl={photo:"dsPhotoS",portfolio:"dsPortS",id:"dsIdS",w9:"dsW9S"}[kind];
+  const el=document.getElementById(statusEl);
+  const priv=(kind==="id"||kind==="w9");
+  const bucket=priv?"designer-private":"designer-photos";
+  const uid=(S.session&&S.session.user&&S.session.user.id)||"anon";
+  if(el){ el.style.color=""; el.textContent="Uploading…"; }
+  try{
+    for(const f of Array.from(input.files)){
+      const path=uid+"/"+kind+"-"+Date.now()+"-"+f.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+      const {error}=await sb.storage.from(bucket).upload(path,f,{upsert:true}); if(error) throw error;
+      if(kind==="photo"){ const {data}=sb.storage.from("designer-photos").getPublicUrl(path); window.DS.photo=data.publicUrl; }
+      else if(kind==="portfolio"){ const {data}=sb.storage.from("designer-photos").getPublicUrl(path); (window.DS.portfolio=window.DS.portfolio||[]).push(data.publicUrl); }
+      else if(kind==="id"){ window.DS.idDoc=path; }
+      else if(kind==="w9"){ window.DS.w9Doc=path; }
+    }
+    if(el){ el.style.color="#3f6b4f"; el.textContent="✓ uploaded"; }
+  }catch(e){ if(el){ el.style.color="#c0392b"; el.textContent="✕ "+(e.message||"upload failed"); } }
+}
+async function submitDesignerApplication(){
+  const DS=window.DS||{}, msg=$("dsMsg"); const fail=(m)=>{ if(msg){msg.style.color="#c0392b";msg.textContent=m;} };
+  const name=$("dsName").value.trim(), email=$("dsEmail").value.trim();
+  if(!name||!email) return fail("Please add your name and email.");
+  if(!$("dsAgree").checked) return fail("Please agree to the confidentiality and copyright terms.");
+  if(!(DS.specialties&&DS.specialties.length)||!(DS.states&&DS.states.length)) return fail("Please pick at least one specialty and one state you serve.");
+  const langs=$("dsLangs").value.trim();
+  const row={ user_id:S.session.user.id, full_name:name, email, phone:$("dsPhone").value.trim()||null, bio:$("dsBio").value.trim()||null,
+    specialties:DS.specialties, states:DS.states, languages:langs?langs.split(",").map(x=>x.trim()).filter(Boolean):null,
+    turnaround_days:parseInt($("dsTurn").value)||null, profile_photo:DS.photo||null, portfolio_urls:(DS.portfolio&&DS.portfolio.length)?DS.portfolio:null,
+    id_doc:DS.idDoc||null, w9_doc:DS.w9Doc||null, agreed_terms:true, status:"pending", updated_at:new Date().toISOString() };
+  try{
+    const {error}=await sb.from("designers").upsert(row,{onConflict:"user_id"}); if(error) throw error;
+    window.DS={photo:"",portfolio:[],idDoc:"",w9Doc:"",specialties:[],states:[]};
+    closeModal(); toast("Application submitted — we'll review it and be in touch. Thank you.");
+  }catch(e){ fail(e.message||"Couldn't submit — please try again."); }
+}
+async function admLoadDesigners(){
+  const el=$("admDesigners"); if(!el) return;
+  try{
+    const {data}=await sb.from("designers").select("*").order("created_at",{ascending:false});
+    const list=data||[];
+    if(!list.length){ el.innerHTML='<div class="muted">No designer applications yet. Share your <b>?designer=apply</b> link to recruit designers.</div>'; return; }
+    el.innerHTML=list.map(d=>{
+      const badge={pending:"#8F6A24",approved:"#3f6b4f",suspended:"#b0392b",declined:"#6d7671"}[d.status]||"#6d7671";
+      return `<div style="padding:12px 0;border-bottom:1px solid var(--line)">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">
+          <div><strong>${esc(d.full_name||"—")}</strong> <span class="pill" style="background:${badge};color:#fff;font-size:11px">${d.status}</span>${d.featured?' <span class="pill" style="background:var(--brass);color:#fff;font-size:11px">featured</span>':''}
+            <div class="muted" style="font-size:12.5px">${esc(d.email||"")}${d.phone?" · "+esc(d.phone):""} · serves ${(d.states||[]).join(", ")||"—"}</div>
+            <div class="muted" style="font-size:12px">${(d.specialties||[]).join(", ")||""}${d.turnaround_days?" · "+d.turnaround_days+"-day turnaround":""}</div></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${d.profile_photo?`<a class="btn btn-ghost btn-sm" href="${esc(d.profile_photo)}" target="_blank" rel="noopener">Photo</a>`:""}
+            ${(d.portfolio_urls||[]).length?`<a class="btn btn-ghost btn-sm" href="${esc(d.portfolio_urls[0])}" target="_blank" rel="noopener">Portfolio</a>`:""}
+            ${d.id_doc?`<button class="btn btn-ghost btn-sm" onclick="admViewDoc('${esc(d.id_doc)}')">ID</button>`:""}
+            ${d.w9_doc?`<button class="btn btn-ghost btn-sm" onclick="admViewDoc('${esc(d.w9_doc)}')">W-9</button>`:""}
+          </div></div>
+        ${d.bio?`<div class="muted" style="font-size:12.5px;margin-top:4px">${esc(d.bio)}</div>`:""}
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="admSetDesignerStatus('${d.id}','approved')">Approve</button>
+          <button class="btn btn-ghost btn-sm" onclick="admSetDesignerStatus('${d.id}','declined')">Decline</button>
+          <button class="btn btn-ghost btn-sm" onclick="admSetDesignerStatus('${d.id}','suspended')">Suspend</button>
+          <button class="btn btn-ghost btn-sm" onclick="admSetDesignerStatus('${d.id}','pending')">Pending</button>
+          <button class="btn btn-ghost btn-sm" onclick="admToggleFeatured('${d.id}',${!d.featured})">${d.featured?"Unfeature":"Feature"}</button>
+        </div></div>`;
+    }).join("");
+  }catch(e){ el.innerHTML='<div class="muted">Couldn\'t load designers.</div>'; }
+}
+async function admSetDesignerStatus(id,status){ const {error}=await sb.from("designers").update({status,updated_at:new Date().toISOString()}).eq("id",id); if(error) return toast(error.message); toast("Designer set to "+status+"."); admLoadDesigners(); }
+async function admToggleFeatured(id,on){ const {error}=await sb.from("designers").update({featured:on,updated_at:new Date().toISOString()}).eq("id",id); if(error) return toast(error.message); admLoadDesigners(); }
+async function admViewDoc(path){ try{ const {data,error}=await sb.storage.from("designer-private").createSignedUrl(path,120); if(error) throw error; window.open(data.signedUrl,"_blank"); }catch(e){ toast(e.message||"Couldn't open document."); } }
 function toggleTopMenu(){ const a=$("topActions"); if(a) a.classList.toggle("open"); }
 document.addEventListener("click",function(e){
   const a=document.getElementById("topActions"), m=document.getElementById("btnMenu");
