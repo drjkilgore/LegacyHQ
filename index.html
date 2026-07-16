@@ -5597,7 +5597,7 @@ function toggleComfort(){
   function addonWholesale(a,vk,qty){ if(a.mode==="flat") return DP[vk]??null; if(a.mode==="unit") return (DP[vk]!=null)?DP[vk]*qty:null; const t=DP[vk]; return t?(t[qty]??null):null; }
   const money=(n)=> "$"+(n||0).toFixed(2);
   const esc=(s)=> String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const note=(m)=>{ try{ if(typeof window.toast==="function"){ window.toast(m); return; } }catch(e){} alert(m); };
+  const note=(m)=>{ const el=root&&root.querySelector("#fsMsg"); if(el){ el.textContent=m; el.style.display="block"; try{el.scrollIntoView({behavior:"smooth",block:"nearest"});}catch(e){} return; } try{ if(typeof window.toast==="function"){ window.toast(m); return; } }catch(e){} alert(m); };
 
   const FS = { tier:null, tierPages:null, fold:"bi-fold", programSize:"s85", programQty:100, addons:{}, addonOrder:[], photoUrls:[], reviewMode:null, prefill:{} };
   let root=null;
@@ -5716,6 +5716,7 @@ function toggleComfort(){
       ${q.extraDesign>0?`<div class="fs-ql"><span>Additional design ×${q.extraCount}<div class="fs-s">$${CONFIG.EXTRA_DESIGN_FEE} per extra product</div></span><span>${money(q.extraDesign)}</span></div>`:''}
       <div class="fs-ql fs-tot"><span>Total</span><span>${money(q.total)}</span></div>
       ${q.tier?`<div class="fs-ql" style="border-top:1px dashed var(--fsline);margin-top:4px;padding-top:8px"><span>Due now — design fee<div class="fs-s">printing (${money(Math.max(0,q.total-(q.tierPrice+q.extraDesign)))}) billed at proof approval</div></span><span><b>${money(q.tierPrice+q.extraDesign)}</b></span></div>`:''}
+      <div id="fsMsg" style="display:none;background:#fdecea;border:1px solid #e6b0aa;color:#922b21;border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.45;margin-bottom:10px"></div>
       <button class="fs-btn" ${q.tier?'':'disabled'} id="fsSubmit">Pay design fee & request →</button>
       <div class="fs-note">You pay the design fee now; you'll approve a proof before the printing balance is charged.</div></div>`;
   }
@@ -5779,9 +5780,10 @@ function toggleComfort(){
     let orderId=null;
     try{
       if(window.sb){ const uid=(window.S&&window.S.session&&window.S.session.user&&window.S.session.user.id)||null;
-        const {data:row}=await window.sb.from("fullservice_requests").insert({ estate_id:request.estateId, status:"requested",
+        const {data:row,error:insErr}=await window.sb.from("fullservice_requests").insert({ estate_id:request.estateId, status:"requested",
           contact, details:{ tier:FS.tier, pages:programPages(), size:FS.programSize, fold:FS.fold, programQty:FS.programQty, addons:FS.addons, content:request.content, ship:request.ship },
           quote:q, design_fee:designFee, balance, created_by:uid }).select("id").single();
+        if(insErr){ console.warn("Full-service order save failed:", insErr.message, insErr); }
         if(row) orderId=row.id; }
     }catch(e){}
     try{ await fetch("/.netlify/functions/fullservice-notify",{ method:"POST", headers:{"Content-Type":"application/json"},
