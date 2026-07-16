@@ -6233,5 +6233,200 @@ function chooseDesigner(id,name){ FS.chosenDesigner = id?{id:id,name:name}:null;
 </script>
 <!-- =================== END FULL-SERVICE DESIGNER =================== -->
 
+<script>
+/* ================= CONCIERGE — PROGRESS-ONLY SHARING (migration v16) =================
+   A family can share a COMPLETION CHECKLIST with a concierge without exposing
+   documents, ledger, probate, assets, or task detail. The concierge is never an
+   estate member; the only data they read is concierge_client_progress() (counts
+   + standard task titles only). Self-contained: wraps existing globals, no edits
+   to the main body. */
+(function(){
+  var PHASE_LABELS = {first24:"First 24 hours", week1:"First week", month1:"First month", days90:"First 90 days", longterm:"Long-term", other:"Other"};
+  function pct(done,total){ total=+total||0; done=+done||0; return total? Math.round(done/total*100) : 0; }
+  function fmtD(d){ try{ return d? (window.fmtDate? window.fmtDate(d) : new Date(d).toLocaleDateString()) : ""; }catch(e){ return ""; } }
+  function E(s){ return window.esc? window.esc(s) : String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+
+  /* ---- data load: called after every loadEstates ---- */
+  async function loadConciergeData(){
+    S.conciergeClients = []; S.conciergePending = [];
+    if(!S.session || !S.session.user) return;
+    try{
+      var pr = await sb.rpc("concierge_client_progress");
+      if(!pr.error && Array.isArray(pr.data)) S.conciergeClients = pr.data;
+    }catch(e){}
+    try{
+      var inv = await sb.from("estate_concierge_links")
+        .select("id,estate_id,status,email,estates(decedent_name)")
+        .eq("status","invited");
+      if(!inv.error && Array.isArray(inv.data)){
+        // RLS returns only invites addressed to me (my email) or already mine
+        S.conciergePending = inv.data.filter(function(x){ return x.status==="invited"; });
+      }
+    }catch(e){}
+  }
+
+  if(window.loadEstates && !window.__ecl_loadWrapped){
+    window.__ecl_loadWrapped = true;
+    var _loadEstates = window.loadEstates;
+    window.loadEstates = async function(){ var r = await _loadEstates.apply(this, arguments); await loadConciergeData(); return r; };
+  }
+
+  /* ---- concierge side: render into #clientsSection ---- */
+  function renderConciergeClients(){
+    var root = document.getElementById("clientsSection"); if(!root) return;
+    var pend = S.conciergePending || [], cli = S.conciergeClients || [];
+    if(!pend.length && !cli.length) return;
+    var wrap = document.createElement("div");
+
+    if(pend.length){
+      var ph = '<div class="card" style="margin-bottom:14px"><div class="eyebrow">Concierge invitations</div>'+
+        '<p class="muted" style="margin:6px 0 10px;font-size:13px">A family invited you to see their progress checklist (their documents and finances stay private).</p>';
+      pend.forEach(function(p){
+        var nm = p.estates && p.estates.decedent_name ? p.estates.decedent_name : "an estate";
+        ph += '<div class="card" style="padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
+          '<div><strong>Estate of '+E(nm)+'</strong><div class="muted" style="font-size:12.5px">Progress-only invitation</div></div>'+
+          '<div style="display:flex;gap:6px"><button class="btn btn-primary btn-sm" onclick="acceptConciergeInvite(\''+p.id+'\',true)">Accept</button>'+
+          '<button class="btn btn-ghost btn-sm" onclick="acceptConciergeInvite(\''+p.id+'\',false)">Decline</button></div></div>';
+      });
+      ph += '</div>';
+      var d1=document.createElement("div"); d1.innerHTML=ph; wrap.appendChild(d1);
+    }
+
+    if(cli.length){
+      var h = '<div class="card" style="margin-bottom:14px"><div class="eyebrow">Families you support</div>'+
+        '<p class="muted" style="margin:6px 0 10px;font-size:13px">Progress only — you see the checklist and next steps, not documents or finances.</p><div class="grid">';
+      cli.forEach(function(c){
+        var p = pct(c.tasks_done, c.tasks_total);
+        h += '<div class="card" style="padding:13px 15px;cursor:pointer" onclick="openConciergeChecklist(\''+c.estate_id+'\')">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><strong>Estate of '+E(c.decedent_name)+'</strong>'+
+          '<div class="muted" style="font-size:12.5px">'+E(c.state_code||"")+(c.last_activity?' · updated '+fmtD(c.last_activity):"")+'</div></div>'+
+          '<span class="pill">'+p+'%</span></div>'+
+          '<div style="height:7px;background:#E4DDCE;border-radius:6px;margin-top:10px;overflow:hidden"><div style="height:100%;width:'+p+'%;background:var(--brass,#8F6A24)"></div></div>'+
+          '<div class="muted" style="font-size:12px;margin-top:8px">'+(+c.tasks_done||0)+' of '+(+c.tasks_total||0)+' steps · '+(+c.documents_count||0)+' document(s) on file</div>'+
+          '</div>';
+      });
+      h += '</div></div>';
+      var d2=document.createElement("div"); d2.innerHTML=h; wrap.appendChild(d2);
+    }
+    root.appendChild(wrap);
+  }
+
+  if(window.renderClientsSection && !window.__ecl_clientsWrapped){
+    window.__ecl_clientsWrapped = true;
+    var _renderClients = window.renderClientsSection;
+    window.renderClientsSection = function(){ _renderClients.apply(this, arguments); try{ renderConciergeClients(); }catch(e){} };
+  }
+
+  /* ---- concierge side: read-only checklist modal ---- */
+  window.openConciergeChecklist = function(estateId){
+    var c = (S.conciergeClients||[]).find(function(x){ return x.estate_id===estateId; });
+    if(!c){ if(window.toast) toast("That family's progress isn't available."); return; }
+    var p = pct(c.tasks_done, c.tasks_total);
+    var phases = c.phases || {};
+    var order = ["first24","week1","month1","days90","longterm","other"];
+    var seen = {}, keys = order.filter(function(k){ return phases[k]; });
+    Object.keys(phases).forEach(function(k){ if(order.indexOf(k)<0) keys.push(k); });
+    var phaseHtml = keys.map(function(k){
+      var ph = phases[k]||{}, pp = pct(ph.done, ph.total);
+      return '<div style="margin:10px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span>'+E(PHASE_LABELS[k]||k)+'</span>'+
+        '<span class="muted">'+(+ph.done||0)+'/'+(+ph.total||0)+'</span></div>'+
+        '<div style="height:6px;background:#E4DDCE;border-radius:6px;margin-top:4px;overflow:hidden"><div style="height:100%;width:'+pp+'%;background:var(--brass,#8F6A24)"></div></div></div>';
+    }).join("");
+    var nextHtml = (c.next_up||[]).map(function(n){
+      return '<li style="margin:4px 0">'+E(n.title)+(n.due_at?' <span class="muted" style="font-size:12px">— by '+fmtD(n.due_at)+'</span>':"")+'</li>';
+    }).join("");
+
+    document.getElementById("modalRoot").innerHTML =
+      '<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:580px">'+
+      '<button class="close" onclick="closeModal()">×</button>'+
+      '<div class="eyebrow">Progress checklist</div><h3 style="margin-bottom:2px">Estate of '+E(c.decedent_name)+'</h3>'+
+      '<div class="muted" style="font-size:12.5px">'+E(c.state_code||"")+(c.last_activity?' · updated '+fmtD(c.last_activity):"")+'</div>'+
+      '<div style="display:flex;align-items:center;gap:10px;margin:16px 0 4px"><div style="font-size:26px;font-weight:700;font-family:Fraunces,serif">'+p+'%</div>'+
+      '<div class="muted" style="font-size:13px">'+(+c.tasks_done||0)+' of '+(+c.tasks_total||0)+' steps complete</div></div>'+
+      '<div style="height:9px;background:#E4DDCE;border-radius:6px;overflow:hidden"><div style="height:100%;width:'+p+'%;background:var(--brass,#8F6A24)"></div></div>'+
+      '<div class="eyebrow" style="margin-top:18px">By stage</div>'+phaseHtml+
+      (nextHtml?'<div class="eyebrow" style="margin-top:16px">Coming up</div><ul style="padding-left:18px;font-size:14px;margin:6px 0">'+nextHtml+'</ul>':"")+
+      ((+c.custom_open||0)?'<p class="muted" style="font-size:12.5px">+ '+(+c.custom_open)+' task(s) the family added themselves, still open.</p>':"")+
+      '<div class="banner" style="margin-top:14px;font-size:12.5px;border-color:#E4DDCE;background:#F6F2EA">'+
+      (+c.documents_count||0)+' document(s) are on file. You\u2019re seeing <strong>progress only</strong> — the documents themselves, the ledger, and financial details stay private to the family.</div>'+
+      '</div></div>';
+  };
+
+  window.acceptConciergeInvite = async function(linkId, accept){
+    try{
+      var r = await sb.rpc("accept_concierge_link", {p_link:linkId, p_accept:!!accept});
+      if(r.error){ if(window.toast) toast(r.error.message); return; }
+      if(window.toast) toast(accept? "You're connected — the family will appear under your clients." : "Invitation declined.");
+      if(window.loadEstates) await loadEstates();
+      if(window.renderClientsSection) renderClientsSection();
+    }catch(e){ if(window.toast) toast("Couldn't respond to the invitation."); }
+  };
+
+  /* ---- family side: manage progress-only concierge in the Family tab ---- */
+  async function renderFamilyConciergeCard(){
+    var host = document.getElementById("tab-family"); if(!host || !S.estate) return;
+    var card = document.getElementById("conciergeShareCard");
+    if(!card){
+      card = document.createElement("div");
+      card.id = "conciergeShareCard"; card.className = "card"; card.style.marginTop = "14px";
+      var anchor = document.getElementById("memberList");
+      if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(card, anchor.nextSibling);
+      else host.appendChild(card);
+    }
+    var rows = [];
+    try{
+      var q = await sb.from("estate_concierge_links").select("*").eq("estate_id", S.estate.id).neq("status","revoked").neq("status","declined");
+      if(!q.error) rows = q.data||[];
+    }catch(e){}
+    var list = rows.map(function(l){
+      var status = l.status==="active" ? "connected" : "invited — joins when they sign in with this email";
+      return '<div class="card" style="padding:12px 14px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
+        '<div><strong>'+E(l.email)+'</strong><div class="muted" style="font-size:12.5px">Progress only · '+E(status)+'</div></div>'+
+        '<button class="btn btn-ghost btn-sm" onclick="revokeConciergeLink(\''+l.id+'\')">Remove</button></div>';
+    }).join("");
+    card.innerHTML =
+      '<div class="eyebrow">Concierge — progress only</div>'+
+      '<p class="muted" style="margin:8px 0 12px">Share your <strong>checklist progress</strong> with a concierge so they can guide you. They\u2019ll see what\u2019s done and what\u2019s next — <strong>not</strong> your documents, ledger, or financial details. You can remove them anytime.</p>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="ccEmail" type="email" placeholder="concierge@example.com" style="flex:1;min-width:200px">'+
+      '<button class="btn btn-primary btn-sm" onclick="inviteConciergeProgress()">Invite</button></div>'+ list;
+  }
+
+  if(window.renderMembers && !window.__ecl_membersWrapped){
+    window.__ecl_membersWrapped = true;
+    var _renderMembers = window.renderMembers;
+    window.renderMembers = function(){ _renderMembers.apply(this, arguments); try{ renderFamilyConciergeCard(); }catch(e){} };
+  }
+
+  window.inviteConciergeProgress = async function(){
+    if(!S.estate) return;
+    var el = document.getElementById("ccEmail"); var email = (el && el.value || "").trim().toLowerCase();
+    if(!email || email.indexOf("@")<0){ if(window.toast) toast("Enter the concierge's email."); return; }
+    try{
+      var r = await sb.rpc("invite_concierge_progress", {p_estate:S.estate.id, p_email:email});
+      if(r.error){ if(window.toast) toast(r.error.message); return; }
+      // fire the email (best-effort)
+      var inviter = (S.profile && (S.profile.full_name)) || "Your family";
+      fetch("/.netlify/functions/send-invite", {method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({kind:"concierge_progress", email:email, inviterName:inviter, contextName:S.estate.decedent_name})}).catch(function(){});
+      if(el) el.value="";
+      if(window.logActivity) try{ logActivity("invited a concierge (progress only)", email); }catch(e){}
+      if(window.toast) toast("Invitation sent — they'll see your progress once they sign in.");
+      renderFamilyConciergeCard();
+    }catch(e){ if(window.toast) toast("Couldn't send the invitation."); }
+  };
+
+  window.revokeConciergeLink = async function(linkId){
+    if(!confirm("Remove this concierge's access to your progress? They'll no longer see your checklist.")) return;
+    try{
+      var r = await sb.rpc("revoke_concierge_link", {p_link:linkId});
+      if(r.error){ if(window.toast) toast(r.error.message); return; }
+      if(window.toast) toast("Removed. They can no longer see your progress.");
+      renderFamilyConciergeCard();
+    }catch(e){ if(window.toast) toast("Couldn't remove access."); }
+  };
+})();
+
+</script>
+
 </body>
 </html>
