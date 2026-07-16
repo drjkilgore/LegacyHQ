@@ -887,8 +887,8 @@ async function handleSession(session){
     try{ const {data:_ia}=await sb.rpc("is_admin"); if(_ia===true){ S.isAdmin=true; const _ba=$("btnAdmin"); if(_ba) _ba.classList.remove("hidden"); } }catch(e){}
     // Role-based landing (pick ONE view so the family dashboard never flashes first):
     // approved designer -> portal; a pending/other applicant with no estates -> portal (status page); admins & family -> home.
-    const _dz=S.designer, _noEstates=(!S.estates||!S.estates.length);
-    if(_dz && !S.isAdmin && (_dz.status==="approved" || _noEstates)){ goDesigner(); } else { goHome(); }
+    // Any designer (approved -> dashboard, pending/other -> status page) lands in the portal, unless they're an admin.
+    if(S.designer && !S.isAdmin){ goDesigner(); } else { goHome(); }
     try{ checkBalanceLink(); }catch(e){}
     // ?designer=apply link: existing designers go to their portal, brand-new applicants get the form. Clear the param so it never re-fires on refresh.
     try{ const _p=new URLSearchParams(location.search); if(_p.get("designer")==="apply"){ history.replaceState({},"",location.pathname); setTimeout(()=>{ S.designer?goDesigner():designerApplyModal(); },400); } }catch(e){}
