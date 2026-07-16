@@ -5756,7 +5756,7 @@ function toggleComfort(){
     input.value="";
   }
   async function submit(){
-    const q=quote();
+    let q; try{ q=quote(); }catch(e){ q={tierName:(tierObj()&&tierObj().name)||"",tierPrice:0,extraDesign:0,total:0,addonLines:[]}; }
     const designFee=(q.tierPrice||0)+(q.extraDesign||0);      // charged now
     const balance=Math.max(0,(q.total||0)-designFee);         // printing, billed at proof approval
     const reviewOnly = (FS.tier==="review" && FS.reviewMode!=="keepsake");
