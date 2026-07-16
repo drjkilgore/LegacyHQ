@@ -5703,12 +5703,13 @@ function toggleComfort(){
     const designFee=(q.tierPrice||0)+(q.extraDesign||0);      // charged now
     const balance=Math.max(0,(q.total||0)-designFee);         // printing, billed at proof approval
     const missing=[];
-    const need=(id,label,cond)=>{ const el=root.querySelector("#"+id); const val=el?el.value.trim():""; if(cond&&!val){ missing.push(label); if(el){ el.style.borderColor="#c0392b"; el.style.background="#fdf3f2"; } } else if(el){ el.style.borderColor=""; el.style.background=""; } return val; };
-    if(FS.tier!=="review" && includedAddons()>=1 && FS.addonOrder.length===0){ note(`Your ${q.tierName} includes ${includedAddons()} keepsake design${includedAddons()>1?"s":""} — please add ${includedAddons()>1?"at least one":"one"} in the Matching keepsakes section, or pick a different service.`); return; }
-    const email=need("fsKEmail","your email",true), phone=need("fsKPhone","your phone",true); need("fsCName","name of the deceased",true); need("fsCDates","dates",true); need("fsCNotes","service details / notes",true);
-    const needShip=balance>0;
-    need("fsSL1","shipping address",needShip); need("fsSCity","city",needShip); need("fsSState","state",needShip); need("fsSZip","ZIP",needShip);
-    if(missing.length){ note("Please complete: "+missing.join(", ")+"."); const first=root.querySelector('[style*="c0392b"]'); if(first&&first.scrollIntoView) first.scrollIntoView({behavior:"smooth",block:"center"}); return; }
+    const need=(id,label)=>{ const el=root.querySelector("#"+id); const val=el?el.value.trim():""; if(!val){ missing.push(label); if(el){ el.style.borderColor="#c0392b"; el.style.background="#fdf3f2"; } } else if(el){ el.style.borderColor=""; el.style.background=""; } return val; };
+    const email=need("fsKEmail","your email"), phone=need("fsKPhone","your phone");
+    need("fsKName","your name"); need("fsCName","name of the deceased"); need("fsCDates","dates"); need("fsCNotes","service details / notes");
+    need("fsSL1","shipping address"); need("fsSCity","city"); need("fsSState","state"); need("fsSZip","ZIP");
+    let keepsakeMsg="";
+    if(includedAddons()>=1 && FS.addonOrder.length===0){ keepsakeMsg=`This service includes ${includedAddons()} keepsake design${includedAddons()>1?"s":""} — add ${includedAddons()>1?"at least one":"one"} in the Matching keepsakes section. `; }
+    if(missing.length||keepsakeMsg){ note(keepsakeMsg+(missing.length?("Please complete: "+missing.join(", ")+"."):"")); const first=root.querySelector('[style*="c0392b"]'); if(first&&first.scrollIntoView) first.scrollIntoView({behavior:"smooth",block:"center"}); return; }
     const contact={ name:v("fsKName"), email, phone };
     const request={
       estateId:(window.S&&window.S.estate&&window.S.estate.id)||null,
