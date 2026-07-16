@@ -5545,7 +5545,7 @@ function toggleComfort(){
   const esc=(s)=> String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const note=(m)=>{ try{ if(typeof window.toast==="function"){ window.toast(m); return; } }catch(e){} alert(m); };
 
-  const FS = { tier:null, tierPages:null, fold:"bi-fold", programSize:"s85", programQty:100, addons:{}, addonOrder:[], prefill:{} };
+  const FS = { tier:null, tierPages:null, fold:"bi-fold", programSize:"s85", programQty:100, addons:{}, addonOrder:[], photoUrls:[], prefill:{} };
   let root=null;
 
   window.openFullService = function(mode){
@@ -5640,7 +5640,10 @@ function toggleComfort(){
       <div class="fs-row"><div class="fs-field"><label>Name of the deceased</label><input id="fsCName" value="${esc(p.name)}"></div>
       <div class="fs-field"><label>Dates</label><input id="fsCDates" value="${esc(p.dates)}" placeholder="1948 – 2026"></div></div>
       <div class="fs-field"><label>Service details / obituary / notes</label><textarea id="fsCNotes" placeholder="Service date & location, obituary, verses, order of service, special requests…">${esc(p.notes)}</textarea></div>
-      <div class="fs-field"><label>Photo links (optional)</label><input id="fsCPhotos" placeholder="Paste links to photos, or your designer will request them"></div>
+      <div class="fs-field"><label>Photos (optional)</label>
+        <input id="fsCFiles" type="file" accept="image/*" multiple>
+        <div id="fsCFilesList" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px"></div>
+        <input id="fsCPhotos" style="margin-top:8px" placeholder="…or paste photo links instead"></div>
       <div class="fs-row"><div class="fs-field"><label>Your name</label><input id="fsKName" value="${esc(p.contactName)}"></div>
       <div class="fs-field"><label>Email</label><input id="fsKEmail" type="email" value="${esc(p.contactEmail)}"></div>
       <div class="fs-field"><label>Phone</label><input id="fsKPhone" type="tel"></div></div>
@@ -5672,18 +5675,37 @@ function toggleComfort(){
     root.querySelectorAll("[data-avar]").forEach(el=>el.onchange=()=>{ const id=el.getAttribute("data-avar"); const a=CONFIG.addons.find(x=>x.id===id); FS.addons[id]=FS.addons[id]||{variant:a.variants[0][0],qty:a.qtys[0]}; FS.addons[id].variant=el.value; soft(); });
     const addSel=root.querySelector("#fsAddSel"); if(addSel)addSel.onchange=()=>{ const id=addSel.value; const a=CONFIG.addons.find(x=>x.id===id); if(a&&!FS.addonOrder.includes(id)){ FS.addonOrder.push(id); FS.addons[id]=FS.addons[id]||{variant:a.variants[0][0],qty:a.qtys[0]}; render(); } };
     root.querySelectorAll("[data-arem]").forEach(el=>el.onclick=()=>{ const id=el.getAttribute("data-arem"); FS.addonOrder=FS.addonOrder.filter(x=>x!==id); delete FS.addons[id]; render(); });
+    const _files=root.querySelector("#fsCFiles"); if(_files)_files.onchange=()=>fsUpload(_files);
     const sb=root.querySelector("#fsSubmit"); if(sb)sb.onclick=submit;
   }
   function soft(){ const p=root.querySelector(".fs-quote"); if(p){ const t=document.createElement("div"); t.innerHTML=quotePanel(); p.replaceWith(t.firstElementChild); bind(); } const b=root.querySelector("#fsBanner"); if(b)b.innerHTML=addonBanner(); }
   const v=(id)=>{ const e=root.querySelector("#"+id); return e?e.value.trim():""; };
 
+  async function fsUpload(input){
+    if(!window.sb||!input.files||!input.files.length) return;
+    const list=root.querySelector("#fsCFilesList");
+    for(const file of Array.from(input.files)){
+      const chip=document.createElement("span"); chip.style.cssText="font-size:12px;background:var(--fsline,#eee);padding:3px 8px;border-radius:8px"; chip.textContent="Uploading "+file.name+"…"; if(list)list.appendChild(chip);
+      try{
+        const estateId=(window.S&&window.S.estate&&window.S.estate.id)||"anon";
+        const path=estateId+"/"+Date.now()+"-"+file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+        const { error }=await window.sb.storage.from("designer-photos").upload(path,file,{upsert:false});
+        if(error) throw error;
+        const { data }=window.sb.storage.from("designer-photos").getPublicUrl(path);
+        FS.photoUrls.push(data.publicUrl);
+        chip.textContent="✓ "+file.name; chip.style.color="#3f6b4f";
+      }catch(e){ chip.textContent="✕ "+file.name; chip.style.color="#c0392b"; chip.title=(e&&e.message)||"upload failed"; }
+    }
+    input.value="";
+  }
   async function submit(){
     const q=quote();
     const designFee=(q.tierPrice||0)+(q.extraDesign||0);      // charged now
     const balance=Math.max(0,(q.total||0)-designFee);         // printing, billed at proof approval
     const missing=[];
     const need=(id,label,cond)=>{ const el=root.querySelector("#"+id); const val=el?el.value.trim():""; if(cond&&!val){ missing.push(label); if(el){ el.style.borderColor="#c0392b"; el.style.background="#fdf3f2"; } } else if(el){ el.style.borderColor=""; el.style.background=""; } return val; };
-    const email=need("fsKEmail","your email",true), phone=need("fsKPhone","your phone",true); need("fsCName","name of the deceased",true);
+    if(FS.tier!=="review" && includedAddons()>=1 && FS.addonOrder.length===0){ note(`Your ${q.tierName} includes ${includedAddons()} keepsake design${includedAddons()>1?"s":""} — please add ${includedAddons()>1?"at least one":"one"} in the Matching keepsakes section, or pick a different service.`); return; }
+    const email=need("fsKEmail","your email",true), phone=need("fsKPhone","your phone",true); need("fsCName","name of the deceased",true); need("fsCDates","dates",true); need("fsCNotes","service details / notes",true);
     const needShip=balance>0;
     need("fsSL1","shipping address",needShip); need("fsSCity","city",needShip); need("fsSState","state",needShip); need("fsSZip","ZIP",needShip);
     if(missing.length){ note("Please complete: "+missing.join(", ")+"."); const first=root.querySelector('[style*="c0392b"]'); if(first&&first.scrollIntoView) first.scrollIntoView({behavior:"smooth",block:"center"}); return; }
@@ -5691,7 +5713,7 @@ function toggleComfort(){
     const request={
       estateId:(window.S&&window.S.estate&&window.S.estate.id)||null,
       designerTier:FS.tier, pages:programPages(), fold:FS.fold, programSize:FS.programSize, programQty:FS.programQty, addons:FS.addons,
-      content:{ name:v("fsCName"), dates:v("fsCDates"), notes:v("fsCNotes"), photos:v("fsCPhotos") },
+      content:{ name:v("fsCName"), dates:v("fsCDates"), notes:v("fsCNotes"), photos:v("fsCPhotos"), photoUrls:FS.photoUrls },
       contact, ship:{ line1:v("fsSL1"), city:v("fsSCity"), state:v("fsSState"), zip:v("fsSZip") }, quote:q, designFee, balance,
     };
     // Store the order and notify the designer (best-effort).
