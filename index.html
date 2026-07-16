@@ -874,6 +874,7 @@ async function handleSession(session){
       await loadEstates();
     }catch(err){ toast("Loading issue: "+err.message); }
     goHome();
+    try{ checkBalanceLink(); }catch(e){}
   } else {
     lastSessionUser = null;
     $("btnSignOut").classList.add("hidden"); $("whoami").textContent="";
@@ -890,8 +891,42 @@ if(CONFIGURED) sb.auth.onAuthStateChange((_e, session)=>{
 });
 // Deep-link: opening app.homegoinghq.com/#admin (e.g. the "Back to Admin Hub"
 // link on the other sites) jumps straight to this console — for admins only.
+async function checkBalanceLink(){
+  try{
+    const id=new URLSearchParams(location.search).get("fsbalance"); if(!id) return;
+    history.replaceState({},"",location.pathname);
+    const {data:o}=await sb.from("fullservice_requests").select("*").eq("id",id).maybeSingle();
+    if(!o){ toast("Couldn't open that order — sign in as the person who requested it, or ask your designer to resend the link."); return; }
+    const bal=Number(o.balance||0), fmt=(n)=>"$"+Number(n||0).toFixed(2);
+    const paid=o.status==="balance_paid";
+    const nm=(o.details&&o.details.content&&o.details.content.name)||"";
+    $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:460px">
+      <button class="close" onclick="closeModal()">×</button>
+      <div class="eyebrow">Full-service printing</div><h3 style="margin:4px 0 6px">${paid?"Balance already paid":"Approve &amp; pay printing balance"}</h3>
+      <p class="muted" style="font-size:13px">${(o.quote&&o.quote.tierName)||"Design"}${nm?" · for "+esc(nm):""}</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0;font-size:20px;font-family:var(--font-display)"><span>Printing balance</span><span>${fmt(bal)}</span></div>
+      ${paid?`<div class="banner">This balance has been paid. Thank you.</div>`
+             :`<button class="btn btn-brass" style="width:100%" onclick="payBalance('${o.id}',${bal})">Pay ${fmt(bal)} →</button>
+               <div class="muted" style="font-size:11.5px;margin-top:8px">Secure payment via Stripe. You approve the proof with your designer before this is charged.</div>`}
+    </div></div>`;
+  }catch(e){}
+}
+async function payBalance(orderId,amount){
+  try{ sessionStorage.setItem("fsbalOrder",orderId);
+    const r=await fetch("/.netlify/functions/fullservice-balance",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ amountCents:Math.round(amount*100), orderId, email:(S.session&&S.session.user&&S.session.user.email)||"", summary:"Printing balance" })});
+    const d=await r.json();
+    if(d.url){ window.location=d.url; return; }
+    toast(d.error||"Couldn't open checkout — please try again.");
+  }catch(e){ toast("Couldn't reach checkout — please try again."); }
+}
 window.addEventListener("hashchange",()=>{ if(location.hash==="#admin" && !$("btnAdmin").classList.contains("hidden")) openAdmin(); });
-try{ const _fp=new URLSearchParams(location.search).get("fs"); if(_fp==="paid"){ setTimeout(()=>toast("Design fee received — your designer will reach out to start your proof."),900); history.replaceState({},"",location.pathname); } else if(_fp==="cancelled"){ setTimeout(()=>toast("Checkout cancelled — you can request the design again anytime."),900); history.replaceState({},"",location.pathname); } }catch(e){}
+try{ const _q=new URLSearchParams(location.search), _fp=_q.get("fs"), _bp=_q.get("fsbal");
+  if(_fp==="paid"){ setTimeout(()=>toast("Design fee received — your designer will reach out to start your proof."),900); history.replaceState({},"",location.pathname); }
+  else if(_fp==="cancelled"){ setTimeout(()=>toast("Checkout cancelled — you can request the design again anytime."),900); history.replaceState({},"",location.pathname); }
+  else if(_bp==="paid"){ const oid=sessionStorage.getItem("fsbalOrder"); if(oid&&window.sb){ try{ window.sb.from("fullservice_requests").update({status:"balance_paid",updated_at:new Date().toISOString()}).eq("id",oid).then(()=>{}); }catch(e){} sessionStorage.removeItem("fsbalOrder"); } setTimeout(()=>toast("Printing balance received — thank you. Your order goes to print now."),900); history.replaceState({},"",location.pathname); }
+  else if(_bp==="cancelled"){ setTimeout(()=>toast("Balance payment cancelled — you can reopen the link anytime."),900); history.replaceState({},"",location.pathname); }
+}catch(e){}
 
 async function forgotPass(){
   const email=$("authEmail").value.trim();
@@ -5450,7 +5485,7 @@ function toggleComfort(){
     EXTRA_DESIGN_FEE: 39,   // per additional product design beyond the tier's included count
     designerTiers: [
       { id:"review",  name:"Review or Keepsake Design", price:99, pages:null, includedAddons:1,
-        desc:"A designer reviews your program (formatting, grammar, photos), or designs one matching keepsake. Each additional keepsake is $39." },
+        desc:"A designer reviews your self-designed program (formatting, grammar, photos) or designs one keepsake of your choice. The design fee for each additional keepsake is $39." },
       { id:"basic",   name:"Custom Designer (Basic)",  price:149, pages:[4], includedAddons:0,
         desc:"Designer personalizes an existing template. Includes one revision. 4-page program." },
       { id:"premium", name:"Premium Custom Design",    price:249, pages:[4,8], includedAddons:1,
@@ -5654,13 +5689,18 @@ function toggleComfort(){
       content:{ name:v("fsCName"), dates:v("fsCDates"), notes:v("fsCNotes"), photos:v("fsCPhotos") },
       contact, ship:{ line1:v("fsSL1"), city:v("fsSCity"), state:v("fsSState"), zip:v("fsSZip") }, quote:q, designFee, balance,
     };
-    // Best-effort: hand the full request to your designer (deploy fullservice-request.js to persist/email it).
+    // Store the order and notify the designer (best-effort).
+    let orderId=null;
     try{
-      const sess=(window.sb&&window.sb.auth)?(await window.sb.auth.getSession()).data.session:null;
-      await fetch("/.netlify/functions/fullservice-request",{ method:"POST",
-        headers:{ "Content-Type":"application/json", ...(sess?{"Authorization":"Bearer "+sess.access_token}:{}) },
-        body:JSON.stringify(request) });
+      if(window.sb){ const uid=(window.S&&window.S.session&&window.S.session.user&&window.S.session.user.id)||null;
+        const {data:row}=await window.sb.from("fullservice_requests").insert({ estate_id:request.estateId, status:"requested",
+          contact, details:{ tier:FS.tier, pages:programPages(), size:FS.programSize, fold:FS.fold, programQty:FS.programQty, addons:FS.addons, content:request.content, ship:request.ship },
+          quote:q, design_fee:designFee, balance, created_by:uid }).select("id").single();
+        if(row) orderId=row.id; }
     }catch(e){}
+    try{ await fetch("/.netlify/functions/fullservice-notify",{ method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ orderId, siteUrl:location.origin, tier:FS.tier, quote:q, contact, decedent:v("fsCName"), designFee, balance,
+        summary:`${q.tierName} · ${programPages()}pg ${FS.fold} ×${FS.programQty}` }) }); }catch(e){}
     // Charge the design fee upfront, then send the family to Stripe to pay.
     const btn=root.querySelector("#fsSubmit"); if(btn){ btn.disabled=true; btn.textContent="Opening secure checkout…"; }
     try{
