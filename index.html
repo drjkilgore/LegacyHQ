@@ -4554,7 +4554,7 @@ function pgFormHtml(){
         <div class="theme-swatch" style="background:${th.swatch}">${th.sw}</div><div class="tn">${th.name}</div></button>`).join("")}
     </div>
     ${S.isAdmin?`<div style="margin-top:10px"><button class="btn btn-ghost btn-sm" onclick="themeManagerModal()">＋ Add a design template (admin)</button></div>`:""}
-    <div class="scard-actions" style="margin-top:14px"><button class="btn btn-primary btn-sm" onclick="pgGo(1)">Next →</button><button class="btn btn-ghost btn-sm" onclick="openFullService()">Prefer a designer do it? →</button></div>
+    <div class="scard-actions" style="margin-top:14px"><button class="btn btn-primary btn-sm" onclick="pgGo(1)">Next →</button><button class="btn btn-ghost btn-sm" onclick="openFullService()">Prefer a designer do it? →</button><button class="btn btn-ghost btn-sm" onclick="openFullService('keepsakes')">Interested in keepsakes? →</button></div>
   </div>
   <div class="pg-step">
     <div class="eyebrow">Their name</div>
@@ -5448,8 +5448,8 @@ function toggleComfort(){
   const CONFIG = {
     EXTRA_DESIGN_FEE: 39,   // per additional product design beyond the tier's included count
     designerTiers: [
-      { id:"review",  name:"Designer Review",         price:49,  pages:null, includedAddons:0,
-        desc:"A designer checks formatting, grammar, photo quality, and layout." },
+      { id:"review",  name:"Review or Keepsake Design", price:99, pages:null, includedAddons:1,
+        desc:"A designer reviews your program (formatting, grammar, photos), or designs one matching keepsake. Each additional keepsake is $39." },
       { id:"basic",   name:"Custom Designer (Basic)",  price:149, pages:[4], includedAddons:0,
         desc:"Designer personalizes an existing template. Includes one revision. 4-page program." },
       { id:"premium", name:"Premium Custom Design",    price:249, pages:[4,8], includedAddons:1,
@@ -5512,7 +5512,7 @@ function toggleComfort(){
   const FS = { tier:null, tierPages:null, fold:"bi-fold", programSize:"s85", programQty:100, addons:{}, addonOrder:[], prefill:{} };
   let root=null;
 
-  window.openFullService = function(){
+  window.openFullService = function(mode){
     if(!root){ root=document.createElement("div"); root.id="fsRoot"; document.body.appendChild(root); }
     // prefill from the program designer / estate (read at click time)
     const est=(window.S&&window.S.estate)||{}, pg=window.PG||{};
@@ -5526,6 +5526,7 @@ function toggleComfort(){
       contactName: (window.S&&window.S.profile&&window.S.profile.full_name)||"",
       contactEmail: (window.S&&window.S.session&&window.S.session.user&&window.S.session.user.email)||"",
     };
+    if(mode==="keepsakes"){ FS.tier="review"; FS.tierPages=null; }
     render(); root.classList.add("fs-open"); document.body.style.overflow="hidden";
   };
   function closeFS(){ if(root){ root.classList.remove("fs-open"); document.body.style.overflow=""; } }
