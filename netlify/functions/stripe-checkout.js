@@ -24,9 +24,9 @@ exports.handler = async (event) => {
     params.append("line_items[0][quantity]", "1");
     params.append("success_url", (process.env.SITE_URL || "") + "/?billing=success");
     params.append("cancel_url", (process.env.SITE_URL || "") + "/?billing=cancelled");
-    params.append("customer_email", email || "");
-    params.append("client_reference_id", userId || "");
-    params.append("metadata[user_id]", userId || "");
+    if (email) params.append("customer_email", email);
+    if (userId) params.append("client_reference_id", userId);
+    if (userId) params.append("metadata[user_id]", userId);
     params.append("metadata[tier]", isGift ? "gift_settle" : (tier || "settle"));
     if (estateId) params.append("metadata[estate_id]", estateId);
     if (isGift) {
