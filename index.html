@@ -5868,14 +5868,15 @@ function goDesigner(){
     </div>
     ${statusMsg}
     ${d.status==="approved"?`
+    <div id="dsOnboardGate"></div>
     <div class="card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
       <div><div class="eyebrow">Availability</div><div class="muted" style="font-size:13px">Families and the assignment engine use this.</div></div>
       <select id="dsAvail" onchange="setDesignerAvailability(this.value)" style="width:auto">${availOpts.map(o=>`<option value="${o}" ${d.availability===o?"selected":""}>${o}</option>`).join("")}</select>
     </div></div>
-    <div class="card" style="margin-top:14px"><div class="eyebrow">Your assignments</div>
+    <div class="card" id="dsAssignCard" style="margin-top:14px"><div class="eyebrow">Your assignments</div>
       <div id="dsAssignments" style="margin-top:6px">Loading…</div></div>
-    <div class="card" style="margin-top:14px"><div class="eyebrow">Earnings</div>
-      <div class="muted" style="font-size:13px;margin-top:6px">Your completed jobs and payouts will show here once HomegoingHQ connects your account for payments.</div></div>
+    <div class="card" id="dsEarnings" style="margin-top:14px"><div class="eyebrow">Earnings</div>
+      <div id="dsEarningsBody" class="muted" style="font-size:13px;margin-top:6px">Loading…</div></div>
     `:''}
     <div class="card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div class="eyebrow">Your profile</div><button class="btn btn-ghost btn-sm" onclick="designerApplyModal()">Edit</button></div>
       <div class="muted" style="font-size:13px;margin-top:6px">${esc(d.bio||"No bio yet.")}</div>
@@ -6619,6 +6620,264 @@ function chooseDesigner(id,name){ FS.chosenDesigner = id?{id:id,name:name}:null;
       try{ localStorage.setItem("noteRead:"+id, new Date().toISOString()); if(window.__noteUnread) window.__noteUnread[id] = false; }catch(e){}
       return r;
     };
+  }
+})();
+
+</script>
+
+<script>
+/* ============ DESIGNER ONBOARDING + PAYOUTS (Option B, migration v18) ============
+   Approved designers must sign the contractor agreement, have a W-9 on file, and
+   set a payout method before taking work. Earnings show the 70% design-fee share
+   (printing not shared), credited when the family pays the balance. Admins get a
+   "mark paid" panel. Self-contained: wraps goDesigner + admLoadDesigners. */
+(function(){
+  var AGREEMENT_VERSION = "v1.0 (2026-07)";
+  var DESIGNER_SHARE_TEXT = "70% of each design fee";
+
+  var AGREEMENT_HTML =
+    '<h2 style="font-family:Fraunces,serif;margin:0 0 4px">HomegoingHQ Independent Designer Services Agreement</h2>'+
+    '<div class="muted" style="font-size:12px;margin-bottom:12px">Version '+AGREEMENT_VERSION+'</div>'+
+    '<div style="font-size:13.5px;line-height:1.6">'+
+    '<p><strong>1. Independent contractor.</strong> You are an independent contractor, not an employee of HomegoingHQ or EdConsult LLC. You control how and when you perform the work, provide your own equipment, and are responsible for your own taxes. Nothing here creates an employment, partnership, or agency relationship.</p>'+
+    '<p><strong>2. Services.</strong> You will design funeral and memorial materials (programs, prayer cards, memorial books, and similar) for families assigned to you through the platform, meeting the agreed specifications and turnaround times, with reasonable revisions until the family approves the proof.</p>'+
+    '<p><strong>3. Fees &amp; payment.</strong> For each completed order you are paid '+DESIGNER_SHARE_TEXT+' charged to the family. Printing and fulfillment revenue is retained by HomegoingHQ and is not shared. Your share is credited to your account when the family pays the printing balance (i.e., after proof approval) and is paid out on HomegoingHQ\u2019s regular payout cadence to the payout method you provide. Payment processing fees are borne by HomegoingHQ.</p>'+
+    '<p><strong>4. Taxes / W-9.</strong> You will provide a completed IRS Form W-9. HomegoingHQ will report payments as required (e.g., Form 1099). You are solely responsible for all taxes on amounts paid to you.</p>'+
+    '<p><strong>5. Intellectual property.</strong> Final approved deliverables created for a family are assigned to HomegoingHQ (and, as applicable, licensed to the family) upon payment, so the family may use them freely. You retain the right to display non-confidential samples in your portfolio unless a family requests otherwise.</p>'+
+    '<p><strong>6. Confidentiality &amp; family data.</strong> You will treat all family information \u2014 names, dates, photos, and any details shared for a design \u2014 as strictly confidential, use it only to perform the work, and not disclose, sell, or reuse it. This obligation continues after this agreement ends.</p>'+
+    '<p><strong>7. No off-platform solicitation.</strong> For families introduced to you through HomegoingHQ, you will not divert or solicit their business off the platform during your engagement and for 12 months after.</p>'+
+    '<p><strong>8. Quality &amp; conduct.</strong> You will communicate respectfully and promptly, given the sensitive nature of this work, and deliver professional-quality work. HomegoingHQ may reassign or decline orders and may suspend accounts for missed turnarounds or conduct issues.</p>'+
+    '<p><strong>9. Term &amp; termination.</strong> Either party may end this relationship at any time. Fees earned for completed work before termination remain payable. Sections 4\u20137 survive termination.</p>'+
+    '<p><strong>10. Limitation of liability.</strong> To the extent permitted by law, neither party is liable for indirect or consequential damages. HomegoingHQ\u2019s total liability to you is limited to fees owed to you for the preceding 60 days.</p>'+
+    '<p><strong>11. Governing law.</strong> This agreement is governed by the laws of the State of Michigan.</p>'+
+    '<p style="margin-top:10px"><em>By typing your full legal name and signing below, you agree to the terms above.</em></p>'+
+    '</div>';
+
+  function onboardComplete(d){ return !!(d && d.agreement_signed_at && d.w9_doc && d.payout_method); }
+
+  async function refreshDesigner(){
+    try{ var q = await sb.from("designers").select("*").eq("user_id", S.session.user.id).maybeSingle();
+      if(!q.error && q.data) S.designer = q.data; }catch(e){}
+  }
+  async function maybeSetOnboarded(){
+    if(S.designer && onboardComplete(S.designer) && !S.designer.onboarded_at){
+      try{ await sb.from("designers").update({onboarded_at:new Date().toISOString()}).eq("id", S.designer.id); S.designer.onboarded_at=new Date().toISOString(); }catch(e){}
+    }
+  }
+
+  /* ---------- gate + earnings, rendered after goDesigner ---------- */
+  async function renderDesignerExtras(){
+    var d = S.designer; if(!d || d.status!=="approved") return;
+    var gate = document.getElementById("dsOnboardGate");
+    var assignCard = document.getElementById("dsAssignCard");
+    var earnCard = document.getElementById("dsEarnings");
+    if(onboardComplete(d)){
+      if(gate) gate.innerHTML="";
+      if(assignCard) assignCard.style.display="";
+      if(earnCard) earnCard.style.display="";
+      renderEarnings();
+    } else {
+      if(assignCard) assignCard.style.display="none";
+      if(earnCard) earnCard.style.display="none";
+      if(gate) gate.innerHTML = onboardingCardHtml(d);
+    }
+  }
+
+  function step(done, n, title, bodyHtml){
+    return '<div class="card" style="padding:14px 16px;margin-top:10px;border-left:3px solid '+(done?'#3f6b4f':'#C9A24B')+'">'+
+      '<div style="display:flex;align-items:center;gap:8px"><span style="width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:'+(done?'#3f6b4f':'#C9A24B')+';color:#fff">'+(done?'\u2713':n)+'</span>'+
+      '<strong>'+title+'</strong>'+(done?' <span class="muted" style="font-size:12px">\u2014 done</span>':'')+'</div>'+
+      (bodyHtml?'<div style="margin-top:10px">'+bodyHtml+'</div>':'')+'</div>';
+  }
+
+  function onboardingCardHtml(d){
+    var methods = ["zelle","paypal","venmo","ach","check"];
+    var s1 = step(!!d.agreement_signed_at, 1, "Sign the designer agreement",
+      d.agreement_signed_at ? '<div class="muted" style="font-size:12.5px">Signed '+(d.agreement_signed_name?("as "+escd(d.agreement_signed_name)+" "):"")+'on '+fd(d.agreement_signed_at)+'.</div>'
+      : '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="openDesignerAgreement()">Read &amp; sign</button>'+
+        '<button class="btn btn-ghost btn-sm" onclick="downloadDesignerAgreement()">Download to sign</button>'+
+        '<label class="btn btn-ghost btn-sm" style="cursor:pointer">Upload signed copy<input type="file" accept="application/pdf,image/*" style="display:none" onchange="uploadSignedAgreement(this)"></label></div>');
+    var s2 = step(!!d.w9_doc, 2, "Upload your W-9",
+      d.w9_doc ? '<div class="muted" style="font-size:12.5px">On file'+(d.w9_uploaded_at?(" ("+fd(d.w9_uploaded_at)+")"):"")+'. <label style="cursor:pointer;text-decoration:underline">Replace<input type="file" accept="application/pdf,image/*" style="display:none" onchange="uploadDesignerW9(this)"></label></div>'
+      : '<label class="btn btn-primary btn-sm" style="cursor:pointer">Upload W-9 (PDF)<input type="file" accept="application/pdf,image/*" style="display:none" onchange="uploadDesignerW9(this)"></label>'+
+        '<div class="muted" style="font-size:11.5px;margin-top:6px">Stored privately \u2014 only you and HomegoingHQ admins can open it.</div>');
+    var s3 = step(!!d.payout_method, 3, "How should we pay you?",
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select id="dsPayMethod" style="width:auto">'+
+      methods.map(function(m){ return '<option value="'+m+'" '+(d.payout_method===m?"selected":"")+'>'+m.toUpperCase()+'</option>'; }).join("")+'</select>'+
+      '<input id="dsPayHandle" placeholder="email / phone / account" value="'+(d.payout_handle?escAttr(d.payout_handle):"")+'" style="flex:1;min-width:200px">'+
+      '<button class="btn btn-primary btn-sm" onclick="saveDesignerPayout()">Save</button></div>');
+    return '<div class="card" style="margin-top:14px;border-top:3px solid var(--brass,#8F6A24)">'+
+      '<div class="eyebrow">Finish onboarding</div>'+
+      '<p class="muted" style="font-size:13px;margin:8px 0 2px">A few one-time steps before you can take assignments.</p>'+
+      s1 + s2 + s3 + '</div>';
+  }
+
+  /* ---------- earnings ---------- */
+  async function renderEarnings(){
+    var body = document.getElementById("dsEarningsBody"); if(!body || !S.designer) return;
+    var rows = [];
+    try{ var q = await sb.from("designer_payouts").select("*").eq("designer_id", S.designer.id).order("created_at",{ascending:false});
+      if(!q.error) rows = q.data||[]; }catch(e){}
+    var owed = rows.filter(function(r){return r.status==="owed";}).reduce(function(a,r){return a+Number(r.amount||0);},0);
+    var paid = rows.filter(function(r){return r.status==="paid";}).reduce(function(a,r){return a+Number(r.amount||0);},0);
+    var rate = Math.round(Number(S.designer.payout_rate||0.70)*100);
+    var pm = S.designer.payout_method ? (S.designer.payout_method.toUpperCase()+(S.designer.payout_handle?(" \u00b7 "+escd(S.designer.payout_handle)):"")) : "not set";
+    var lines = rows.length ? rows.map(function(r){
+      return '<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid #EDE6D8;font-size:13px">'+
+        '<span>Design fee '+money(r.design_fee)+' \u00d7 '+Math.round(Number(r.rate||0)*100)+'%</span>'+
+        '<span>'+money(r.amount)+' <span class="pill" style="font-size:10px;background:'+(r.status==="paid"?"#3f6b4f":"#C9A24B")+';color:#fff">'+(r.status==="paid"?"paid":"owed")+'</span></span></div>';
+    }).join("") : '<div class="muted" style="font-size:13px">No earnings yet. You\u2019re paid '+DESIGNER_SHARE_TEXT+' when a family pays their balance.</div>';
+    body.innerHTML =
+      '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:6px">'+
+      '<div><div class="muted" style="font-size:12px">Owed</div><div style="font-size:22px;font-weight:700;font-family:Fraunces,serif">'+money(owed)+'</div></div>'+
+      '<div><div class="muted" style="font-size:12px">Paid to date</div><div style="font-size:22px;font-weight:700;font-family:Fraunces,serif">'+money(paid)+'</div></div></div>'+
+      '<div class="muted" style="font-size:12px">Your share: '+rate+'% of each design fee \u00b7 printing is not shared. Payout method: '+pm+' <a href="#" onclick="editDesignerPayout(event)" style="color:var(--brass,#8F6A24)">edit</a></div>'+
+      lines;
+  }
+
+  /* ---------- helpers ---------- */
+  function escd(s){ return window.esc? esc(s) : String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+  function escAttr(s){ return String(s==null?"":s).replace(/"/g,"&quot;"); }
+  function fd(d){ try{ return window.fmtDate? fmtDate(d) : new Date(d).toLocaleDateString(); }catch(e){ return ""; } }
+  function money(n){ return window.money? money2(n) : "$"+Number(n||0).toFixed(2); }
+  function money2(n){ return "$"+Number(n||0).toFixed(2); }
+
+  /* ---------- actions ---------- */
+  window.openDesignerAgreement = function(){
+    document.getElementById("modalRoot").innerHTML =
+      '<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:640px;max-height:88vh;display:flex;flex-direction:column">'+
+      '<button class="close" onclick="closeModal()">×</button>'+
+      '<div style="overflow:auto;padding-right:6px">'+AGREEMENT_HTML+'</div>'+
+      '<div style="border-top:1px solid #E4DDCE;padding-top:12px;margin-top:12px">'+
+      '<input id="agName" placeholder="Type your full legal name" style="width:100%;margin-bottom:8px">'+
+      '<label style="display:flex;gap:8px;align-items:flex-start;font-size:13px"><input type="checkbox" id="agChk" style="width:auto;margin-top:3px"><span>I have read and agree to the HomegoingHQ Independent Designer Services Agreement ('+AGREEMENT_VERSION+').</span></label>'+
+      '<div style="text-align:right;margin-top:10px"><button class="btn btn-primary btn-sm" onclick="submitDesignerAgreement()">Agree &amp; sign</button></div></div>'+
+      '</div></div>';
+  };
+  window.submitDesignerAgreement = async function(){
+    var nm=(document.getElementById("agName").value||"").trim();
+    if(!nm){ if(window.toast) toast("Type your full legal name to sign."); return; }
+    if(!document.getElementById("agChk").checked){ if(window.toast) toast("Check the box to agree."); return; }
+    try{
+      var r = await sb.from("designers").update({ agreement_signed_at:new Date().toISOString(),
+        agreement_signed_name:nm, agreement_version:AGREEMENT_VERSION, agreement_ua:(navigator.userAgent||"").slice(0,300) }).eq("id", S.designer.id);
+      if(r.error){ if(window.toast) toast(r.error.message); return; }
+      if(window.closeModal) closeModal();
+      await refreshDesigner(); await maybeSetOnboarded();
+      if(window.toast) toast("Agreement signed \u2014 thank you.");
+      if(window.goDesigner) goDesigner();
+    }catch(e){ if(window.toast) toast("Couldn't record your signature."); }
+  };
+  window.downloadDesignerAgreement = function(){
+    var html = '<html><head><meta charset="utf-8"><title>HomegoingHQ Designer Agreement</title>'+
+      '<style>body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 20px;color:#26332E}'+
+      'h2{font-size:20px}.sig{margin-top:40px;border-top:1px solid #999;width:320px;padding-top:6px;font-size:13px}</style></head><body>'+
+      AGREEMENT_HTML +
+      '<div class="sig">Signature</div><div class="sig" style="margin-top:26px">Printed name</div><div class="sig" style="margin-top:26px">Date</div>'+
+      '</body></html>';
+    var blob = new Blob([html], {type:"text/html"});
+    var url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  };
+  window.uploadSignedAgreement = async function(input){
+    if(!input.files||!input.files[0]) return; var f=input.files[0];
+    if(window.toast) toast("Uploading signed agreement…");
+    try{
+      var path = S.session.user.id+"/agreement-"+Date.now()+"-"+f.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+      var up = await sb.storage.from("designer-private").upload(path, f, {upsert:true}); if(up.error) throw up.error;
+      var r = await sb.from("designers").update({ agreement_doc:path, agreement_signed_at:new Date().toISOString(), agreement_version:AGREEMENT_VERSION }).eq("id", S.designer.id);
+      if(r.error) throw r.error;
+      await refreshDesigner(); await maybeSetOnboarded();
+      if(window.toast) toast("Signed agreement uploaded.");
+      if(window.goDesigner) goDesigner();
+    }catch(e){ if(window.toast) toast(e.message||"Upload failed."); }
+  };
+  window.uploadDesignerW9 = async function(input){
+    if(!input.files||!input.files[0]) return; var f=input.files[0];
+    if(window.toast) toast("Uploading W-9…");
+    try{
+      var path = S.session.user.id+"/w9-"+Date.now()+"-"+f.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+      var up = await sb.storage.from("designer-private").upload(path, f, {upsert:true}); if(up.error) throw up.error;
+      var r = await sb.from("designers").update({ w9_doc:path, w9_uploaded_at:new Date().toISOString() }).eq("id", S.designer.id);
+      if(r.error) throw r.error;
+      await refreshDesigner(); await maybeSetOnboarded();
+      if(window.toast) toast("W-9 received.");
+      if(window.goDesigner) goDesigner();
+    }catch(e){ if(window.toast) toast(e.message||"Upload failed."); }
+  };
+  window.saveDesignerPayout = async function(){
+    var m=document.getElementById("dsPayMethod"), h=document.getElementById("dsPayHandle");
+    var method=m?m.value:"", handle=(h&&h.value||"").trim();
+    if(!handle){ if(window.toast) toast("Enter where we should send your payout."); return; }
+    try{
+      var r = await sb.from("designers").update({ payout_method:method, payout_handle:handle }).eq("id", S.designer.id);
+      if(r.error){ if(window.toast) toast(r.error.message); return; }
+      await refreshDesigner(); await maybeSetOnboarded();
+      if(window.toast) toast("Payout method saved.");
+      if(window.goDesigner) goDesigner();
+    }catch(e){ if(window.toast) toast("Couldn't save payout method."); }
+  };
+  window.editDesignerPayout = function(ev){
+    if(ev&&ev.preventDefault) ev.preventDefault();
+    var methods=["zelle","paypal","venmo","ach","check"]; var d=S.designer;
+    document.getElementById("modalRoot").innerHTML =
+      '<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:440px">'+
+      '<button class="close" onclick="closeModal()">×</button><div class="eyebrow">Payout method</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><select id="dsPayMethod" style="width:auto">'+
+      methods.map(function(m){ return '<option value="'+m+'" '+(d.payout_method===m?"selected":"")+'>'+m.toUpperCase()+'</option>'; }).join("")+'</select>'+
+      '<input id="dsPayHandle" placeholder="email / phone / account" value="'+(d.payout_handle?escAttr(d.payout_handle):"")+'" style="flex:1;min-width:180px"></div>'+
+      '<div style="text-align:right;margin-top:12px"><button class="btn btn-primary btn-sm" onclick="saveDesignerPayout();closeModal()">Save</button></div></div></div>';
+  };
+
+  /* ---------- wrap goDesigner ---------- */
+  if(window.goDesigner && !window.__dsOnboardWrapped){
+    window.__dsOnboardWrapped = true;
+    var _goDesigner = window.goDesigner;
+    window.goDesigner = function(){ _goDesigner.apply(this, arguments); setTimeout(function(){ try{ renderDesignerExtras(); }catch(e){} }, 0); };
+  }
+
+  /* ---------- ADMIN: payouts panel ---------- */
+  async function renderAdminPayouts(){
+    var anchor = document.getElementById("admDesigners"); if(!anchor) return;
+    var box = document.getElementById("admPayouts");
+    if(!box){ box=document.createElement("div"); box.id="admPayouts"; box.style.marginBottom="16px"; anchor.parentNode.insertBefore(box, anchor); }
+    var rows=[];
+    try{ var q = await sb.from("designer_payouts").select("*, designers(full_name,payout_method,payout_handle)").order("created_at",{ascending:false}).limit(200);
+      if(!q.error) rows=q.data||[]; }catch(e){}
+    var owed = rows.filter(function(r){return r.status==="owed";});
+    var owedTotal = owed.reduce(function(a,r){return a+Number(r.amount||0);},0);
+    function row(r){
+      var d=r.designers||{};
+      var who=(d.full_name||"Designer")+(d.payout_method?(" \u00b7 "+d.payout_method.toUpperCase()+(d.payout_handle?(" "+escd(d.payout_handle)):"")):"");
+      var act = r.status==="owed"
+        ? '<button class="btn btn-primary btn-sm" onclick="admMarkPaid(\''+r.id+'\')">Mark paid</button>'
+        : '<span class="muted" style="font-size:12px">paid '+fd(r.paid_at)+(r.paid_ref?(" \u00b7 "+escd(r.paid_ref)):"")+' <a href="#" onclick="admUnmarkPaid(event,\''+r.id+'\')" style="color:#c0392b">undo</a></span>';
+      return '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #EDE6D8;font-size:13px;flex-wrap:wrap">'+
+        '<span>'+escd(who)+'</span><span style="display:flex;gap:10px;align-items:center">'+money(r.amount)+' '+act+'</span></div>';
+    }
+    box.className="card";
+    box.innerHTML = '<div class="eyebrow">Designer payouts</div>'+
+      '<div class="muted" style="font-size:13px;margin:6px 0">Owed now: <strong>'+money(owedTotal)+'</strong> across '+owed.length+' order(s). Pay via each designer\u2019s method, then mark paid.</div>'+
+      (rows.length? rows.map(row).join("") : '<div class="muted" style="font-size:13px">No payouts yet.</div>');
+  }
+  window.admMarkPaid = async function(id){
+    var ref = prompt("Reference for this payout (e.g. Zelle confirmation #, date). Optional:","");
+    if(ref===null) return;
+    try{
+      var r = await sb.rpc("mark_payout_paid", {p_payout:id, p_method:null, p_ref:ref||null});
+      if(r.error){ if(window.toast) toast(r.error.message); return; }
+      if(window.toast) toast("Marked paid."); renderAdminPayouts();
+    }catch(e){ if(window.toast) toast("Couldn't update."); }
+  };
+  window.admUnmarkPaid = async function(ev,id){
+    if(ev&&ev.preventDefault) ev.preventDefault();
+    try{ var r = await sb.rpc("mark_payout_unpaid", {p_payout:id}); if(r.error){ if(window.toast) toast(r.error.message); return; }
+      renderAdminPayouts(); }catch(e){}
+  };
+  if(window.admLoadDesigners && !window.__admPayoutsWrapped){
+    window.__admPayoutsWrapped = true;
+    var _admLoad = window.admLoadDesigners;
+    window.admLoadDesigners = function(){ var r=_admLoad.apply(this,arguments); setTimeout(function(){ try{ renderAdminPayouts(); }catch(e){} },0); return r; };
   }
 })();
 
