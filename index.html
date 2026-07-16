@@ -750,7 +750,7 @@ const LIMITS={
   settle:    {ai:Infinity, docs:Infinity, ledger:Infinity, templates:Infinity, vault:Infinity, phases:null},
   premium:   {ai:Infinity, docs:Infinity, ledger:Infinity, templates:Infinity, vault:Infinity, phases:null}
 };
-function tier(){ return S.profile?.plan_tier||"free"; }
+function tier(){ const pt=S.profile?.plan_tier||"free"; const et=(S.estate&&S.estate.tier)||"free"; return (TIER_RANK[pt]||0) >= (TIER_RANK[et]||0) ? pt : et; }
 function lim(){ return LIMITS[tier()]||LIMITS.free; }
 function isFree(){ return tier()==="free"; }
 function phaseLocked(p){ const ph=lim().phases; return ph && !ph.includes(p); }
@@ -1093,11 +1093,16 @@ async function payBalance(orderId,amount){
   }catch(e){ toast("Couldn't reach checkout — please try again."); }
 }
 window.addEventListener("hashchange",()=>{ if(location.hash==="#admin" && !$("btnAdmin").classList.contains("hidden")) openAdmin(); });
-try{ const _q=new URLSearchParams(location.search), _fp=_q.get("fs"), _bp=_q.get("fsbal");
+try{ const _q=new URLSearchParams(location.search), _fp=_q.get("fs"), _bp=_q.get("fsbal"), _bl=_q.get("billing");
   if(_fp==="paid"){ setTimeout(()=>toast("Design fee received — your designer will reach out to start your proof."),900); history.replaceState({},"",location.pathname); }
   else if(_fp==="cancelled"){ setTimeout(()=>toast("Checkout cancelled — you can request the design again anytime."),900); history.replaceState({},"",location.pathname); }
   else if(_bp==="paid"){ const oid=sessionStorage.getItem("fsbalOrder"); if(oid&&window.sb){ try{ window.sb.from("fullservice_requests").update({status:"balance_paid",updated_at:new Date().toISOString()}).eq("id",oid).then(()=>{}); }catch(e){} sessionStorage.removeItem("fsbalOrder"); } setTimeout(()=>toast("Printing balance received — thank you. Your order goes to print now."),900); history.replaceState({},"",location.pathname); }
   else if(_bp==="cancelled"){ setTimeout(()=>toast("Balance payment cancelled — you can reopen the link anytime."),900); history.replaceState({},"",location.pathname); }
+  else if(_bl==="success"){ history.replaceState({},"",location.pathname);
+    setTimeout(()=>toast("Payment received — thank you. Unlocking the full roadmap…"),900);
+    // webhook stamps the estate's tier server-side; refresh a moment later to pick it up
+    setTimeout(async ()=>{ try{ if(window.loadEstates) await loadEstates(); var oid=window.S&&window.S.estate&&window.S.estate.id; if(oid&&window.openEstate){ openEstate(oid); } else if(window.goHome){ goHome(); } }catch(e){} }, 3500); }
+  else if(_bl==="cancelled"){ setTimeout(()=>toast("Checkout cancelled — you can upgrade this estate anytime."),900); history.replaceState({},"",location.pathname); }
 }catch(e){}
 
 async function forgotPass(){
@@ -1218,7 +1223,7 @@ function goHome(){
     d.innerHTML = `<div class="eyebrow">Estate${noteNew}</div><h3 style="margin:6px 0 2px">${esc(e.decedent_name)}</h3><div class="muted">${e.date_of_death?("Passed "+fmtDate(e.date_of_death)+" · "):""}${esc(e.state_code||"")}</div>`;
     d.onclick=()=>openEstate(e.id); list.appendChild(d);
   });
-  $("upgradeCard").classList.toggle("hidden", TIER_RANK[tier()]>=TIER_RANK.settle);
+  $("upgradeCard").classList.add("hidden");   // upgrades are per-estate now (shown inside the estate)
   const onCompanion = TIER_RANK[tier()]>=TIER_RANK.companion;
   $("btnBuyCompanion").classList.toggle("hidden", onCompanion);
   const planLabel=$("upgradeCard").querySelector("h3");
@@ -1233,7 +1238,7 @@ async function startCheckout(tier){
   toast("Opening secure checkout…");
   try{
     const r = await fetch("/.netlify/functions/stripe-checkout",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({tier, userId:S.session.user.id, email:S.session.user.email})});
+      body:JSON.stringify({tier, userId:S.session.user.id, email:S.session.user.email, estateId:(S.estate&&S.estate.id)||null})});
     const d = await r.json();
     if(d.url) location.href=d.url; else toast(d.error||"Checkout isn't configured yet.");
   }catch(e){ toast("Checkout isn't configured yet."); }
@@ -1267,9 +1272,6 @@ const WIZ = [
 let wizStep=0, wizAnswers={};
 
 function startIntake(){
-  if(TIER_RANK[tier()]<TIER_RANK.settle && S.estates.length>=1){
-    return upgradeModal("Settle includes unlimited estates");
-  }
   wizStep=0; wizAnswers={tradition:BRAND.tradition}; renderWiz(); show("view-intake");
 }
 function renderWiz(){
@@ -1787,7 +1789,7 @@ function guideBubble(text,cls){
 async function sendGuide(){
   const q=$("guideText").value.trim(); if(!q) return;
   if(lim().ai!==Infinity){
-    const {data:n}=await sb.rpc("increment_ai_use");
+    const {data:n}=await sb.rpc("increment_ai_use",{p_estate:(S.estate&&S.estate.id)||null});
     if(typeof n==="number"){ S.profile.ai_uses=n; }
     if((S.profile.ai_uses||0)>lim().ai){
       guideBubble("You've used your "+lim().ai+" Guide conversations on this plan. "+(tier()==="free"?"Companion ($39) includes 25, and Settle makes the Guide unlimited.":"Settle makes the Guide unlimited — along with the court-ready reports."),"ai");
@@ -3065,7 +3067,7 @@ function tradToneDefault(){ try{ if((S.estate?.intake?.tradition)==="homegoing")
 setInterval(tradToneDefault, 1200);
 async function pgDraftObit(btn){
   if(lim().ai!==Infinity){
-    const {data:n}=await sb.rpc("increment_ai_use");
+    const {data:n}=await sb.rpc("increment_ai_use",{p_estate:(S.estate&&S.estate.id)||null});
     if(typeof n==="number") S.profile.ai_uses=n;
     if((S.profile.ai_uses||0)>lim().ai){ return upgradeModal("Obituary drafting uses the Guide"); }
   }
@@ -3083,7 +3085,7 @@ async function pgDraftObit(btn){
 }
 async function draftObituary(){
   if(lim().ai!==Infinity){
-    const {data:n}=await sb.rpc("increment_ai_use");
+    const {data:n}=await sb.rpc("increment_ai_use",{p_estate:(S.estate&&S.estate.id)||null});
     if(typeof n==="number") S.profile.ai_uses=n;
     if((S.profile.ai_uses||0)>lim().ai){
       return upgradeModal("Obituary drafting uses the Guide");
