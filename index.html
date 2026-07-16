@@ -5574,7 +5574,7 @@ function toggleComfort(){
   function tierPrice(){ const t=tierObj(); if(!t)return 0; return t.variants?(t.variants[programPages()]||0):(t.price||0); }
   function quote(){
     const t=tierObj(); const pages=programPages();
-    const programTotal = t ? (retail(dpProgram(pages,FS.programSize,FS.programQty))||0) : 0;
+    const programTotal = (t && FS.tier!=="review") ? (retail(dpProgram(pages,FS.programSize,FS.programQty))||0) : 0;
     const lines=[];
     for(const id of FS.addonOrder){ const a=CONFIG.addons.find(x=>x.id===id); const c=FS.addons[id];
       if(a&&c){ const vk=c.variant||a.variants[0][0]; const r=retail(addonWholesale(a,vk,c.qty));
@@ -5608,7 +5608,7 @@ function toggleComfort(){
       }).join("")}</div>${luxPicker()}</div>`;
   }
   function luxPicker(){ const t=tierObj(); if(!t||!t.variants)return ""; return `<div class="fs-field" style="margin-top:12px;max-width:260px"><label>Program length</label><select id="fsLux">${Object.keys(t.variants).map(p=>`<option value="${p}" ${String(FS.tierPages)===p?'selected':''}>${p} pages — ${money(t.variants[p])}</option>`).join("")}</select></div>`; }
-  function programSec(){ if(!tierObj())return ""; const pg=programPages();
+  function programSec(){ if(!tierObj()||FS.tier==="review")return ""; const pg=programPages();
     return `<div class="fs-sec"><h2><span class="fs-step">2</span>Program printing</h2>
       <p class="fs-hint">The printed programs themselves (${pg} pages, based on your design service).</p>
       <div class="fs-row">
@@ -5678,11 +5678,16 @@ function toggleComfort(){
   const v=(id)=>{ const e=root.querySelector("#"+id); return e?e.value.trim():""; };
 
   async function submit(){
-    const contact={ name:v("fsKName"), email:v("fsKEmail"), phone:v("fsKPhone") };
-    if(!contact.email||!contact.phone){ note("Please add your email and phone so your designer can reach you."); return; }
     const q=quote();
     const designFee=(q.tierPrice||0)+(q.extraDesign||0);      // charged now
     const balance=Math.max(0,(q.total||0)-designFee);         // printing, billed at proof approval
+    const missing=[];
+    const need=(id,label,cond)=>{ const el=root.querySelector("#"+id); const val=el?el.value.trim():""; if(cond&&!val){ missing.push(label); if(el){ el.style.borderColor="#c0392b"; el.style.background="#fdf3f2"; } } else if(el){ el.style.borderColor=""; el.style.background=""; } return val; };
+    const email=need("fsKEmail","your email",true), phone=need("fsKPhone","your phone",true); need("fsCName","name of the deceased",true);
+    const needShip=balance>0;
+    need("fsSL1","shipping address",needShip); need("fsSCity","city",needShip); need("fsSState","state",needShip); need("fsSZip","ZIP",needShip);
+    if(missing.length){ note("Please complete: "+missing.join(", ")+"."); const first=root.querySelector('[style*="c0392b"]'); if(first&&first.scrollIntoView) first.scrollIntoView({behavior:"smooth",block:"center"}); return; }
+    const contact={ name:v("fsKName"), email, phone };
     const request={
       estateId:(window.S&&window.S.estate&&window.S.estate.id)||null,
       designerTier:FS.tier, pages:programPages(), fold:FS.fold, programSize:FS.programSize, programQty:FS.programQty, addons:FS.addons,
