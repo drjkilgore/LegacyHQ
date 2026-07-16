@@ -181,7 +181,7 @@ summary::-webkit-details-marker{display:none}
     <button class="btn btn-ghost btn-sm hidden topbar-menu-btn" id="btnMenu" onclick="toggleTopMenu()" aria-label="Menu">☰</button>
     <div class="topbar-actions" id="topActions">
     <button class="btn btn-ghost btn-sm hidden" id="btnHelp" onclick="openHelp()">? Help</button>
-    <button class="btn btn-ghost btn-sm hidden" id="btnDesigner" onclick="designerApplyModal()">Become a designer</button>
+    <button class="btn btn-ghost btn-sm hidden" id="btnDesigner" onclick="designerButton()">Become a designer</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnBrand" onclick="openMyBrand()">My Brand</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnAdmin" onclick="openAdmin()">Admin</button>
     <button class="btn btn-ghost btn-sm hidden" id="btnComfort" onclick="toggleComfort()" title="Comfort mode — gentle sound">🔈 Comfort</button>
@@ -255,6 +255,7 @@ summary::-webkit-details-marker{display:none}
 
 <!-- PROGRAM DESIGNER -->
 <section id="view-program" class="hidden"></section>
+<section id="view-designer" class="hidden"><div class="wrap"><div id="designerPortal"></div></div></section>
 
 <!-- ESTATE -->
 <section id="view-estate" class="hidden"><div class="wrap">
@@ -824,7 +825,7 @@ const FIRST_PARTY_HOSTS = ["homegoinghq.com","www.homegoinghq.com","app.homegoin
 })();
 function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.remove("hidden"); clearTimeout(t._x); t._x=setTimeout(()=>t.classList.add("hidden"),3200); }
 function esc(s){ return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-function show(view){ ["view-auth","view-home","view-intake","view-estate","view-plan","view-memorial","view-admin","view-program"].forEach(v=>$(v).classList.add("hidden")); $(view).classList.remove("hidden"); window.scrollTo(0,0); }
+function show(view){ ["view-auth","view-home","view-intake","view-estate","view-plan","view-memorial","view-admin","view-program","view-designer"].forEach(v=>$(v).classList.add("hidden")); $(view).classList.remove("hidden"); window.scrollTo(0,0); }
 function fmtDate(d){ if(!d) return ""; return new Date(d+"T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }
 async function logActivity(action, detail){ if(!S.estate) return; await sb.from("activity_log").insert({estate_id:S.estate.id, user_id:S.session.user.id, action, detail}); }
 
@@ -880,8 +881,11 @@ async function handleSession(session){
         if(claim && claim.claimed){ toast("Your "+claim.tier+" concierge practice is now active."); }
       }catch(e){}
       await loadEstates();
+      try{ const {data:dz}=await sb.from("designers").select("*").eq("user_id",session.user.id).maybeSingle(); S.designer=dz||null; }catch(e){ S.designer=null; }
     }catch(err){ toast("Loading issue: "+err.message); }
+    if(S.designer){ const _b=$("btnDesigner"); if(_b) _b.textContent="Designer portal"; }
     goHome();
+    if(S.designer && S.designer.status==="approved" && (!S.estates||!S.estates.length)){ try{ goDesigner(); }catch(e){} }
     try{ checkBalanceLink(); }catch(e){}
     try{ if(new URLSearchParams(location.search).get("designer")==="apply") setTimeout(designerApplyModal,600); }catch(e){}
   } else {
@@ -5472,20 +5476,21 @@ const DS_SPECIALTIES=["Funeral programs","Prayer cards","Memorial books","Banner
 function dsToggle(field,val,on){ window.DS=window.DS||{photo:"",portfolio:[],idDoc:"",w9Doc:"",specialties:[],states:[]}; const a=window.DS[field]||[]; if(on){ if(!a.includes(val))a.push(val); } else { const i=a.indexOf(val); if(i>=0)a.splice(i,1); } window.DS[field]=a; }
 function designerApplyModal(){
   if(!S.session){ toast("Please sign in first, then apply to design."); return; }
-  window.DS={photo:"",portfolio:[],idDoc:"",w9Doc:"",specialties:[],states:[]};
+  const _d=S.designer||{};
+  window.DS={photo:_d.profile_photo||"",portfolio:_d.portfolio_urls||[],idDoc:_d.id_doc||"",w9Doc:_d.w9_doc||"",specialties:_d.specialties||[],states:_d.states||[]};
   const STATES=[...new Set(Object.values(US_STATE_ABBR))].sort();
   $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:620px;max-height:88vh;overflow:auto">
     <button class="close" onclick="closeModal()">×</button>
     <div class="eyebrow">Designer Marketplace</div><h3 style="margin:4px 0 4px">Apply to design for HomegoingHQ</h3>
     <p class="muted" style="font-size:13px;margin-bottom:14px">Tell us about your work. Every application is reviewed before you receive assignments.</p>
     <label>Full name</label><input id="dsName" value="${esc((S.profile&&S.profile.full_name)||'')}">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><label>Email</label><input id="dsEmail" value="${esc((S.session.user&&S.session.user.email)||'')}"></div><div><label>Phone</label><input id="dsPhone"></div></div>
-    <label>Short bio</label><textarea id="dsBio" placeholder="Your background, experience, and design style…"></textarea>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><label>Email</label><input id="dsEmail" value="${esc((S.session.user&&S.session.user.email)||'')}"></div><div><label>Phone</label><input id="dsPhone" value="${esc(_d.phone||'')}"></div></div>
+    <label>Short bio</label><textarea id="dsBio" placeholder="Your background, experience, and design style…">${esc(_d.bio||'')}</textarea>
     <label style="margin-top:8px">Specialties</label>
-    <div style="display:flex;flex-wrap:wrap;gap:6px">${DS_SPECIALTIES.map(s=>`<label class="pill" style="cursor:pointer;border:1px solid var(--line);background:#fff;font-weight:400"><input type="checkbox" value="${s}" onchange="dsToggle('specialties',this.value,this.checked)" style="margin-right:5px">${s}</label>`).join("")}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px"><div><label>Typical turnaround (days)</label><input id="dsTurn" type="number" min="1" placeholder="e.g. 3"></div><div><label>Languages</label><input id="dsLangs" placeholder="English, Spanish…"></div></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${DS_SPECIALTIES.map(s=>`<label class="pill" style="cursor:pointer;border:1px solid var(--line);background:#fff;font-weight:400"><input type="checkbox" value="${s}" ${window.DS.specialties.includes(s)?"checked":""} onchange="dsToggle('specialties',this.value,this.checked)" style="margin-right:5px">${s}</label>`).join("")}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px"><div><label>Typical turnaround (days)</label><input id="dsTurn" type="number" min="1" placeholder="e.g. 3" value="${_d.turnaround_days||''}"></div><div><label>Languages</label><input id="dsLangs" placeholder="English, Spanish…" value="${esc((_d.languages||[]).join(', '))}"></div></div>
     <label style="margin-top:8px">States you'll serve</label>
-    <div style="max-height:120px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:3px">${STATES.map(st=>`<label style="font-size:12px"><input type="checkbox" value="${st}" onchange="dsToggle('states',this.value,this.checked)"> ${st}</label>`).join("")}</div>
+    <div style="max-height:120px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:3px">${STATES.map(st=>`<label style="font-size:12px"><input type="checkbox" value="${st}" ${window.DS.states.includes(st)?"checked":""} onchange="dsToggle('states',this.value,this.checked)"> ${st}</label>`).join("")}</div>
     <label style="margin-top:10px">Profile photo</label><input type="file" accept="image/*" onchange="dsUpload(this,'photo')"><div id="dsPhotoS" class="muted" style="font-size:12px"></div>
     <label style="margin-top:8px">Portfolio (images / PDFs)</label><input type="file" accept="image/*,application/pdf" multiple onchange="dsUpload(this,'portfolio')"><div id="dsPortS" class="muted" style="font-size:12px"></div>
     <label style="margin-top:8px">Photo ID <span class="muted" style="font-weight:400">(private — verification only)</span></label><input type="file" accept="image/*,application/pdf" onchange="dsUpload(this,'id')"><div id="dsIdS" class="muted" style="font-size:12px"></div>
@@ -5565,6 +5570,40 @@ async function admLoadDesigners(){
 async function admSetDesignerStatus(id,status){ const {error}=await sb.from("designers").update({status,updated_at:new Date().toISOString()}).eq("id",id); if(error) return toast(error.message); toast("Designer set to "+status+"."); admLoadDesigners(); }
 async function admToggleFeatured(id,on){ const {error}=await sb.from("designers").update({featured:on,updated_at:new Date().toISOString()}).eq("id",id); if(error) return toast(error.message); admLoadDesigners(); }
 async function admViewDoc(path){ try{ const {data,error}=await sb.storage.from("designer-private").createSignedUrl(path,120); if(error) throw error; window.open(data.signedUrl,"_blank"); }catch(e){ toast(e.message||"Couldn't open document."); } }
+function designerButton(){ if(S.designer){ goDesigner(); } else { designerApplyModal(); } }
+async function setDesignerAvailability(v){ try{ await sb.from("designers").update({availability:v,updated_at:new Date().toISOString()}).eq("id",S.designer.id); S.designer.availability=v; toast("Availability set to "+v+"."); }catch(e){ toast(e.message); } }
+function goDesigner(){
+  const d=S.designer; if(!d){ designerApplyModal(); return; }
+  const statusMsg={
+    pending:'<div class="banner">Your application is under review. We\'ll let you know as soon as you\'re approved.</div>',
+    approved:'',
+    suspended:'<div class="banner" style="background:#fdecea;border-color:#e6b0aa;color:#922b21">Your designer account is suspended. Please contact HomegoingHQ.</div>',
+    declined:'<div class="banner">Your application wasn\'t approved this time — you\'re welcome to update it and re-apply.</div>'
+  }[d.status]||'';
+  const availOpts=["available","busy","offline","vacation"];
+  const el=document.getElementById("designerPortal"); if(!el) return;
+  el.innerHTML=`
+    <div class="estate-head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <div><div class="eyebrow">Designer Portal</div><h1 class="name" style="font-size:24px">${esc(d.full_name||"Welcome")}</h1>
+        <div class="muted" style="font-size:13px">${(d.specialties||[]).join(" · ")||""}${d.states&&d.states.length?" · "+d.states.join(", "):""}</div></div>
+      <button class="btn btn-ghost btn-sm" onclick="goHome()">← Home</button>
+    </div>
+    ${statusMsg}
+    ${d.status==="approved"?`
+    <div class="card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <div><div class="eyebrow">Availability</div><div class="muted" style="font-size:13px">Families and the assignment engine use this.</div></div>
+      <select id="dsAvail" onchange="setDesignerAvailability(this.value)" style="width:auto">${availOpts.map(o=>`<option value="${o}" ${d.availability===o?"selected":""}>${o}</option>`).join("")}</select>
+    </div></div>
+    <div class="card" style="margin-top:14px"><div class="eyebrow">Your assignments</div>
+      <div class="muted" style="font-size:13px;margin-top:6px">The assignment engine goes live in Phase 2 — jobs in the states you serve will appear here, and you'll upload proofs and message families right from this portal.</div></div>
+    <div class="card" style="margin-top:14px"><div class="eyebrow">Earnings</div>
+      <div class="muted" style="font-size:13px;margin-top:6px">Your completed jobs and payouts will show here once HomegoingHQ connects your account for payments.</div></div>
+    `:''}
+    <div class="card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div class="eyebrow">Your profile</div><button class="btn btn-ghost btn-sm" onclick="designerApplyModal()">Edit</button></div>
+      <div class="muted" style="font-size:13px;margin-top:6px">${esc(d.bio||"No bio yet.")}</div>
+      <div class="muted" style="font-size:12.5px;margin-top:6px">Turnaround: ${d.turnaround_days?d.turnaround_days+" days":"—"} · Languages: ${(d.languages||[]).join(", ")||"—"}</div></div>`;
+  show("view-designer");
+}
 function toggleTopMenu(){ const a=$("topActions"); if(a) a.classList.toggle("open"); }
 document.addEventListener("click",function(e){
   const a=document.getElementById("topActions"), m=document.getElementById("btnMenu");
