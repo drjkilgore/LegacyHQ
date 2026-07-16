@@ -720,6 +720,7 @@ The [Family Name] Family`}
 const CONFIGURED = !SUPABASE_URL.startsWith("YOUR_");
 const sb = CONFIGURED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 let S = { session:null, profile:null, estates:[], estate:null, tasks:[], members:[], notifs:[], docs:[], guide:[] };
+window.sb = sb; window.S = S;   // expose for the full-service module (which reads window.sb / window.S)
 let authMode = "signin";
 
 /* ---------- helpers ---------- */
