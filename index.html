@@ -884,10 +884,14 @@ async function handleSession(session){
       try{ const {data:dz}=await sb.from("designers").select("*").eq("user_id",session.user.id).maybeSingle(); S.designer=dz||null; }catch(e){ S.designer=null; }
     }catch(err){ toast("Loading issue: "+err.message); }
     if(S.designer){ const _b=$("btnDesigner"); if(_b) _b.textContent="Designer portal"; }
-    goHome();
-    if(S.designer && S.designer.status==="approved" && (!S.estates||!S.estates.length)){ try{ goDesigner(); }catch(e){} }
+    try{ const {data:_ia}=await sb.rpc("is_admin"); if(_ia===true){ S.isAdmin=true; const _ba=$("btnAdmin"); if(_ba) _ba.classList.remove("hidden"); } }catch(e){}
+    // Role-based landing (pick ONE view so the family dashboard never flashes first):
+    // approved designer -> portal; a pending/other applicant with no estates -> portal (status page); admins & family -> home.
+    const _dz=S.designer, _noEstates=(!S.estates||!S.estates.length);
+    if(_dz && !S.isAdmin && (_dz.status==="approved" || _noEstates)){ goDesigner(); } else { goHome(); }
     try{ checkBalanceLink(); }catch(e){}
-    try{ if(new URLSearchParams(location.search).get("designer")==="apply") setTimeout(designerApplyModal,600); }catch(e){}
+    // ?designer=apply link: existing designers go to their portal, brand-new applicants get the form. Clear the param so it never re-fires on refresh.
+    try{ const _p=new URLSearchParams(location.search); if(_p.get("designer")==="apply"){ history.replaceState({},"",location.pathname); setTimeout(()=>{ S.designer?goDesigner():designerApplyModal(); },400); } }catch(e){}
   } else {
     lastSessionUser = null;
     $("btnSignOut").classList.add("hidden"); $("whoami").textContent="";
@@ -5611,7 +5615,7 @@ function goDesigner(){
     <div class="estate-head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
       <div><div class="eyebrow">Designer Portal</div><h1 class="name" style="font-size:24px">${esc(d.full_name||"Welcome")}</h1>
         <div class="muted" style="font-size:13px">${(d.specialties||[]).join(" · ")||""}${d.states&&d.states.length?" · "+d.states.join(", "):""}</div></div>
-      <button class="btn btn-ghost btn-sm" onclick="goHome()">← Home</button>
+      <button class="btn btn-ghost btn-sm" onclick="goHome()">Family workspace →</button>
     </div>
     ${statusMsg}
     ${d.status==="approved"?`
