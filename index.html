@@ -891,7 +891,7 @@ async function handleSession(session){
     if(S.designer && !S.isAdmin){ goDesigner(); } else { goHome(); }
     try{ checkBalanceLink(); }catch(e){}
     // ?designer=apply link: existing designers go to their portal, brand-new applicants get the form. Clear the param so it never re-fires on refresh.
-    try{ const _p=new URLSearchParams(location.search); if(_p.get("designer")==="apply"){ history.replaceState({},"",location.pathname); setTimeout(()=>{ S.designer?goDesigner():designerApplyModal(); },400); } }catch(e){}
+    try{ const _wantApply=(new URLSearchParams(location.search).get("designer")==="apply")||sessionStorage.getItem("hqDesignerApply"); if(_wantApply){ sessionStorage.removeItem("hqDesignerApply"); history.replaceState({},"",location.pathname); setTimeout(()=>{ S.designer?goDesigner():designerApplyModal(); },400); } }catch(e){}
   } else {
     lastSessionUser = null;
     $("btnSignOut").classList.add("hidden"); $("whoami").textContent="";
@@ -899,10 +899,12 @@ async function handleSession(session){
     $("btnVoice").classList.add("hidden"); if(typeof Voice!=="undefined"&&Voice.isOn())toggleVoice();
     $("btnMenu").classList.add("hidden");
     $("guideFab").classList.add("hidden"); $("btnHelp").classList.add("hidden"); show("view-auth");
+    try{ if(sessionStorage.getItem("hqDesignerApply")) setTimeout(()=>toast("Sign in or create an account to start your designer application."),500); }catch(e){}
   }
 }
 // IMPORTANT: never do Supabase work inside this callback (deadlocks the auth
 // library). Defer to the next tick, then work freely.
+try{ if(new URLSearchParams(location.search).get("designer")==="apply") sessionStorage.setItem("hqDesignerApply","1"); }catch(e){}
 if(CONFIGURED) sb.auth.onAuthStateChange((_e, session)=>{
   setTimeout(()=>{ handleSession(session); if(_e==="PASSWORD_RECOVERY") resetPassModal(); }, 0);
 });
