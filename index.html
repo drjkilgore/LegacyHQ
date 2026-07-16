@@ -904,19 +904,21 @@ if(CONFIGURED) sb.auth.onAuthStateChange((_e, session)=>{
 });
 // Deep-link: opening app.homegoinghq.com/#admin (e.g. the "Back to Admin Hub"
 // link on the other sites) jumps straight to this console — for admins only.
-function fsOrderCard(o){
+function fsOrderCard(o,asDesigner){
   const steps=[["requested","Requested"],["design_fee_paid","Design fee paid"],["proof_ready","Proof ready"],["balance_paid","Paid / complete"],["shipped","Shipped"]];
   const st=o.status||"requested"; const nm=(o.details&&o.details.content&&o.details.content.name)||"Design order";
-  const tier=(o.quote&&o.quote.tierName)||nm; const bal=Number(o.balance||0); const admin=S.isAdmin;
+  const tier=(o.quote&&o.quote.tierName)||nm; const bal=Number(o.balance||0); const admin=S.isAdmin||asDesigner;
   const created=o.created_at?new Date(o.created_at).toLocaleDateString():""; const fmt=(n)=>"$"+Number(n||0).toFixed(2);
   const badge=(steps.find(s=>s[0]===st)||[st,st])[1];
   let action="";
-  if(admin){
+  if(admin && asDesigner && o.assignment_status!=="accepted"){
+    action=`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="dsAcceptJob('${o.id}')">Accept job</button><button class="btn btn-ghost btn-sm" onclick="dsDeclineJob('${o.id}')">Pass to another</button></div><div class="muted" style="font-size:11.5px;margin-top:4px">New assignment — accept to begin, or pass to route it to the next designer.</div>`;
+  } else if(admin){
     action=`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">Upload proof<input type="file" accept="image/*,application/pdf" style="display:none" onchange="fsUploadProof('${o.id}',this)"></label>
       ${o.proof_url?`<a class="btn btn-ghost btn-sm" href="${esc(o.proof_url)}" target="_blank" rel="noopener">View proof</a>`:""}
       <select onchange="fsSetStatus('${o.id}',this.value)" style="width:auto;padding:6px 8px;font-size:12px">${steps.map(s=>`<option value="${s[0]}" ${st===s[0]?"selected":""}>${s[1]}</option>`).join("")}</select></div>
-      <div class="muted" style="font-size:11.5px;margin-top:5px">${esc((o.contact&&o.contact.email)||"")}${o.contact&&o.contact.phone?" · "+esc(o.contact.phone):""}</div>`;
+      <div class="muted" style="font-size:11.5px;margin-top:5px">${esc((o.contact&&o.contact.email)||"")}${o.contact&&o.contact.phone?" · "+esc(o.contact.phone):""}${!asDesigner?(o.assigned_designer_id?' · <span style="color:#3f6b4f">assigned</span>':' · <span style="color:#8F6A24">unassigned</span>'):""}</div>`;
   } else if(st==="proof_ready"){
     action=`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${o.proof_url?`<a class="btn btn-ghost btn-sm" href="${esc(o.proof_url)}" target="_blank" rel="noopener">View your proof</a>`:""}
       ${bal>0?`<button class="btn btn-brass btn-sm" onclick="payBalance('${o.id}',${bal})">Approve &amp; pay balance ${fmt(bal)} →</button>`:`<button class="btn btn-brass btn-sm" onclick="fsSetStatus('${o.id}','balance_paid')">Approve proof →</button>`}</div>`;
@@ -5570,6 +5572,29 @@ async function admLoadDesigners(){
 async function admSetDesignerStatus(id,status){ const {error}=await sb.from("designers").update({status,updated_at:new Date().toISOString()}).eq("id",id); if(error) return toast(error.message); toast("Designer set to "+status+"."); admLoadDesigners(); }
 async function admToggleFeatured(id,on){ const {error}=await sb.from("designers").update({featured:on,updated_at:new Date().toISOString()}).eq("id",id); if(error) return toast(error.message); admLoadDesigners(); }
 async function admViewDoc(path){ try{ const {data,error}=await sb.storage.from("designer-private").createSignedUrl(path,120); if(error) throw error; window.open(data.signedUrl,"_blank"); }catch(e){ toast(e.message||"Couldn't open document."); } }
+async function loadDesignerAssignments(){
+  const el=document.getElementById("dsAssignments"); if(!el) return;
+  try{ const {data}=await sb.from("fullservice_requests").select("*").order("created_at",{ascending:false});
+    const mine=(data||[]).filter(o=>o.assigned_designer_id&&S.designer&&o.assigned_designer_id===S.designer.id);
+    if(!mine.length){ el.innerHTML='<div class="muted" style="font-size:13px">No assignments yet. When a family you serve places an order, it lands here — you upload the proof and move it forward right from these cards.</div>'; return; }
+    const c={nw:mine.filter(o=>o.assignment_status!=="accepted").length,prog:mine.filter(o=>o.assignment_status==="accepted"&&o.status!=="proof_ready"&&o.status!=="balance_paid"&&o.status!=="shipped").length,aw:mine.filter(o=>o.status==="proof_ready").length,done:mine.filter(o=>o.status==="balance_paid"||o.status==="shipped").length};
+    const summary=`<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:13px"><span><b>${c.nw}</b> new</span><span><b>${c.prog}</b> in progress</span><span><b>${c.aw}</b> awaiting approval</span><span><b>${c.done}</b> completed</span></div>`;
+    el.innerHTML=summary+mine.map(o=>fsOrderCard(o,true)).join("");
+  }catch(e){ el.innerHTML='<div class="muted" style="font-size:13px">Couldn\'t load assignments.</div>'; }
+}
+async function dsAcceptJob(id){ try{ await sb.from("fullservice_requests").update({assignment_status:"accepted",updated_at:new Date().toISOString()}).eq("id",id); toast("Job accepted — it's yours."); loadDesignerAssignments(); }catch(e){ toast(e.message); } }
+async function dsDeclineJob(id){
+  if(!confirm("Pass this job to another designer? It will leave your queue.")) return;
+  try{
+    const {data:o}=await sb.from("fullservice_requests").select("*").eq("id",id).maybeSingle();
+    const declined=(o&&o.declined_by)?o.declined_by.slice():[]; if(S.designer&&!declined.includes(S.designer.id)) declined.push(S.designer.id);
+    await sb.from("fullservice_requests").update({assigned_designer_id:null,assignment_status:null,declined_by:declined,updated_at:new Date().toISOString()}).eq("id",id);
+    const stRaw=(o&&o.details&&o.details.ship&&o.details.ship.state)||"";
+    const st=(typeof stateAbbr==="function"&&stRaw)?stateAbbr(stRaw):stRaw;
+    await fetch("/.netlify/functions/assign-designer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orderId:id,state:st})});
+    toast("Passed — routing to another designer."); loadDesignerAssignments();
+  }catch(e){ toast(e.message); }
+}
 function designerButton(){ if(S.designer){ goDesigner(); } else { designerApplyModal(); } }
 async function setDesignerAvailability(v){ try{ await sb.from("designers").update({availability:v,updated_at:new Date().toISOString()}).eq("id",S.designer.id); S.designer.availability=v; toast("Availability set to "+v+"."); }catch(e){ toast(e.message); } }
 function goDesigner(){
@@ -5595,7 +5620,7 @@ function goDesigner(){
       <select id="dsAvail" onchange="setDesignerAvailability(this.value)" style="width:auto">${availOpts.map(o=>`<option value="${o}" ${d.availability===o?"selected":""}>${o}</option>`).join("")}</select>
     </div></div>
     <div class="card" style="margin-top:14px"><div class="eyebrow">Your assignments</div>
-      <div class="muted" style="font-size:13px;margin-top:6px">The assignment engine goes live in Phase 2 — jobs in the states you serve will appear here, and you'll upload proofs and message families right from this portal.</div></div>
+      <div id="dsAssignments" style="margin-top:6px">Loading…</div></div>
     <div class="card" style="margin-top:14px"><div class="eyebrow">Earnings</div>
       <div class="muted" style="font-size:13px;margin-top:6px">Your completed jobs and payouts will show here once HomegoingHQ connects your account for payments.</div></div>
     `:''}
@@ -5603,6 +5628,7 @@ function goDesigner(){
       <div class="muted" style="font-size:13px;margin-top:6px">${esc(d.bio||"No bio yet.")}</div>
       <div class="muted" style="font-size:12.5px;margin-top:6px">Turnaround: ${d.turnaround_days?d.turnaround_days+" days":"—"} · Languages: ${(d.languages||[]).join(", ")||"—"}</div></div>`;
   show("view-designer");
+  if(d.status==="approved"){ try{ loadDesignerAssignments(); }catch(e){} }
 }
 function toggleTopMenu(){ const a=$("topActions"); if(a) a.classList.toggle("open"); }
 document.addEventListener("click",function(e){
@@ -5742,7 +5768,7 @@ function toggleComfort(){
   const esc=(s)=> String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const note=(m)=>{ const el=root&&root.querySelector("#fsMsg"); if(el){ el.textContent=m; el.style.display="block"; try{el.scrollIntoView({behavior:"smooth",block:"nearest"});}catch(e){} return; } try{ if(typeof window.toast==="function"){ window.toast(m); return; } }catch(e){} alert(m); };
 
-  const FS = { tier:null, tierPages:null, fold:"bi-fold", programSize:"s85", programQty:100, addons:{}, addonOrder:[], photoUrls:[], reviewMode:null, prefill:{} };
+  const FS = { tier:null, tierPages:null, fold:"bi-fold", programSize:"s85", programQty:100, addons:{}, addonOrder:[], photoUrls:[], reviewMode:null, chosenDesigner:null, prefill:{} };
   let root=null;
 
   window.openFullService = function(mode){
@@ -5854,6 +5880,7 @@ function toggleComfort(){
   function quotePanel(){ const q=quote();
     return `<div class="fs-quote"><h3>Your quote</h3>
       ${q.tier?`<div class="fs-ql"><span>${q.tierName}<div class="fs-s">design service</div></span><span>${money(q.tierPrice)}</span></div>`:`<div class="fs-ql"><span class="fs-s">Choose a design service to begin</span></div>`}
+      ${q.tier?`<div class="fs-ql"><span>Designer<div class="fs-s">${FS.chosenDesigner?esc(FS.chosenDesigner.name):"HomegoingHQ matches you by state"}</div></span><span><button class="btn btn-ghost btn-sm" style="padding:3px 9px;font-size:11px" onclick="browseDesigners()">${FS.chosenDesigner?"Change":"Choose"}</button></span></div>`:''}
       ${q.programTotal>0?`<div class="fs-ql"><span>Programs ×${FS.programQty}<div class="fs-s">${programPages()}pg ${FS.fold}${q.est?' · est.':''}</div></span><span>${money(q.programTotal)}</span></div>`:''}
       ${q.addonLines.map(l=>`<div class="fs-ql"><span>${l.name} ×${l.qty}<div class="fs-s">${l.variant}</div></span><span>${money(l.total)}</span></div>`).join("")}
       ${q.extraDesign>0?`<div class="fs-ql"><span>Additional design ×${q.extraCount}<div class="fs-s">$${CONFIG.EXTRA_DESIGN_FEE} per extra product</div></span><span>${money(q.extraDesign)}</span></div>`:''}
@@ -5899,6 +5926,28 @@ function toggleComfort(){
     }
     input.value="";
   }
+async function browseDesigners(){
+  let st=""; try{ const sv=root.querySelector("#fsSState"); st=sv?sv.value.trim():""; }catch(e){}
+  if(!st){ st=(window.S&&window.S.estate&&window.S.estate.state)||""; }
+  const stN=(typeof stateAbbr==="function"&&st)?stateAbbr(st):st;
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:620px;max-height:88vh;overflow:auto"><button class="close" onclick="closeModal()">×</button><div class="eyebrow">Choose your designer</div><h3 style="margin:4px 0 4px">Designers ${stN?"serving "+esc(stN):"available"}</h3><div id="dsBrowseList" class="muted" style="font-size:13px;margin-top:10px">Loading…</div></div></div>`;
+  try{
+    const r=await fetch("/.netlify/functions/list-designers",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({state:stN})});
+    const list=(await r.json()).designers||[];
+    const el=document.getElementById("dsBrowseList"); if(!el) return;
+    const matchCard=`<div style="border:1px solid var(--fsline);border-radius:10px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px"><div><strong>Let HomegoingHQ match me</strong><div class="fs-ph">We'll assign the next available designer in your state (recommended).</div></div><button class="btn btn-brass btn-sm" onclick="chooseDesigner('','')">Use this</button></div>`;
+    if(!list.length){ el.innerHTML=matchCard+`<div class="muted" style="font-size:13px">No designers are listed for ${esc(stN||"your area")} yet — HomegoingHQ will match you.</div>`; return; }
+    el.innerHTML=matchCard+list.map(d=>`<div style="border:1px solid var(--fsline);border-radius:10px;padding:12px;margin-bottom:10px">
+      <div style="display:flex;gap:12px">
+        ${d.profile_photo?`<img src="${esc(d.profile_photo)}" style="width:52px;height:52px;border-radius:50%;object-fit:cover" alt="">`:`<div style="width:52px;height:52px;border-radius:50%;background:var(--fsline)"></div>`}
+        <div style="flex:1"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><strong>${esc(d.full_name||"Designer")}</strong>${d.featured?'<span class="fs-ph" style="color:var(--fsbrass)">★ Featured</span>':''}</div>
+          <div class="fs-ph">${(d.specialties||[]).join(" · ")||""}</div>
+          <div class="fs-ph">${d.turnaround_days?d.turnaround_days+"-day turnaround":""}${d.rating?" · ★ "+Number(d.rating).toFixed(1):""}${d.completed_count?" · "+d.completed_count+" completed":""}</div></div></div>
+      ${d.bio?`<div class="fs-ph" style="margin-top:6px">${esc(d.bio)}</div>`:""}
+      <div style="display:flex;gap:8px;margin-top:8px">${(d.portfolio_urls||[]).length?`<a class="btn btn-ghost btn-sm" href="${esc(d.portfolio_urls[0])}" target="_blank" rel="noopener">Portfolio</a>`:""}<button class="btn btn-brass btn-sm" onclick="chooseDesigner('${d.id}','${esc((d.full_name||'').replace(/'/g,''))}')">Choose ${esc((d.full_name||'Designer').split(' ')[0])}</button></div></div>`).join("");
+  }catch(e){ const el=document.getElementById("dsBrowseList"); if(el) el.innerHTML='<div class="muted">Couldn\'t load designers right now.</div>'; }
+}
+function chooseDesigner(id,name){ FS.chosenDesigner = id?{id:id,name:name}:null; closeModal(); render(); }
   async function submit(){
     let q; try{ q=quote(); }catch(e){ q={tierName:(tierObj()&&tierObj().name)||"",tierPrice:0,extraDesign:0,total:0,addonLines:[]}; }
     const designFee=(q.tierPrice||0)+(q.extraDesign||0);      // charged now
@@ -5929,6 +5978,7 @@ function toggleComfort(){
         if(insErr){ console.warn("Full-service order save failed:", insErr.message, insErr); }
         if(row) orderId=row.id; }
     }catch(e){}
+    if(orderId){ try{ const _st=(request.ship&&request.ship.state)?(typeof stateAbbr==="function"?stateAbbr(request.ship.state):request.ship.state):((window.S&&window.S.estate&&window.S.estate.state)||""); await fetch("/.netlify/functions/assign-designer",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ orderId, state:_st, designerId:(FS.chosenDesigner&&FS.chosenDesigner.id)||null }) }); }catch(e){} }
     try{ await fetch("/.netlify/functions/fullservice-notify",{ method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({ orderId, siteUrl:location.origin, tier:FS.tier, quote:q, contact, decedent:v("fsCName"), designFee, balance,
         summary:`${q.tierName} · ${programPages()}pg ${FS.fold} ×${FS.programQty}` }) }); }catch(e){}
