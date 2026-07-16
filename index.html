@@ -5466,6 +5466,8 @@ function toggleComfort(){
       { id:"bookmark", name:"Memorial Bookmarks", variants:[["bookmark_plain","Standard, no tassel"],["bookmark_tassel","With tassel"],["bookmark_lam_plain","Laminated, no tassel"],["bookmark_lam_tassel","Laminated + tassel"]], qtys:[50,100,150,200,250,300,400,500] },
       { id:"thankyou", name:"Thank You Cards", variants:[["thankyou","Standard"]], qtys:[25,50,100,150,200,250,300,400,500] },
       { id:"fan",      name:"Memorial Fans (8×8)", variants:[["fan","Fan"]], qtys:[10,20,30,40,50,60,70,80,90,100] },
+      { id:"slideshow", name:"Memorial Slide Show (video)", mode:"flat", variants:[["ss_20","Up to 20 photos"],["ss_40","20–40 photos"],["ss_60","40–60 photos"],["ss_80","60–80 photos"],["ss_100","80–100 photos"]], qtys:[1] },
+      { id:"poster",    name:"Memorial / Welcome Poster", mode:"unit", variants:[["poster_only","Poster only"],["poster_mounted","Mounted"],["poster_framed","Framed"],["poster_mounted_stand","Mounted + stand"],["poster_framed_stand","Framed + stand"]], qtys:[1,2,3,4,5] },
     ],
   };
   const MARKUP = 1.35;   // 35% over DisciplePress "we customize" wholesale
@@ -5494,12 +5496,15 @@ function toggleComfort(){
     bookmark_lam_tassel:{50:122.99,100:180.99,150:237.99,200:295.99,250:347.50,300:410.99,400:495.99,500:579.99},
     thankyou:{25:93.99,50:117.99,100:156.99,150:195.99,200:234.99,250:273.99,300:312.99,400:351.99,500:390.99},
     fan:{10:69.99,20:95.99,30:119.99,40:150.99,50:180.99,60:209.99,70:238.99,80:253.99,90:283.99,100:309.99},
+    ss_20:99.99, ss_40:129.99, ss_60:149.99, ss_80:169.99, ss_100:189.99,
+    poster_only:69.99, poster_mounted:99.99, poster_framed:119.99, poster_mounted_stand:139.99, poster_framed_stand:159.99,
   };
   const retail=(w)=> (w==null)?null:Math.round(w*MARKUP*100)/100;
   function dpProgram(pages,size,qty){ const p=DP.program[String(pages)];
     if(p){ const t=p[size]; return t?(t[qty]??null):null; }
     const b=DP.program["12"][size]; if(!b||b[qty]==null) return null; return Math.round(b[qty]*(pages/12)*100)/100; }
   function dpAddon(vk,qty){ const t=DP[vk]; return t?(t[qty]??null):null; }
+  function addonWholesale(a,vk,qty){ if(a.mode==="flat") return DP[vk]??null; if(a.mode==="unit") return (DP[vk]!=null)?DP[vk]*qty:null; const t=DP[vk]; return t?(t[qty]??null):null; }
   const money=(n)=> "$"+(n||0).toFixed(2);
   const esc=(s)=> String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const note=(m)=>{ try{ if(typeof window.toast==="function"){ window.toast(m); return; } }catch(e){} alert(m); };
@@ -5535,7 +5540,7 @@ function toggleComfort(){
     const programTotal = t ? (retail(dpProgram(pages,FS.programSize,FS.programQty))||0) : 0;
     const lines=[];
     for(const id of FS.addonOrder){ const a=CONFIG.addons.find(x=>x.id===id); const c=FS.addons[id];
-      if(a&&c){ const vk=c.variant||a.variants[0][0]; const r=retail(dpAddon(vk,c.qty));
+      if(a&&c){ const vk=c.variant||a.variants[0][0]; const r=retail(addonWholesale(a,vk,c.qty));
         if(r!=null){ const vlabel=(a.variants.find(v=>v[0]===vk)||[])[1]||""; lines.push({name:a.name,qty:c.qty,variant:vlabel,total:r}); } } }
     const asum=lines.reduce((s,l)=>s+l.total,0), tp=tierPrice();
     const extraCount=Math.max(0, FS.addonOrder.length - includedAddons());
