@@ -891,6 +891,7 @@ if(CONFIGURED) sb.auth.onAuthStateChange((_e, session)=>{
 // Deep-link: opening app.homegoinghq.com/#admin (e.g. the "Back to Admin Hub"
 // link on the other sites) jumps straight to this console — for admins only.
 window.addEventListener("hashchange",()=>{ if(location.hash==="#admin" && !$("btnAdmin").classList.contains("hidden")) openAdmin(); });
+try{ const _fp=new URLSearchParams(location.search).get("fs"); if(_fp==="paid"){ setTimeout(()=>toast("Design fee received — your designer will reach out to start your proof."),900); history.replaceState({},"",location.pathname); } else if(_fp==="cancelled"){ setTimeout(()=>toast("Checkout cancelled — you can request the design again anytime."),900); history.replaceState({},"",location.pathname); } }catch(e){}
 
 async function forgotPass(){
   const email=$("authEmail").value.trim();
@@ -5620,8 +5621,9 @@ function toggleComfort(){
       ${q.addonLines.map(l=>`<div class="fs-ql"><span>${l.name} ×${l.qty}<div class="fs-s">${l.variant}</div></span><span>${money(l.total)}</span></div>`).join("")}
       ${q.extraDesign>0?`<div class="fs-ql"><span>Additional design ×${q.extraCount}<div class="fs-s">$${CONFIG.EXTRA_DESIGN_FEE} per extra product</div></span><span>${money(q.extraDesign)}</span></div>`:''}
       <div class="fs-ql fs-tot"><span>Total</span><span>${money(q.total)}</span></div>
-      <button class="fs-btn" ${q.tier?'':'disabled'} id="fsSubmit">Request this design →</button>
-      <div class="fs-note">Prices are live DisciplePress rates with your markup. You'll approve a proof before paying.</div></div>`;
+      ${q.tier?`<div class="fs-ql" style="border-top:1px dashed var(--fsline);margin-top:4px;padding-top:8px"><span>Due now — design fee<div class="fs-s">printing (${money(Math.max(0,q.total-(q.tierPrice+q.extraDesign)))}) billed at proof approval</div></span><span><b>${money(q.tierPrice+q.extraDesign)}</b></span></div>`:''}
+      <button class="fs-btn" ${q.tier?'':'disabled'} id="fsSubmit">Pay design fee & request →</button>
+      <div class="fs-note">You pay the design fee now; you'll approve a proof before the printing balance is charged.</div></div>`;
   }
 
   function bind(){
@@ -5644,25 +5646,31 @@ function toggleComfort(){
     const contact={ name:v("fsKName"), email:v("fsKEmail"), phone:v("fsKPhone") };
     if(!contact.email||!contact.phone){ note("Please add your email and phone so your designer can reach you."); return; }
     const q=quote();
+    const designFee=(q.tierPrice||0)+(q.extraDesign||0);      // charged now
+    const balance=Math.max(0,(q.total||0)-designFee);         // printing, billed at proof approval
     const request={
       estateId:(window.S&&window.S.estate&&window.S.estate.id)||null,
-      designerTier:FS.tier, pages:programPages(), fold:FS.fold, programQty:FS.programQty, addons:FS.addons,
+      designerTier:FS.tier, pages:programPages(), fold:FS.fold, programSize:FS.programSize, programQty:FS.programQty, addons:FS.addons,
       content:{ name:v("fsCName"), dates:v("fsCDates"), notes:v("fsCNotes"), photos:v("fsCPhotos") },
-      contact, ship:{ line1:v("fsSL1"), city:v("fsSCity"), state:v("fsSState"), zip:v("fsSZip") }, quote:q,
+      contact, ship:{ line1:v("fsSL1"), city:v("fsSCity"), state:v("fsSState"), zip:v("fsSZip") }, quote:q, designFee, balance,
     };
-    // Best-effort handoff — stores + emails via a Netlify function (deploy fullservice-request.js).
+    // Best-effort: hand the full request to your designer (deploy fullservice-request.js to persist/email it).
     try{
       const sess=(window.sb&&window.sb.auth)?(await window.sb.auth.getSession()).data.session:null;
       await fetch("/.netlify/functions/fullservice-request",{ method:"POST",
         headers:{ "Content-Type":"application/json", ...(sess?{"Authorization":"Bearer "+sess.access_token}:{}) },
         body:JSON.stringify(request) });
-    }catch(e){ /* non-fatal — a designer follow-up still happens from the logged request */ }
-    console.log("FULL-SERVICE REQUEST", request);
-    root.querySelector(".fs-panel").innerHTML=`<div class="fs-head"><div class="fs-ttl">Work With a Designer<small>HomegoingHQ · Full Service</small></div><button class="fs-x" id="fsClose2">Close</button></div>
-      <div class="fs-done"><h2>Request received</h2><div class="fs-n">${esc(q.tierName)}</div>
-      <p>A HomegoingHQ designer will reach out to <b>${esc(contact.email)}</b> shortly to start your proof. You'll review and approve it before anything is printed — and pay once you're happy with the proof.</p>
-      <p style="color:var(--fsmuted);font-size:13px">Estimated total (printing prices to be confirmed): <b>${money(q.total)}</b></p></div>`;
-    const c2=root.querySelector("#fsClose2"); if(c2)c2.onclick=closeFS;
+    }catch(e){}
+    // Charge the design fee upfront, then send the family to Stripe to pay.
+    const btn=root.querySelector("#fsSubmit"); if(btn){ btn.disabled=true; btn.textContent="Opening secure checkout…"; }
+    try{
+      const summary=`${q.tierName}. Design fee now; printing balance ${money(balance)} at proof approval. For ${v("fsCName")||"the family"}.`;
+      const r=await fetch("/.netlify/functions/fullservice-checkout",{ method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ amountCents:Math.round(designFee*100), estateId:request.estateId, email:contact.email, tierName:q.tierName, summary }) });
+      const d=await r.json();
+      if(d.url){ window.location=d.url; return; }
+      note(d.error||"Couldn't open checkout — please try again."); if(btn){ btn.disabled=false; btn.textContent="Pay design fee & request →"; }
+    }catch(e){ note("Couldn't reach secure checkout — please try again."); if(btn){ btn.disabled=false; btn.textContent="Pay design fee & request →"; } }
   }
 })();
 </script>
