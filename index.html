@@ -6955,5 +6955,95 @@ function chooseDesigner(id,name){ FS.chosenDesigner = id?{id:id,name:name}:null;
 
 </script>
 
+<style id="hq-ambient-bg">
+/* ===== Layered backdrop: cream→ivory gradient + linen weave + faint topographic "journey" contours + ambient light ===== */
+body{
+  background:
+    /* linen weave — barely-there cross-hatch */
+    repeating-linear-gradient(45deg,  rgba(140,120,90,.018) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(-45deg, rgba(140,120,90,.018) 0 1px, transparent 1px 5px),
+    /* topographic journey contours — faint concentric map lines from two origins */
+    repeating-radial-gradient(circle at 22% 12%, rgba(110,130,115,.035) 0 1.2px, transparent 1.2px 34px),
+    repeating-radial-gradient(circle at 82% 88%, rgba(143,106,36,.028) 0 1.2px, transparent 1.2px 46px),
+    /* cream → ivory vertical wash */
+    linear-gradient(180deg, #FBF8F1 0%, #F6F2EA 55%, #F2ECDF 100%)
+    !important;
+  background-attachment: fixed !important;
+}
+/* ambient light — slow, almost imperceptible drift of a soft highlight */
+body::before{
+  content:""; position:fixed; inset:-25%; z-index:-1; pointer-events:none;
+  background: radial-gradient(38% 32% at 50% 26%, rgba(255,251,242,.55), rgba(255,251,242,0) 72%);
+  animation: hqAmbient 46s ease-in-out infinite alternate;
+}
+@keyframes hqAmbient{
+  0%   { transform: translate(-4%,-2%) scale(1);    opacity:.85; }
+  50%  { opacity:1; }
+  100% { transform: translate(4%,3%)  scale(1.05);  opacity:.8;  }
+}
+@media (prefers-reduced-motion: reduce){ body::before{ animation:none; } }
+
+/* ===== Guide avatar ===== */
+.gm-av{ flex:none; border-radius:50%; overflow:hidden; box-shadow:0 1px 4px rgba(38,51,46,.14); }
+.gm-av svg,.gm-av img{ display:block; width:100%; height:100%; object-fit:cover; }
+.gm-av.sm{ width:30px; height:30px; }
+.gm-av.lg{ width:46px; height:46px; }
+.gm-row{ display:flex; gap:9px; align-items:flex-end; max-width:92%; align-self:flex-start; }
+.gm-row .gm.ai{ max-width:100%; }
+</style>
+<script>
+/* ============ GUIDE AVATAR + AMBIENT BACKDROP WIRING ============ */
+(function(){
+  // Warm, calm illustrated guide portrait — on-brand (sage garment, brass ring, soft glow)
+  var AV = '<img alt="HomegoingHQ Guide" src="data:image/webp;base64,UklGRmASAABXRUJQVlA4IFQSAACQSwCdASqgAKAAPj0aikOiIaEVSL7oIAPEoAy2YiW75yfqv7Z6Uln/xHBqHF9hvmfOx/nfVR5hP6xdLbzOea16ef7t6jv84/0nXD+gt5cXsx/uh6U+D+6deGflZ+H+3HMbiU/M/x7+z/MzlZ4BHtP/U8GdnjjC8QD8qPKc8hqgB/Pv7v/2vVX/5/8z6Wvq7/we4Z/Lf7B/vfXQ9pno0/tgoHjGYi+DVhbLl20bMURvtbg0BYGxm16eykyj3PL3pJc5BfWF47ihwxuUm0aUB8TdtYzuFZxTXXzuTqStrZO6XcY/Toy89X2hh6YXn3AsXWl1iPIox4IvVYWpnenvK/tyun/tO/f0iB5tVlWlvSZ7TxWNReLLzHU3/ps8CLBRulti+w/PeE7x60H29gYrs8M1j4pcpHIcC+wwKYb8rTvne12PKXQ7LIb7Xix3AenzyGmI4GUNdoSXHUSgI91DYlem5M2cre7+Bt2QI1o39EFt38jrge+TKTjcpLTm18d70je4OxROSXPt6LIbAfCCFikL2r1VjBUENiA1nJW4yHt2uBD7Nqc+9FUva43tQxURI08yk/za1ZwW0aTNpNiT4Fllpig4Vc+jgjF2Z61K1B3DATboGkbrPMQlTjkSCYlEOymRQU3ZOksp0/TGrYSQTZciqwbF8mfYcxDcO/QB3U5d5HB/0XffPtMDSav5xQWAvN9dq8qluFP3laaOo55xJZ4u98r0/KYvI17dbGlIsMUZme1Rr9Nz5T0bTbmXMwVt8uKmpeJP7tIaJ/+xsRFwvRHIxU9a1JrXsFCLefvD9hY//zMTtewAAP7+ryALam7lrOrwKFmXNSRuKSViAFiC9fBaF9jVbkJvTkoJqMJudaQKUQWECWAOmoCIbGvbV2P8WH7/sKYmtBGip64M+9bOrrYi2WveQpLfSiKukMxto7yBby4+A/xPlDU7laJjwPgo+QAbXdQGdOwDzVq/zdjKDPSNjsX++fNxXBQL04E1WTMLZcosbphmpxZT/XloMVlhvrtJ6aPd5XrA/cAmzjN+LCx60fRZWwqhSm5kcZxPJ8Q+HiNYsCcW/zVQQ/q79PLYzqpuZSyADJRiCXFoxyXL36Q8TgWjNmcVwsZxDlKliWXwE9agnn4jgxxnyhBqXGmHeQgAdU6XNPxcehmpAHV5Eykw8KSSuKozlUEqP3dU+pEZ/tYrtTq/9iH6lfzGYXlgv/n6xp8Y09eeANjBo7f+DV0idJzD3EwI4qPZUP81BEuzkTqgzgu6xgepHk6O8xO9tIZNutuLJP8I9G97alSVfgOP+zIIM9mwS/sFzetp5dF0ZzI6FoskK2aMu7P6E5l8rYZplHO/gaXDB9DAJS8MNSRbDISlhdEBggn9sEs8nbeq1yFpqe3tfYrsc93W/KBThNZXCYGZoqkszEg5OnsbgyZ2EsiX8Oku5Yym9DTEp1Iges1oOz8qsXZ/E8JzjxUdsPXKSsBXPmNcZtavod11QMuaAlPzxJt3a1gouEQq0x5vBzzsJEduKH5Qmm7y9wzyq7N/tiZQxB8B8FEI510r43DxqHJSeZ2DR/hjmbWM7dzzKUuF2fHQWMwNqdyLFvjNoZssqBV+JJhfNmq+LyMsh5nTmMCT/Dc5NfZjdWHTlAagAYW5GkqKkqkIz7zVIeDw7UKSG1p8G0uYT9FEydu7wsodV3DokvYGMt/ABmsZAclqFD3dzgSKiqdi30HehMvdGHjCaAMCZAzLLl1TQMTcdEkEMgoe1Hv7fFBJzvaIh2ThD0B0Vp9bF2sASfO42Oh96tfSQNOeA0XrRSpamoUzDLARlY4TQHSNsmmr/gd+GadEDDd2HDdRIRWb1vRhh3dcaRadlLmbVqicsdZgYDHRRrmzrRJxQP6uaacagwtn0gtaYKVOghJLDpcqhNFCauIXf3MEjIJf8sAPag2ulFsHIkAhakMuFk9hFI/pw3hT4vuaFsnd3SI5pAAfxGttV0J7fUxJkbJDQ0NfMG2ZEVIdADXJbOiZ0gW6dKMmeh0AiImaeEHPjB5d09gOnPu6LS4O4bY8SDEGsTP3MphY0jt8MvxiU7lfedb9S2Xzci96SfdsuoX17Xmqp9fKq2zapHfnnOKzUsABbMNNa1Zz+Ub0ORsrOmkiT7ev/6fk8uQ30z/ijDhbbw5LC3uMlBS4bqzUbrZAf9LruBM0BZRCI6o2uHfOfzzh5z8dkyiLsRr8rIcSemnRIALJZP5myT9rdbHwSQFWhXK3wSzKW8jTfeV38/lKRJjoT/mWRKvtM5XZoSc+78Udvcb/59o7ftYZlTt2oLMSHZV2yPaJfxUX3V2EL9UqUdj4PNSLZADZ61PyJ+yS9LvQo3nRPHDfohQ/L8J6V3jedIYU72xnYfmEY6Adqso6SzTtxjThLoYVopo3Swr495Qbolrak4beQFgSaQ8umJVb5OMsCHDwY4Skv91nFwg0O2jq3ntI1+ZY/yu6kxiyI5jhVzjwmLzIPa2fcRf+Q5wUTdUrd/ozdlvCjl7uQrkP51DVQV1k9yQiRjs93Brn87oZUjnAQp2UubXxytf01lrif/uNX5INf/MXSGm5/K3TMEvKqII/ypfCmB5E4Ax1jWNP22JFPcG5obB1BH/2bHGdcvd8+5iAYLIUOaDx0b4Z/JYDxxgcuyQzSdrVWUuwi0+XUe7k6hbEGbZvJaufsFGOOFVY4MAIApKTF4NAd064VgYXwscRdLhjVc8Yj2ZpXd8AcQLRFdeD5gmdawS3o5DlBGTz40bUiwPC15QQIJPXTVEVlUWDmzT3Eg27osYR1DSqpHyZqqrYCd2UIaFCxhqkTKSJOHhtsZr4O3vth6beZeKWvnDf/njVAH78UVr2ZjzjPb92QnLnvNq6/fw2HQm5Ih+lSvooFMl2UdmFJEXfc5P4fsyuJRVx5wGJkIduzTyRrY64+3gBghbpNugxtHXFzCT7xBq4UizKQM+zgiEEFB1lFtNAnGYpaes7BXYCA9FVEU/4EFhhiWW4pnPokuL6wkPL0Hy0cTzrTNT7YH0XXebHXpbV9poGeMyrkpBzwqp7i+ljUJmThh8UJii6+P/xI57rDrHAUfPgktFxnOL8miNq7U6Cy9u3FhQd0mEvEUUQ9+ulAkOums1xSScLuCD1W/Zr9wB6+KsmSLJibsRNGMwOJQArytoBGQUQWFKAKd15si5mxdGcKMAf+pVH6JeiefH8rr8Bc5+uR8gSDXSeI8wmKKSaPeZMwUHoYhEMOv1C831XmZ7ZlMLpH3D6fvggTCkaTyFjrWG38xWH2liA0+iiH8V1ErywXVvn56ywN41a5EDEZQ/Iy7JB6936qMEJei8dl6UnkabH01UDZJI9GMTDTcMd+T57Nr0RPvB7GqpR0V+ct5ZeRspzJebc/qhzFtIgkz5itX25joeNt3myIfEY326vXYLepXjOnfwUFGJMkjBr520uvbki13a47nyxw7fie5l+KZRpF/ypDpKKbuN301Vp/0r8bMQagvkevJiT0W07NdZlS/0Z39v/+cU2KN2Jww59tBRv6gI36Osh3h69gDSwt6Fe8lso0xr9KuWV4evJpc5m8xHwJWuzcZ7m/wi6bzT8ZLmcl6HmQGLjV88XPOV+KF+3YIbobNeG5yGTOItyCNQWQG4JticWT6VY4O+EaKSjQzB3sEyOL4kR8eiquXB0VCA7GvcP36KEwwSTj25gDaMIq3ce6t2c1p5kcm5NrdRJ7qMmlQHK/5hUV9LdRYVYVY4dQuJ/Q+/vLNpxLDnWEWLpRvX+Ey7R61jR2s16kGX+Hu+wPDxDeazB0CDPyGvQ3v0NtZXSilXYT7MzQgj4DyduI34SKvKmpnJuMucXFe/ospB1pFex4hKv6lpA6ss2cv+D2zXwMZSkJ1YFsj3/SBbbcA4kc8/cgtPOmFqBjTJ03Q8ky/l3/mqnaSrbJn3eDnD+WFHGNipTFux+Dl976m1CP8935PszUMPDTWH/4M3DwKwK8hLplf5TkdNNwiHhOu+ZlT1rZN69jYz2HOrbkMcKopVlfLRmu13d2i3AZWrkUzigHGuMNRWqm2cbZ08JCYvtgva9B2RUwun+BDjH/4ZzRzmcavnRc/vBRFmi0wrNpMErW3T4oITRoJllMPn+8jqp16PgPE/Gk0sTBJ1PVj9Q5yb3F04Umsy8PFJDkwBCRy6g5YnAdTCj4iE2cS9XEWsh0zaikBGXat6Zg5U90L40H/5/IijYYmjmPNjX7rrYDToICWWSVnAPv8QM/Jmp3p7XrFXeEJYU5rXE+xoZxkYbyv7XEyYIxTp7iYvLEMTErZmzqImG9fZkAByL2Fz0Xqk8rSUZJsj4T4On73h3h1UO5xceEOVXzCUOuOxzf/YbxoUEiGmaTtckOhUPkSvxpAcwuybh4BKOrVZmX/yISjGy20IBK+8hJJzU+JdHYXv5JotUvuXPuEfJkDHr2vWhS6ewaUN/HpUxTHXVKQnzoRgpvZYDbKNlBpQ0QgObdF7pL2OF/YY4D7FjHj5e7fKCn9hzI+PEva7/Ot3JaMf9N6C7+1h/tSjXgJWAHr9tH3vvm9FUKWGBDTXwFA2Ib0N1cjqjiv98c4siJuh1drg9OKxkb+sxiG4pe5UfWquFv0OxblZSLViVa46a/YgnqQK9/llZ6eL4uqFPS3Nqm2tkcBBRKIHrDbd1oFzpIx/GAfBCYjSHD9qmpMYNaaYo3OxUrOTxsP5eW6W2xeAmIzj3Z2435UFhIJcz5QzI4Sb3ay17lXT/tFmgHuCHPN6nTkVSfNswKXOL9IJ0Zq2BpHi0bo6C+AOjNeVCrlREBp9uPdTp4GTSp9KbjWm65fA0IeAPP68YsNUmSvfsqjy4LxgfvNNeulBG+rnTf0n/0qbViAGCN5XVaC7Yfub1xFTPnqWZG2ocXHrw5SnNf32kByZpRdsGUwtt7fmXZPHeudMHuAP6DemeHu8BbOETbzgY1G5Lt67Nnf6uc9fn/hbw87oHkk5YjX6vpQt3XQ+N81+8qcQNMAZ3Nrc5xnrHRSrZSmdmq47M1Eh7tcJpltKFVt32n5Ab1KwNx6bd6xO65YB/6m6/vKmupVPjNuI3n7naIpHPGpiBG4r6wmCqwpUFZbepH+aXPR92TVsvRBSl16wNzLhrHcUIPF9LoZMEorMHlXeLzUYhpKXmKAYwjgPa3sD/B0rcJhxNVQFXZ6tko+U0Xkdnq74UJwD6V0w96vof3Y1Fdc62h9bnAY0OOxhpzLjOxHaXQ/p58LKP2tgOCP/Ghjysw3mS/CmR9AaaFsm/Uad4yqu/+fXcon1b3O5v1I+cNjmZgp8knGh9x/tLN3PEYFO+Lj2mdZcMa4fvWUPFiD+qBQulHlWSE4EO5/22XoemYmekcxgVWwd15xdh0ekhQJt68l8a/GUvqS8ebjtDRddpYKRh56xEV17S32dSbaD0qKe6sOiPi04Ro8qOp6cWYRUfWDPXTt/pGkjy51HcIvrYbNj8IynDNdL/4h92pQUItGXy8J66ouaWNb5NjvSGm7PG5v2WO2J9+BwOuqZGjtBBfl/DnwwmxJdMWeotvgFtcaYy3Z4iD7nT0Tj6yOzFAhW1+f/fVZ+mxWut4u1+nKeve/sA02uaYY3MW3OLzPv1ggEVQhT7BadclevN4VoflaXj0099xS4cK14Nl+stcdTBuwVMEDrk8dR4Z3XML7G6kILXk7f/EL8UEOZXi5a6kRMITAcvelWA6u8GDzDGZY8vD60l+TBS0Jzkdgw2F7U24ja884jWz6ZiSVH8JPaxT0a4hiPx18P8yvzjidB8g9bB+G1MnW4BoRTuiBbjjdvDrjrmOdAvCRwatWzvUjFpFXojpOUJ4KkIJywTCQJDO7VyRcsZRkmvmwvmotzHs5rfAAACg8RPIa31BOrw2rxfvDb/M1qavknUwV/QcntmisB3D/xIV0OL3+it629WmoVBm+FrdnkoNGTdI56y8pNoCbHS0nhy8WYNxfiQBX4wSZ4Tb+nwQ9c/kt7vjQbWhu2EDvrfOg62V354zDWRcSdhUKflK54fzORyIHQll63iGv4CygrC60/0WmE4ofZpcLiGroKDlL57fk+QOS0Cvhyujf3kKO0c3sdV577U2fPd9BIJJN1bDnDWZQcFzEF54Hocd/0PghCCz/z1mdhi58cLhjnc66XOHTmiJhoHXqvFniX0zdxRniH8yXCLu1tqI7dJblaQm6FM1kGaIqU/XLfhHXGopGzIAT+C46Cn8rrdtIRsnBg+prfzWK2WMggAAAA=">';
+
+  function avEl(size){ var d=document.createElement("div"); d.className="gm-av "+size; d.innerHTML=AV; return d; }
+
+  function wireHeader(){
+    var head=document.querySelector(".guide-head"); if(!head||head.__avWired) return;
+    head.__avWired=true;
+    var left=head.firstElementChild; if(!left) return;
+    left.style.display="flex"; left.style.alignItems="center"; left.style.gap="12px";
+    var col=document.createElement("div");
+    while(left.children.length){ col.appendChild(left.children[0]); }
+    left.appendChild(avEl("lg"));
+    left.appendChild(col);
+  }
+  // wrap any AI bubble already in the DOM (the greeting) with an avatar
+  function wrapExistingAI(){
+    document.querySelectorAll("#guideMsgs > .gm.ai").forEach(function(m){
+      var row=document.createElement("div"); row.className="gm-row";
+      m.parentNode.insertBefore(row, m); row.appendChild(avEl("sm")); row.appendChild(m);
+    });
+  }
+
+  function init(){ try{ wireHeader(); wrapExistingAI(); }catch(e){} }
+
+  // header/greeting exist at load, but the drawer may be built lazily — wire on open too
+  if(window.openGuide && !window.__guideAvWrapped){
+    window.__guideAvWrapped=true;
+    var _open=window.openGuide;
+    window.openGuide=function(){ _open.apply(this,arguments); setTimeout(init,0); };
+  }
+  // give every NEW AI bubble an avatar
+  if(window.guideBubble && !window.__guideBubbleWrapped){
+    window.__guideBubbleWrapped=true;
+    var _gb=window.guideBubble;
+    window.guideBubble=function(text,cls){
+      if(cls!=="ai") return _gb(text,cls);
+      var msgs=document.getElementById("guideMsgs");
+      if(!msgs) return _gb(text,cls);
+      var row=document.createElement("div"); row.className="gm-row";
+      var m=document.createElement("div"); m.className="gm ai"; m.textContent=text;
+      row.appendChild(avEl("sm")); row.appendChild(m);
+      msgs.appendChild(row); msgs.scrollTop=msgs.scrollHeight;
+      return m;
+    };
+  }
+  if(document.readyState!=="loading") init();
+  else document.addEventListener("DOMContentLoaded", init);
+})();
+</script>
+
 </body>
 </html>
