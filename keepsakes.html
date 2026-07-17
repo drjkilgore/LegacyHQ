@@ -327,14 +327,28 @@ function art(seed){
 //   sizing     -> "fillPrintArea" | "fitPrintArea" | "stretch"
 //   minPx      -> [w,h] recommended pixels; we warn below this (300 DPI target)
 const CATALOG=[
-  {id:'k1', name:"Framed Memorial Portrait — 12×16",  cat:"Framed Prints", sku:"GLOBAL-FAP-12X16", wholesale:34.00, retail:79.00,  feat:9, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[3600,4800], meaning:"A gallery-quality framed portrait to keep them close."},
-  {id:'k2', name:"Memorial Canvas — 16×20",           cat:"Canvas",        sku:"GLOBAL-CAN-16X20", wholesale:38.00, retail:95.00,  feat:8, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[4800,6000], meaning:"Their photo on stretched canvas, ready to hang."},
-  {id:'k3', name:"Photo Memorial Ornament",           cat:"Ornaments",     sku:"GLOBAL-ORN-CER-CIRCLE", wholesale:9.50, retail:29.00, feat:7, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[1200,1200], meaning:"A keepsake for the tree, the mantel, the rearview."},
-  {id:'k4', name:"Remembrance Photo Blanket — 50×60", cat:"Blankets",      sku:"GLOBAL-BLAN-FLE-LGE", wholesale:32.00, retail:89.00, feat:8, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[3000,3600], meaning:"Soft, warm, and printed with their face."},
-  {id:'k5', name:"Memorial Photo Mug",                cat:"Drinkware",     sku:"GLOBAL-MUG-11OZ", wholesale:6.00, retail:22.00,   feat:6, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[2000,880], meaning:"Their smile with every morning coffee."},
-  {id:'k6', name:"Memorial Cushion — 18×18",          cat:"Home",          sku:"GLOBAL-CUSH-18X18", wholesale:16.00, retail:45.00, feat:5, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[2160,2160], meaning:"A comforting keepsake for the living room."},
-  {id:'k7', name:"Framed Print — 8×10 (bedside)",     cat:"Framed Prints", sku:"GLOBAL-FAP-8X10",  wholesale:22.00, retail:49.00, feat:6, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[2400,3000], meaning:"A quiet portrait for the nightstand."},
-  {id:'k8', name:"Memorial Keepsake Card Set (25)",   cat:"Stationery",    sku:"GLOBAL-GRE-CARD-A5", wholesale:18.00, retail:44.00, feat:4, needsPhoto:true, printArea:"default", sizing:"fitPrintArea", minPx:[1748,2480], meaning:"Photo cards to hand to guests and family."},
+  {id:'k1', name:"Framed Memorial Portrait — 5x7in", cat:"Framed Prints", sku:"GLOBAL-CFP-5X7", wholesale:30.00, retail:66.00, feat:22, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[1500,2100], meaning:"A gallery-quality framed portrait to keep them close."},
+  {id:'k2', name:"Framed Memorial Portrait — 8.3x11.8in", cat:"Framed Prints", sku:"CFP-A4-USALEGACY", wholesale:54.00, retail:119.00, feat:21, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[2490,3540], meaning:"A gallery-quality framed portrait to keep them close."},
+  {id:'k3', name:"Framed Memorial Portrait — 24x36in", cat:"Framed Prints", sku:"CFP-24X36-USALEGACY", wholesale:108.00, retail:238.00, feat:20, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[7200,10800], meaning:"A gallery-quality framed portrait to keep them close."},
+  {id:'k4', name:"Memorial Canvas — 4x6in", cat:"Canvas", sku:"GLOBAL-SLIMCAN-4X6", wholesale:9.00, retail:20.00, feat:19, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[1200,1800], meaning:"Their photo on stretched canvas, ready to hang."},
+  {id:'k5', name:"Memorial Canvas — 16x32in", cat:"Canvas", sku:"US-CAN-16X32", wholesale:55.00, retail:121.00, feat:18, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[4800,9600], meaning:"Their photo on stretched canvas, ready to hang."},
+  {id:'k6', name:"Memorial Canvas — 24x36in", cat:"Canvas", sku:"APL-GLOBAL-CAN-24X36-WHI", wholesale:109.00, retail:240.00, feat:17, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[7200,10800], meaning:"Their photo on stretched canvas, ready to hang."},
+  {id:'k7', name:"Fine Art Memorial Print — 4x6in", cat:"Prints", sku:"GLOBAL-FAP-4X6", wholesale:4.00, retail:9.00, feat:16, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[1200,1800], meaning:"Museum-grade paper for a photo worth keeping forever."},
+  {id:'k8', name:"Fine Art Memorial Print — 39x79in", cat:"Prints", sku:"GLOBAL-HGE-39X79", wholesale:110.00, retail:242.00, feat:15, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[11700,23700], meaning:"Museum-grade paper for a photo worth keeping forever."},
+  {id:'k9', name:"Memorial Wood Print — 8x24in", cat:"Wood", sku:"GLOBAL-WOOD-8X24-WHI-QTRBDR", wholesale:56.00, retail:123.00, feat:14, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[2400,7200], meaning:"Their image printed on natural wood grain."},
+  {id:'k10', name:"Memorial Metal Print — 11x14in", cat:"Metal", sku:"GLOBAL-MET-11X14", wholesale:55.00, retail:121.00, feat:13, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[3300,4200], meaning:"A luminous, enduring print on aluminium."},
+  {id:'k11', name:"Memorial Acrylic Panel — 12x12in", cat:"Acrylic", sku:"GLOBAL-MOU-ACRY-12X12", wholesale:60.00, retail:132.00, feat:12, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[3600,3600], meaning:"Photo behind glossy acrylic — modern and radiant."},
+  {id:'k12', name:"Desk Memorial Board — 8x10in", cat:"Gallery", sku:"GLOBAL-BOARD-8X10-STAND-2", wholesale:11.00, retail:24.00, feat:11, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[2400,3000], meaning:"A small standing keepsake for a desk or shelf."},
+  {id:'k13', name:"Memorial Cushion — 19x13in", cat:"Home", sku:"GLOBAL-CUSH-13X19-SUE", wholesale:12.50, retail:28.00, feat:10, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[5700,3900], meaning:"A comforting keepsake for the living room."},
+  {id:'k14', name:"Memorial Cushion — 24x24in", cat:"Home", sku:"GLOBAL-CUSH-24X24-CAN-DUAL", wholesale:36.00, retail:79.00, feat:9, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[7200,7200], meaning:"A comforting keepsake for the living room."},
+  {id:'k15', name:"Remembrance Photo Blanket — 30x40in", cat:"Home", sku:"GLOBAL-BLANKET-PREMIUM-FLEECE-30X40", wholesale:20.00, retail:44.00, feat:8, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[9000,12000], meaning:"Soft and warm, printed with their face."},
+  {id:'k16', name:"Remembrance Photo Blanket — 60x80in", cat:"Home", sku:"H-BLANKET-WOVEN-PHOTO-60X80", wholesale:75.00, retail:165.00, feat:7, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[18000,24000], meaning:"Soft and warm, printed with their face."},
+  {id:'k17', name:"Memorial Acrylic Prism — 6x6in", cat:"Home", sku:"GLOBAL-MOU-PRISM-6X6", wholesale:30.00, retail:66.00, feat:6, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", minPx:[1800,1800], meaning:"A jewel-like standing prism of their photo."},
+  {id:'k18', name:"Memorial Photo Mug", cat:"Drinkware", sku:"GLOBAL-MUG-W", wholesale:7.00, retail:15.00, feat:5, needsPhoto:true, printArea:"default", sizing:"fillPrintArea", meaning:"Their smile with every morning coffee."},
+  {id:'k19', name:"In Memory Tee — Unisex (Gildan 5000)", cat:"Apparel", sku:"GLOBAL-TEE-GIL-5000", wholesale:10.00, retail:22.00, feat:4, needsPhoto:true, printArea:"front", sizing:"fitPrintArea", minPx:[3000,3600], apparel:true, sizes:["S","M","L","XL","2XL","3XL"], colors:["White","Ash","Sport Grey","Light Blue","Black"], meaning:"A soft cotton memorial tee — upload a photo or your 'In Loving Memory' design."},
+  {id:'k20', name:"In Memory Tee — Premium (Bella+Canvas 3001)", cat:"Apparel", sku:"GLOBAL-TEE-BC-3001", wholesale:11.00, retail:24.00, feat:3, needsPhoto:true, printArea:"front", sizing:"fitPrintArea", minPx:[3000,3600], apparel:true, sizes:["S","M","L","XL","2XL","3XL"], colors:["White","Ash","Sport Grey","Light Blue","Black"], meaning:"A premium fitted memorial tee for family and guests."},
+  {id:'k21', name:"In Memory Tee — Kids (LAT 6101)", cat:"Apparel", sku:"GLOBAL-TEE-LAT-6101", wholesale:12.00, retail:26.00, feat:2, needsPhoto:true, printArea:"front", sizing:"fitPrintArea", minPx:[2400,3000], apparel:true, sizes:["2","4","6","8","10","12","14"], colors:["White","Light Blue","Black"], meaning:"A soft memorial tee sized for children."},
+  {id:'k22', name:"In Memory Hoodie — Unisex (Delta 97200)", cat:"Apparel", sku:"GLOBAL-HOOD-DT-97200", wholesale:19.00, retail:42.00, feat:1, needsPhoto:true, printArea:"front", sizing:"fitPrintArea", minPx:[3000,3600], apparel:true, sizes:["S","M","L","XL","2XL"], colors:["White","Sport Grey","Black"], meaning:"A comfortable memorial hoodie to keep them close."},
 ];
 
 let CART=[], LAST_TOTALS=null;
@@ -395,6 +409,7 @@ function addToCart(id){
   if(p.needsPhoto){ go('cart'); }
 }
 function updateBadge(){document.getElementById('cartBadge').textContent=CART.reduce((s,i)=>s+i.qty,0);}
+function setOpt(lineId,field,val){const i=CART.find(x=>x.lineId===lineId);if(!i)return;i[field]=val;renderCart();}
 function chQty(lineId,d){const i=CART.find(x=>x.lineId===lineId);if(!i)return;i.qty+=d;if(i.qty<=0)CART=CART.filter(x=>x.lineId!==lineId);updateBadge();renderCart();}
 function rmItem(lineId){CART=CART.filter(x=>x.lineId!==lineId);updateBadge();renderCart();}
 function renderCart(){
@@ -407,6 +422,12 @@ function renderCart(){
     CART.map(i=>`<div class="li">
       <div class="thumb">${i.imageUrl?`<img src="${i.imageUrl}" style="width:100%;height:100%;object-fit:cover">`:art(i.id)}${i.needsPhoto&&!i.imageUrl?`<div class="miss">PHOTO NEEDED</div>`:''}</div>
       <div class="info"><h4>${i.name}</h4><small>${i.meaning}</small>
+        ${i.apparel?`<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <select style="border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:13px;background:#fff" onchange="setOpt('${i.lineId}','size',this.value)">
+            <option value="">Size…</option>${(i.sizes||[]).map(s=>`<option ${i.size===s?'selected':''}>${s}</option>`).join('')}</select>
+          <select style="border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:13px;background:#fff" onchange="setOpt('${i.lineId}','color',this.value)">
+            <option value="">Color…</option>${(i.colors||[]).map(c=>`<option ${i.color===c?'selected':''}>${c}</option>`).join('')}</select>
+        </div>${(!i.size||!i.color)?`<div style="font-size:11px;color:var(--warn);margin-top:5px">Choose a size &amp; color</div>`:''}`:''}
         <div class="qty"><button onclick="chQty('${i.lineId}',-1)">−</button><span>${i.qty}</span><button onclick="chQty('${i.lineId}',1)">+</button></div>
         ${i.needsPhoto?`<span class="photolink" onclick="openPhoto('${i.lineId}')">${i.imageUrl?'Change photo':'＋ Upload photo'}</span>`:''}
         <div class="rm" onclick="rmItem('${i.lineId}')">Remove</div>
@@ -501,6 +522,8 @@ async function placeOrder(){
   if(!CART.length){toast('Cart is empty');return;}
   const missing=CART.find(i=>i.needsPhoto&&!i.imageUrl);
   if(missing){toast('Upload a photo for "'+missing.name+'" first');openPhoto(missing.lineId);return;}
+  const noOpt=CART.find(i=>i.apparel&&(!i.size||!i.color));
+  if(noOpt){toast('Choose a size & color for "'+noOpt.name+'"');go('cart');return;}
   const recipient={
     name:val('rcName'), email:val('rcEmail'),
     address:{ line1:val('rcA1'), line2:val('rcA2')||' ', townOrCity:val('rcCity'),
@@ -508,8 +531,12 @@ async function placeOrder(){
   };
   if(!recipient.name||!recipient.address.line1||!recipient.address.postalOrZipCode){toast('Please complete the delivery address');return;}
   if(!recipient.email){toast('Please add an email for order updates');return;}
-  const items=CART.map(i=>({sku:i.sku,name:i.name,retail:i.retail,wholesale:i.wholesale,copies:i.qty,
-    printArea:i.printArea,sizing:i.sizing,imageUrl:i.imageUrl,needsPhoto:!!i.needsPhoto}));
+  const items=CART.map(i=>{
+    const o={sku:i.sku,name:i.name,retail:i.retail,wholesale:i.wholesale,copies:i.qty,
+      printArea:i.printArea,sizing:i.sizing,imageUrl:i.imageUrl,needsPhoto:!!i.needsPhoto};
+    if(i.apparel){ o.attributes={size:i.size,color:i.color}; o.name=i.name+' ('+i.color+', '+i.size+')'; }
+    return o;
+  });
   const btn=document.getElementById('payBtn'); btn.disabled=true; btn.textContent='Redirecting to payment…';
   try{
     const r=await fetch('/.netlify/functions/keepsakes-checkout',{method:'POST',headers:{'Content-Type':'application/json'},
