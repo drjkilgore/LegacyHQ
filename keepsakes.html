@@ -247,12 +247,27 @@ footer{border-top:1px solid var(--line);padding:26px 0;color:var(--ink-70);font-
 <!-- ADMIN -->
 <section class="view" id="v-admin">
   <div class="section-head">
-    <div><h2>Keepsakes operations</h2><p class="sub">Your margin is the retail − wholesale spread on every item you list</p></div>
+    <div><h2>Keepsakes operations</h2><p class="sub">Live sales &amp; margin earned — your cut is the retail − wholesale spread on every order</p></div>
+    <button class="wl-note" id="adminRefresh" style="cursor:pointer" onclick="renderAdmin()">↻ Refresh</button>
   </div>
-  <div class="kpis" id="kpis"></div>
+  <div id="adminGate" class="empty" style="display:none">
+    <h3>Admin sign-in required</h3>
+    <p>Open Keepsakes from inside your HomegoingHQ admin session to see live sales.</p>
+  </div>
+  <div id="adminLive">
+    <div class="kpis" id="kpis"></div>
+    <div class="bars">
+      <h3>Recent orders</h3>
+      <div class="sub" id="statusLine">Loading…</div>
+      <table class="prov">
+        <thead><tr><th>When</th><th>Items</th><th>Ship to</th><th>Status</th><th>Retail</th><th>Your margin</th></tr></thead>
+        <tbody id="recentRows"></tbody>
+      </table>
+    </div>
+  </div>
   <div class="bars">
-    <h3>Your catalog & margin</h3>
-    <div class="sub">These are the items you make available. Retail is what the customer pays; wholesale is what Prodigi charges you; the spread is your cut.</div>
+    <h3>Your catalog &amp; margin (reference)</h3>
+    <div class="sub">The items you make available. Retail is what the customer pays; wholesale is what Prodigi charges you; the spread is your cut.</div>
     <table class="prov">
       <thead><tr><th>Keepsake</th><th>Prodigi SKU</th><th>Wholesale</th><th>Retail</th><th>Your margin</th><th>Margin %</th></tr></thead>
       <tbody id="marginRows"></tbody>
@@ -556,25 +571,81 @@ async function renderTrack(){
   <p style="font-size:12.5px;color:var(--ink-70);margin-top:14px">Provider branding is hidden per white-label policy. Receipts and updates come from HomegoingHQ.</p>`;
 }
 
-// ---------- admin (margin view) ----------
-function renderAdmin(){
-  const totalRetail=CATALOG.reduce((s,p)=>s+p.retail,0);
-  const totalWhole=CATALOG.reduce((s,p)=>s+p.wholesale,0);
-  const avgMarginPct=Math.round(((totalRetail-totalWhole)/totalRetail)*100);
-  const kpis=[
-    ['Items listed', String(CATALOG.length)],
-    ['Avg margin', '$'+((totalRetail-totalWhole)/CATALOG.length).toFixed(2)],
-    ['Avg margin %', avgMarginPct+'%'],
-    ['Highest-margin item', '$'+Math.max(...CATALOG.map(p=>p.retail-p.wholesale)).toFixed(2)],
-  ];
-  document.getElementById('kpis').innerHTML=kpis.map(k=>`
-    <div class="kpi"><div class="lbl">${k[0]}</div><div class="val">${k[1]}</div></div>`).join('');
+// ---------- admin (live sales + margin) ----------
+function adminToken(){
+  // keepsakes.html runs in an iframe inside the main app; borrow the admin's
+  // Supabase access token from the parent session (same origin).
+  try{
+    const par=(window.parent&&window.parent!==window)?window.parent:window;
+    const S=par.S||window.S;
+    return (S&&S.session&&S.session.access_token)||null;
+  }catch(e){ return null; }
+}
+function fmt$(n){ return '$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function timeAgo(iso){
+  if(!iso) return '—';
+  const d=(Date.now()-new Date(iso).getTime())/1000;
+  if(d<3600) return Math.max(1,Math.round(d/60))+'m ago';
+  if(d<86400) return Math.round(d/3600)+'h ago';
+  return Math.round(d/86400)+'d ago';
+}
+const STATUS_LABEL={pending:'Awaiting payment',paid:'Paid',submitted:'In production',prodigi_error:'⚠ Needs attention'};
+function renderCatalogTable(){
   document.getElementById('marginRows').innerHTML=CATALOG.map(p=>{
     const m=p.retail-p.wholesale, pct=Math.round(m/p.retail*100);
     return `<tr><td><b>${p.name}</b></td><td>${p.sku}</td>
       <td>$${p.wholesale.toFixed(2)}</td><td>$${p.retail.toFixed(2)}</td>
       <td style="color:var(--good);font-weight:600">$${m.toFixed(2)}</td><td>${pct}%</td></tr>`;
   }).join('');
+}
+async function renderAdmin(){
+  renderCatalogTable();                       // reference table always shows
+  const token=adminToken();
+  const gate=document.getElementById('adminGate'), live=document.getElementById('adminLive');
+  if(!token){ gate.style.display='block'; live.style.display='none'; return; }
+  gate.style.display='none'; live.style.display='block';
+  document.getElementById('statusLine').textContent='Loading…';
+  try{
+    const r=await fetch('/.netlify/functions/keepsakes-admin',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token})});
+    const j=await r.json();
+    if(r.status===403){ gate.querySelector('p').textContent='This account isn\u2019t an admin.'; gate.style.display='block'; live.style.display='none'; return; }
+    if(!r.ok) throw new Error(j.error||'could not load');
+    const k=j.kpis||{};
+    const kpis=[
+      ['Orders sold', String(k.orders_sold||0)],
+      ['Revenue', fmt$(k.revenue)],
+      ['Margin earned', fmt$(k.margin)],
+      ['Margin %', (k.margin_pct||0)+'%'],
+      ['Revenue (30d)', fmt$(k.revenue_30d)],
+      ['Avg order', fmt$(k.avg_order)],
+    ];
+    if(k.pending) kpis.push(['Awaiting payment', String(k.pending)]);
+    if(k.needs_attention) kpis.push(['⚠ Needs attention', String(k.needs_attention)]);
+    document.getElementById('kpis').innerHTML=kpis.map(x=>`
+      <div class="kpi"><div class="lbl">${x[0]}</div><div class="val">${x[1]}</div></div>`).join('');
+    const bs=j.byStatus||{};
+    document.getElementById('statusLine').textContent=Object.keys(bs).length
+      ? Object.entries(bs).map(([s,n])=>`${n} ${STATUS_LABEL[s]||s}`).join(' · ')
+      : 'No orders yet.';
+    const rows=(j.recent||[]);
+    document.getElementById('recentRows').innerHTML=rows.length? rows.map(o=>{
+      const label=STATUS_LABEL[o.status]||o.status;
+      const prod=o.prodigi_status?` <span style="color:var(--ink-70)">(${o.prodigi_status})</span>`:'';
+      return `<tr>
+        <td>${timeAgo(o.created_at)}</td>
+        <td>${o.item_summary||'—'}<div style="font-size:11px;color:var(--ink-70)">${o.recipient_name||''}</div></td>
+        <td>${o.place||'—'}</td>
+        <td>${label}${prod}</td>
+        <td>${fmt$(o.retail)}</td>
+        <td style="color:var(--good);font-weight:600">${fmt$(o.margin)}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="6" style="color:var(--ink-70);padding:18px">No orders yet — they'll appear here as they come in.</td></tr>`;
+  }catch(e){
+    document.getElementById('statusLine').textContent='Couldn\u2019t load live sales: '+(e.message||'error');
+    document.getElementById('kpis').innerHTML='';
+    document.getElementById('recentRows').innerHTML='';
+  }
 }
 
 // init
