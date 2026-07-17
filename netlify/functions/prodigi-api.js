@@ -73,6 +73,12 @@ exports.handler = async (event) => {
         url = BASE + "Orders/" + encodeURIComponent(String(b.orderId || ""));
         break;
       }
+      case "product": {
+        // returns product details incl. valid attribute values (e.g. apparel
+        // size/color) and print area names — use to confirm your catalog SKUs.
+        url = BASE + "products/" + encodeURIComponent(String(b.sku || ""));
+        break;
+      }
       default:
         return json(400, { error: "unknown action: " + b.action });
     }
