@@ -6988,6 +6988,9 @@ body::before{
 .gm-av svg,.gm-av img{ display:block; width:100%; height:100%; object-fit:cover; }
 .gm-av.sm{ width:30px; height:30px; }
 .gm-av.lg{ width:46px; height:46px; }
+.gm-av.fab{ width:42px; height:42px; box-shadow:0 1px 5px rgba(0,0,0,.22); }
+.guide-fab.hasav{ flex-direction:column; gap:7px; border-radius:22px; padding:12px 18px 11px; }
+.guide-fab .guide-fab-label{ font-size:13px; font-weight:600; }
 .gm-row{ display:flex; gap:9px; align-items:flex-end; max-width:92%; align-self:flex-start; }
 .gm-row .gm.ai{ max-width:100%; }
 </style>
@@ -7017,7 +7020,13 @@ body::before{
     });
   }
 
-  function init(){ try{ wireHeader(); wrapExistingAI(); }catch(e){} }
+  function wireFab(){
+    var fab=document.getElementById("guideFab"); if(!fab||fab.__avWired) return; fab.__avWired=true;
+    fab.classList.add("hasav");
+    fab.innerHTML='<div class="gm-av fab">'+AV+'</div><span class="guide-fab-label">Ask the Guide</span>';
+  }
+
+  function init(){ try{ wireFab(); wireHeader(); wrapExistingAI(); }catch(e){} }
 
   // header/greeting exist at load, but the drawer may be built lazily — wire on open too
   if(window.openGuide && !window.__guideAvWrapped){
