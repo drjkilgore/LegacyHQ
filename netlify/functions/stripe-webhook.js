@@ -30,6 +30,11 @@ exports.handler = async (event) => {
     if (body.type !== "checkout.session.completed") return { statusCode: 200, body: "ignored" };
 
     const session = body.data.object;
+
+    // Keepsakes orders are fulfilled by keepsakes-webhook (Prodigi). Never let
+    // them fall through to billing logic and touch a buyer's plan tier.
+    if (session.metadata?.kind === "keepsake_order") return { statusCode: 200, body: "keepsake handled elsewhere" };
+
     const tier = session.metadata?.tier || "settle";
 
     // ---- FULL-SERVICE design fee / printing balance: update the order's status ----
