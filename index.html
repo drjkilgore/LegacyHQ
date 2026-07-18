@@ -432,6 +432,14 @@ summary::-webkit-details-marker{display:none}
     <div id="admProvApps"></div>
   </details>
   <details class="card" style="margin-top:16px" open>
+    <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">White-label accounts — Concierge, Funeral Home &amp; Church</span> <span style="color:var(--moss)">▾</span></summary>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <button class="btn btn-brass btn-sm" onclick="admProvisionPartnerModal()">+ Provision partner</button>
+      <input id="admAcctSearch" placeholder="Search business or owner email" onkeydown="if(event.key==='Enter')admLoadAccounts()" style="width:auto;flex:1;min-width:200px;max-width:320px">
+    </div>
+    <div id="admAccounts" style="margin-top:10px"></div>
+  </details>
+  <details class="card" style="margin-top:16px" open>
     <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">Other HomegoingHQ admin consoles</span> <span style="color:var(--moss)">▾</span></summary>
     
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
@@ -448,14 +456,6 @@ summary::-webkit-details-marker{display:none}
       <button class="btn btn-primary btn-sm" onclick="admLoadUsers()">Search</button>
     </div>
     <div id="admUsers" style="margin-top:12px"></div>
-  </details>
-  <details class="card" style="margin-top:16px" open>
-    <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">White-label accounts — Concierge, Funeral Home &amp; Church</span> <span style="color:var(--moss)">▾</span></summary>
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <button class="btn btn-brass btn-sm" onclick="admProvisionPartnerModal()">+ Provision partner</button>
-      <input id="admAcctSearch" placeholder="Search business or owner email" onkeydown="if(event.key==='Enter')admLoadAccounts()" style="width:auto;flex:1;min-width:200px;max-width:320px">
-    </div>
-    <div id="admAccounts" style="margin-top:10px"></div>
   </details>
   <details class="card" style="margin-top:16px" open>
     <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">State packs (probate content — live edits, no redeploy)</span> <span style="color:var(--moss)">▾</span></summary>
