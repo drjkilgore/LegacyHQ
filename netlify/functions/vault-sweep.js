@@ -1,8 +1,9 @@
 // HomegoingHQ — Vault sweep (Netlify Scheduled Function; see netlify.toml)
 // Runs daily. Deletes the vault documents of lapsed Vault Keeper subscribers
 // (status canceled/past_due) whose 45-day grace window (vault_grace_until) has
-// expired. Paid-settlement estates (companion/settle/premium) are skipped —
-// their vault is unlimited regardless of the vault subscription. Idempotent:
+// expired — across ALL their estates, since a settlement tier no longer includes
+// the vault. Only users who once subscribed are swept; never-subscribed free
+// users are hard-locked in the app but their files are kept. Idempotent:
 // anything left over is retried on the next run.
 // Env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 exports.handler = async () => {
@@ -10,7 +11,6 @@ exports.handler = async () => {
   if (!URL || !KEY) return { statusCode: 200, body: "sweep skipped: not configured" };
   const H = { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json" };
   const nowISO = new Date().toISOString();
-  const PAID = ["companion", "settle", "premium"];
 
   // 1) Lapsed subscribers past their grace deadline
   const expired = await (await fetch(
@@ -22,16 +22,14 @@ exports.handler = async () => {
   let users = 0, filesDeleted = 0;
   for (const p of expired) {
     try {
-      // 2) Their estates (vault owner = estates.created_by); skip paid-settlement estates
+      // 2) Their estates (vault owner = estates.created_by) — all of them
       const estates = await (await fetch(
-        `${URL}/rest/v1/estates?created_by=eq.${p.id}&select=id,tier`, { headers: H }
+        `${URL}/rest/v1/estates?created_by=eq.${p.id}&select=id`, { headers: H }
       )).json();
-      const freeIds = (Array.isArray(estates) ? estates : [])
-        .filter(e => !PAID.includes((e.tier || "free")))
-        .map(e => e.id);
+      const ids = (Array.isArray(estates) ? estates : []).map(e => e.id);
 
-      if (freeIds.length) {
-        const inList = "(" + freeIds.map(encodeURIComponent).join(",") + ")";
+      if (ids.length) {
+        const inList = "(" + ids.map(encodeURIComponent).join(",") + ")";
 
         // 3) Collect storage paths, then remove the objects from the bucket
         const docs = await (await fetch(
