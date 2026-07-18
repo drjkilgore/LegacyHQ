@@ -450,9 +450,9 @@ summary::-webkit-details-marker{display:none}
     <div id="admUsers" style="margin-top:12px"></div>
   </details>
   <details class="card" style="margin-top:16px" open>
-    <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">White-label accounts — Concierge &amp; Funeral Home</span> <span style="color:var(--moss)">▾</span></summary>
+    <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">White-label accounts — Concierge, Funeral Home &amp; Church</span> <span style="color:var(--moss)">▾</span></summary>
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      
+      <button class="btn btn-brass btn-sm" onclick="admProvisionPartnerModal()">+ Provision partner</button>
       <input id="admAcctSearch" placeholder="Search business or owner email" onkeydown="if(event.key==='Enter')admLoadAccounts()" style="width:auto;flex:1;min-width:200px;max-width:320px">
     </div>
     <div id="admAccounts" style="margin-top:10px"></div>
@@ -1138,7 +1138,9 @@ async function payBalance(orderId,amount){
   }catch(e){ toast("Couldn't reach checkout — please try again."); }
 }
 window.addEventListener("hashchange",()=>{ if(location.hash==="#admin" && !$("btnAdmin").classList.contains("hidden")) openAdmin(); });
-try{ const _q=new URLSearchParams(location.search), _fp=_q.get("fs"), _bp=_q.get("fsbal"), _bl=_q.get("billing");
+try{ const _q=new URLSearchParams(location.search), _fp=_q.get("fs"), _bp=_q.get("fsbal"), _bl=_q.get("billing"), _pn=_q.get("partner");
+  if(_pn==="success"){ setTimeout(()=>toast("Payment received — your co-branded aftercare portal is being set up. We'll be in touch with your link."),900); history.replaceState({},"",location.pathname); }
+  else if(_pn==="cancelled"){ setTimeout(()=>toast("Checkout cancelled — reach out anytime to get set up."),900); history.replaceState({},"",location.pathname); }
   if(_fp==="paid"){ setTimeout(()=>toast("Design fee received — your designer will reach out to start your proof."),900); history.replaceState({},"",location.pathname); }
   else if(_fp==="cancelled"){ setTimeout(()=>toast("Checkout cancelled — you can request the design again anytime."),900); history.replaceState({},"",location.pathname); }
   else if(_bp==="paid"){ const oid=sessionStorage.getItem("fsbalOrder"); if(oid&&window.sb){ try{ window.sb.from("fullservice_requests").update({status:"balance_paid",updated_at:new Date().toISOString()}).eq("id",oid).then(()=>{}); }catch(e){} sessionStorage.removeItem("fsbalOrder"); } setTimeout(()=>toast("Printing balance received — thank you. Your order goes to print now."),900); history.replaceState({},"",location.pathname); }
@@ -3858,6 +3860,40 @@ async function admProvPublish(id,pub){
 
 function tenantLabel(t){ return t==="funeral_home"?"Funeral home":t==="church"?"Church":"Concierge"; }
 function tenantUnlimited(t){ return t==="funeral_home"||t==="church"; }
+function admProvisionPartnerModal(){
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">New co-brand partner</div>
+    <h3 style="margin-bottom:2px">Provision a funeral home or church</h3>
+    <p class="muted" style="font-size:12.5px;margin:6px 0 14px">The owner must already have a HomegoingHQ account with this email (have them sign up first). Co-brand partners get <strong>unlimited families</strong> and a subdomain you set here — families see “Aftercare provided by [name], with HomegoingHQ.”</p>
+    <label>Partner type</label>
+    <select id="ppType"><option value="funeral_home">Funeral home</option><option value="church">Church</option></select>
+    <label>Owner email <span class="muted" style="font-weight:400">(their HomegoingHQ login)</span></label>
+    <input id="ppEmail" type="email" placeholder="director@example.com">
+    <label>Business name</label>
+    <input id="ppBiz" placeholder="e.g., Grace Funeral Home">
+    <label>Subdomain <span class="muted" style="font-weight:400">(they'll live at name.homegoinghq.com — add it as a Netlify domain alias too)</span></label>
+    <input id="ppSub" placeholder="grace-funeral">
+    <div class="scard-actions" style="margin-top:16px"><button class="btn btn-primary" onclick="admProvisionPartner()">Provision partner</button></div>
+  </div></div>`;
+}
+async function admProvisionPartner(){
+  const email=($("ppEmail").value||"").trim().toLowerCase();
+  const biz=($("ppBiz").value||"").trim();
+  const sub=($("ppSub").value||"").trim();
+  const type=$("ppType").value;
+  if(!email||!email.includes("@")) return toast("Enter the owner's email.");
+  if(!biz) return toast("Enter the business name.");
+  const {data,error}=await sb.rpc("admin_provision_partner",{p_owner_email:email,p_tenant_type:type,p_business:biz,p_subdomain:sub});
+  if(error) return toast(error.message);
+  if(data&&data.ok){ toast((type==="church"?"Church":"Funeral home")+" provisioned."); closeModal(); admLoadAccounts(); return; }
+  const e=data&&data.error;
+  toast(e==="no_such_user"?"No HomegoingHQ account with that email yet — have them sign up first."
+      : e==="subdomain_taken"?"That subdomain is taken — try another."
+      : e==="subdomain_too_short"?"Subdomain needs at least 3 characters."
+      : e==="forbidden"?"Admin only."
+      : "Couldn't provision.");
+}
 async function admLoadAccounts(){
   const {data}=await sb.rpc("admin_list_accounts",{search:$("admAcctSearch").value.trim()});
   const rows=Array.isArray(data)?data:[];

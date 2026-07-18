@@ -82,6 +82,31 @@ unresolved, `vault-sweep.js` deletes the documents.
    `VAULT_GRACE_DAYS` (keep `VAULT_GRACE_DAYS` in step with the 45-day value in
    `stripe-webhook.js` and `vault-sweep.js` if you change it).
 
+### Co-brand partners — funeral homes ($149/mo) & churches (free)
+Funeral homes and churches are co-brand tenant types on the same multi-tenant
+engine as concierge white-label. They get **unlimited families**, a subdomain,
+and the co-brand line "Aftercare provided by [name], with HomegoingHQ." Families
+still buy Companion/Settle directly from HomegoingHQ — the partner is never billed
+for family accounts.
+1. Run `supabase-migration-v24-tenant-types.sql` (adds the `church` type + the
+   unlimited-cap trigger) and `supabase-migration-v25-partner-provisioning.sql`
+   (adds the `admin_provision_partner` RPC).
+2. **Onboard a partner (recommended, high-touch):** Admin → white-label accounts →
+   **+ Provision partner** → owner email (they must have signed up first), business
+   name, subdomain, type. That creates the co-brand account with unlimited families.
+   Then set their logo/colors in the account's Branding modal, and add the subdomain
+   as a **Netlify domain alias** (`name.homegoinghq.com`).
+3. **Billing the $149/mo:** create a Stripe **Payment Link** (recurring, $149/mo)
+   and send it after provisioning. Cancellations are handled by setting the
+   account status in the admin panel (same as concierge today).
+4. **Optional self-serve checkout:** set env var `STRIPE_PRICE_FUNERALHOME` (a
+   recurring $149/mo price). A checkout with `tier: "funeralhome"` (+ `business`)
+   auto-provisions the account by email on payment (`provision_by_email`,
+   tenant_type `funeral_home`); you set their subdomain/branding afterward.
+5. **Churches** are free — provision them with the same **+ Provision partner**
+   action (type = Church). No Stripe needed. Approval is your admin step; watch the
+   per-account storage/AI usage shown in the accounts list.
+
 ## Free vs. Settle gating (built in)
 | | Free | Settle |
 |---|---|---|
@@ -273,6 +298,7 @@ are encrypted in place when the lock is enabled.
 | SENDGRID_API_KEY, FROM_EMAIL | invites, alerts, digests, gift emails |
 | SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY | webhook tier updates, digest, gift codes |
 | STRIPE_SECRET_KEY, STRIPE_PRICE_SETTLE, STRIPE_PRICE_PREMIUM, STRIPE_PRICE_VAULT, STRIPE_WEBHOOK_SECRET | payments, gifts & Vault Keeper |
+| STRIPE_PRICE_FUNERALHOME | optional — self-serve funeral-home co-brand plan ($149/mo) |
 | PLAID_CLIENT_ID, PLAID_SECRET, PLAID_ENV | bank import |
 
 
