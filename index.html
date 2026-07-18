@@ -3904,6 +3904,10 @@ async function admProvisionPartner(){
   if(error) return toast(error.message);
   if(data&&data.ok){ toast((type==="church"?"Church":"Funeral home")+" provisioned."); closeModal(); admLoadAccounts(); return; }
   const e=data&&data.error;
+  if(e==="owner_has_other_account"){
+    const lbl = data.existing_type==="funeral_home"?"funeral home":data.existing_type==="church"?"church":"concierge";
+    return toast("That email already owns a "+lbl+" account"+(data.existing_business?" ("+data.existing_business+")":"")+". Use a separate login for this partner.");
+  }
   toast(e==="no_such_user"?"No HomegoingHQ account with that email yet — have them sign up first."
       : e==="subdomain_taken"?"That subdomain is taken — try another."
       : e==="subdomain_too_short"?"Subdomain needs at least 3 characters."
