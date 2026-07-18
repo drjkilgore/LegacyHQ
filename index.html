@@ -244,7 +244,7 @@ summary::-webkit-details-marker{display:none}
   <div class="card hidden" id="upgradeCard" style="margin-top:14px">
     <div class="eyebrow">Your plan</div>
     <h3 style="margin:6px 0">Free plan — 1 estate, core roadmap</h3>
-    <p class="muted">Free covers the first 72 hours. <strong>Companion ($149)</strong> opens the full roadmap with 30 Guide conversations. <strong>Settle ($249)</strong> makes everything unlimited and adds the court-ready reports, sealed recordings, all templates, and bank import.</p>
+    <p class="muted">Free covers the first 72 hours. <strong>Companion ($149)</strong> opens the full roadmap with 30 Guide conversations. <strong>Settle ($249)</strong> unlocks every phase and adds the court-ready reports, sealed recordings, all templates, and bank import.</p>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary" id="btnBuyCompanion" onclick="startCheckout('companion')">Companion — $149</button>
       <button class="btn btn-brass" onclick="startCheckout('settle')">Settle — $249</button>
@@ -774,7 +774,7 @@ function phaseLocked(p){ const ph=lim().phases; return ph && !ph.includes(p); }
    Keeper subscription ($8/mo) lifts the limit. Cancelling or a failed payment
    opens a 45-day grace window (vault_grace_until): read/download stays open and the
    family is warned; if unresolved, vault-sweep.js deletes the documents. */
-const VAULT_PRICE = 8;                       // $/month — must match the STRIPE_PRICE_VAULT recurring price
+let VAULT_PRICE = 8;                          // $/month — seeded from /pricing.json below (fallback = this)
 // Documents (and storage) included per plan before Vault Keeper is required.
 // Everyone is metered; a settlement purchase just raises the included allowance.
 const VAULT_ALLOWANCE = {
@@ -791,6 +791,22 @@ function vaultDocCap(){ return vaultAllowance().docs; }
 function vaultByteCap(){ return vaultAllowance().bytes; }
 function vaultBytesUsed(){ return (S.docs||[]).reduce((s,d)=>s+Number(d.size_bytes||0),0); }
 function vaultOverFree(){ return S.docs.length>=vaultDocCap() || vaultBytesUsed()>=vaultByteCap(); }
+/* Keep the metered document counts + Vault Keeper price in step with the shared
+   /pricing.json (same file the marketing site reads). Fallback = the values
+   hardcoded above, so enforcement never depends on the fetch succeeding. */
+(function syncPricing(){
+  try{
+    fetch("/pricing.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>{
+      if(!j||!j.tiers) return;
+      ["free","companion","settle","premium"].forEach(t=>{
+        const src = j.tiers[t] || (t==="premium"?j.tiers.settle:null);
+        if(src && src.vaultDocs!=null && VAULT_ALLOWANCE[t]) VAULT_ALLOWANCE[t].docs = Number(src.vaultDocs);
+      });
+      if(j.vault && j.vault.priceNum!=null) VAULT_PRICE = Number(j.vault.priceNum);
+      if(typeof renderDocs==="function" && window.S && window.S.estate){ try{ renderDocs(); }catch(e){} }
+    }).catch(()=>{});
+  }catch(e){}
+})();
 function vaultGraceLeft(){ const g=S.profile?.vault_grace_until; if(!g) return 0; const ms=new Date(g)-Date.now(); return ms>0?Math.ceil(ms/864e5):0; }
 function vaultInGrace(){ return ["past_due","canceled"].includes(S.profile?.vault_status) && vaultGraceLeft()>0; }
 function vaultCanUpload(){ return vaultUnlimited() || (!vaultInGrace() && !vaultOverFree()); }          // uploads gate at the cap / in grace — existing docs always stay readable
@@ -805,7 +821,7 @@ function upgradeModal(context){
         <div class="muted" style="font-size:12px">once, per estate</div>
         <ul style="list-style:none;font-size:13px;margin-top:10px;display:grid;gap:5px">
           <li>✓ The full roadmap, every phase</li><li>✓ 30 Guide conversations</li>
-          <li>✓ 10 documents · 10 ledger entries</li><li>✓ Core letter templates</li></ul>
+          <li>✓ ${VAULT_ALLOWANCE.companion.docs} documents · 10 ledger entries</li><li>✓ Core letter templates</li></ul>
         <button class="btn btn-primary btn-sm" style="width:100%;margin-top:12px" onclick="startCheckout('companion')">Get Companion</button>
       </div>
       <div class="card" style="padding:16px;border:2px solid var(--brass)">
@@ -813,7 +829,7 @@ function upgradeModal(context){
         <div style="font-family:var(--font-display);font-size:28px;margin:4px 0">$249</div>
         <div class="muted" style="font-size:12px">once, per estate · often reimbursable from the estate</div>
         <ul style="list-style:none;font-size:13px;margin-top:10px;display:grid;gap:5px">
-          <li>✓ <strong>Unlimited</strong> documents, ledger &amp; Guide</li><li>✓ Court-ready inventory & accounting</li>
+          <li>✓ <strong>Unlimited</strong> ledger &amp; Guide · ${VAULT_ALLOWANCE.settle.docs} documents</li><li>✓ Court-ready inventory & accounting</li>
           <li>✓ Bank import · claim tracker · all templates</li><li>✓ Unlimited family · sealed recordings</li></ul>
         <button class="btn btn-brass btn-sm" style="width:100%;margin-top:12px" onclick="startCheckout('settle')">Get Settle</button>
       </div>
@@ -4883,7 +4899,7 @@ function tourFree(){
   } else {
     steps.push({title:"Create your first estate or plan",text:"The rest of the tour lights up once one exists — it takes about two minutes. Everything is private until you invite someone."});
   }
-  steps.push({sel:"#upgradeCard",go:()=>show("view-home"),title:"When you're ready for the whole road",text:"Companion ($149, once per estate) opens every phase and the tools around it. Settle ($249) makes everything unlimited and adds the court-ready reports. No subscriptions — ever."});
+  steps.push({sel:"#upgradeCard",go:()=>show("view-home"),title:"When you're ready for the whole road",text:"Companion ($149, once per estate) opens every phase and the tools around it. Settle ($249) unlocks the full toolkit and the court-ready reports."});
   return steps;
 }
 function tourCompanion(){
@@ -4905,7 +4921,7 @@ function tourCompanion(){
   } else {
     steps.push({title:"Create your estate",text:"Your Companion features light up inside an estate — start one from the home screen in about two minutes."});
   }
-  steps.push({sel:"#upgradeCard",go:()=>show("view-home"),title:"The last unlock",text:"Settle ($249, once) adds the court-ready reports, all six templates, unlimited family members, documents, and entries, bank import, and sealed Last Wishes recordings."});
+  steps.push({sel:"#upgradeCard",go:()=>show("view-home"),title:"The last unlock",text:"Settle ($249, once) adds the court-ready reports, all six templates, unlimited family members and ledger entries, bank import, and sealed Last Wishes recordings."});
   return steps;
 }
 function tourSettle(){

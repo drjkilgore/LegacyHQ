@@ -5,6 +5,12 @@
 [functions]
   node_bundler = "esbuild"
 
+[[headers]]
+  for = "/pricing.json"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Cache-Control = "public, max-age=300"
+
 [functions."family-digest"]
   schedule = "0 14 * * 1"
 
