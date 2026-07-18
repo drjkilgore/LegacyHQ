@@ -3902,7 +3902,11 @@ async function admProvisionPartner(){
   if(!biz) return toast("Enter the business name.");
   const {data,error}=await sb.rpc("admin_provision_partner",{p_owner_email:email,p_tenant_type:type,p_business:biz,p_subdomain:sub});
   if(error) return toast(error.message);
-  if(data&&data.ok){ toast((type==="church"?"Church":"Funeral home")+" provisioned."); closeModal(); admLoadAccounts(); return; }
+  if(data&&data.ok){
+    toast((type==="church"?"Church":"Funeral home")+" provisioned — sending welcome email.");
+    fetch("/.netlify/functions/send-partner-welcome",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email})}).catch(()=>{});
+    closeModal(); admLoadAccounts(); return;
+  }
   const e=data&&data.error;
   if(e==="owner_has_other_account"){
     const lbl = data.existing_type==="funeral_home"?"funeral home":data.existing_type==="church"?"church":"concierge";
