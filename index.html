@@ -766,14 +766,14 @@ function lim(){ return LIMITS[tier()]||LIMITS.free; }
 function isFree(){ return tier()==="free"; }
 function phaseLocked(p){ const ph=lim().phases; return ph && !ph.includes(p); }
 
-/* ---- Vault Keeper: tiered free vault + hard lock + 45-day grace ----
+/* ---- Vault Keeper: tiered vault + read-only-at-cap + 45-day grace ----
    Every family is metered. The included allowance scales with the plan
    (VAULT_ALLOWANCE): free 5 docs, Companion 10, Settle 20 — each with a matching
-   storage cap, whichever is reached first. At the cap the vault HARD-LOCKS; only
-   an active Vault Keeper subscription ($8/mo) lifts it entirely. Cancelling or a
-   failed payment opens a 45-day grace window (vault_grace_until): read/download
-   stays open and the family is warned; if unresolved, vault-sweep.js deletes the
-   documents. */
+   storage cap, whichever is reached first. At the cap, existing documents stay
+   open to view and download; only NEW uploads are blocked until an active Vault
+   Keeper subscription ($8/mo) lifts the limit. Cancelling or a failed payment
+   opens a 45-day grace window (vault_grace_until): read/download stays open and the
+   family is warned; if unresolved, vault-sweep.js deletes the documents. */
 const VAULT_PRICE = 8;                       // $/month — must match the STRIPE_PRICE_VAULT recurring price
 // Documents (and storage) included per plan before Vault Keeper is required.
 // Everyone is metered; a settlement purchase just raises the included allowance.
@@ -793,9 +793,7 @@ function vaultBytesUsed(){ return (S.docs||[]).reduce((s,d)=>s+Number(d.size_byt
 function vaultOverFree(){ return S.docs.length>=vaultDocCap() || vaultBytesUsed()>=vaultByteCap(); }
 function vaultGraceLeft(){ const g=S.profile?.vault_grace_until; if(!g) return 0; const ms=new Date(g)-Date.now(); return ms>0?Math.ceil(ms/864e5):0; }
 function vaultInGrace(){ return ["past_due","canceled"].includes(S.profile?.vault_status) && vaultGraceLeft()>0; }
-function vaultReadable(){ return vaultUnlimited() || vaultInGrace() || !vaultOverFree(); }              // can open/download existing docs
-function vaultCanUpload(){ return vaultUnlimited() || (!vaultInGrace() && !vaultOverFree()); }          // grace = read-only; free = until the cap
-function vaultHardLocked(){ return !vaultUnlimited() && !vaultInGrace() && vaultOverFree(); }           // at cap, unsubscribed, no grace → locked
+function vaultCanUpload(){ return vaultUnlimited() || (!vaultInGrace() && !vaultOverFree()); }          // uploads gate at the cap / in grace — existing docs always stay readable
 function upgradeModal(context){
   $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
     <button class="close" onclick="closeModal()">×</button>
@@ -1802,25 +1800,26 @@ function renderVaultGate(){
     return;
   }
 
-  // Hard-locked: at/over the free cap, unsubscribed, no grace → no access until they subscribe.
-  if(vaultHardLocked()){
+  // At the cap: keep everything readable/downloadable, block only NEW uploads.
+  if(vaultOverFree()){
     if(card) card.style.display="none";
+    const byDocs = S.docs.length>=vaultDocCap();
     gate.innerHTML=`<div class="card" style="border-top:3px solid var(--brass)">
-      <div class="eyebrow">Vault locked</div>
-      <h3 style="margin:6px 0 4px;font-family:var(--font-display);font-weight:500">Your vault is full</h3>
-      <p class="muted" style="font-size:13.5px;margin:0 0 12px">You've reached your plan's included ${vaultDocCap()} documents or ${fmtBytes(vaultByteCap())}. Start Vault Keeper to unlock your documents and keep adding — secure, encrypted, and there whenever your family needs them. <a href="#" onclick="vaultWhyModal();return false" style="color:var(--brass)">Why a fee?</a></p>
+      <div class="eyebrow">Vault limit reached</div>
+      <h3 style="margin:6px 0 4px;font-family:var(--font-display);font-weight:500">You've reached your ${byDocs? vaultDocCap()+" included documents" : fmtBytes(vaultByteCap())+" of storage"}</h3>
+      <p class="muted" style="font-size:13.5px;margin:0 0 12px">Your documents stay right here — open and download them anytime. To add more, start Vault Keeper: unlimited secure, encrypted storage for your family. <a href="#" onclick="vaultWhyModal();return false" style="color:var(--brass)">Why a fee?</a></p>
       <div style="display:flex;gap:16px;align-items:baseline;margin:2px 0 10px">
         <div style="font-family:var(--font-display);font-size:30px">$${VAULT_PRICE}<span style="font-size:14px;color:var(--slate)">/month</span></div>
         <div class="muted" style="font-size:12.5px">Cancel anytime · often reimbursable from the estate</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-brass btn-sm" onclick="startVaultSub()">Unlock my vault — $${VAULT_PRICE}/mo</button>
+        <button class="btn btn-brass btn-sm" onclick="startVaultSub()">Add more — $${VAULT_PRICE}/mo</button>
       </div>
     </div>`;
     return;
   }
 
-  // Free tier, under the cap — usage meter.
+  // Under the cap — usage meter.
   const nDocs=S.docs.length, used=vaultBytesUsed();
   const pct=Math.min(100, Math.max(Math.round(nDocs/vaultDocCap()*100), Math.round(used/vaultByteCap()*100)));
   gate.innerHTML=`<div class="card">
@@ -1829,31 +1828,22 @@ function renderVaultGate(){
       <div class="muted" style="font-size:12px">whichever comes first</div>
     </div>
     <div class="progress" style="margin:8px 0 2px"><i style="width:${pct}%"></i></div>
-    <div class="muted" style="font-size:12px;margin-top:6px">At the limit, the vault locks until you start Vault Keeper — $${VAULT_PRICE}/month. <a href="#" onclick="vaultWhyModal();return false" style="color:var(--brass)">Why?</a></div>
+    <div class="muted" style="font-size:12px;margin-top:6px">At the limit you'll need Vault Keeper to add more — everything you've stored stays open. $${VAULT_PRICE}/month. <a href="#" onclick="vaultWhyModal();return false" style="color:var(--brass)">Why?</a></div>
   </div>`;
 }
 function renderDocs(){
   renderVaultGate();
   const root=$("docList"); root.innerHTML="";
-  const readable=vaultReadable();
   if(S.docs.length===0){ root.innerHTML=`<div class="muted" style="padding:4px 6px">Nothing uploaded yet. Start with a scan of the death certificate when you receive them.</div>`; return; }
   S.docs.forEach(doc=>{
     const d=document.createElement("div"); d.className="card"; d.style.padding="14px 16px";
-    const meta=`<div><strong>${esc(doc.name)}</strong> <span class="pill">${esc((doc.doc_type||"other").replace("_"," "))}</span>
-        <div class="muted" style="font-size:12.5px">${fmtDate(doc.created_at.slice(0,10))}${doc.size_bytes?" · "+fmtBytes(doc.size_bytes):""}</div></div>`;
-    if(readable){
-      d.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
-        ${meta}
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-ghost btn-sm" onclick="openDoc('${doc.id}')">Open</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteDoc('${doc.id}')">Delete</button>
-        </div></div>`;
-    } else {
-      d.style.opacity=".7";
-      d.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
-        ${meta}
-        <button class="btn btn-brass btn-sm" onclick="startVaultSub()">🔒 Unlock — $${VAULT_PRICE}/mo</button></div>`;
-    }
+    d.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+      <div><strong>${esc(doc.name)}</strong> <span class="pill">${esc((doc.doc_type||"other").replace("_"," "))}</span>
+        <div class="muted" style="font-size:12.5px">${fmtDate(doc.created_at.slice(0,10))}${doc.size_bytes?" · "+fmtBytes(doc.size_bytes):""}</div></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="openDoc('${doc.id}')">Open</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteDoc('${doc.id}')">Delete</button>
+      </div></div>`;
     root.appendChild(d);
   });
 }
@@ -1884,15 +1874,15 @@ function vaultLimitModal(reason){
     : `You've reached your <strong>${vaultDocCap()} included documents</strong>.`;
   $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
     <button class="close" onclick="closeModal()">×</button>
-    <div class="eyebrow">Vault locked</div>
-    <h3 style="font-family:var(--font-display);font-weight:500">Unlock your vault to keep going</h3>
-    <p class="muted" style="font-size:14px;line-height:1.55;margin:8px 0 12px">${why} Your vault is now locked — start Vault Keeper to reopen your documents and add more.</p>
+    <div class="eyebrow">Vault limit reached</div>
+    <h3 style="font-family:var(--font-display);font-weight:500">Add more with Vault Keeper</h3>
+    <p class="muted" style="font-size:14px;line-height:1.55;margin:8px 0 12px">${why} Everything already in your vault stays open — you can view and download it anytime. To add more, start Vault Keeper.</p>
     <div style="display:flex;gap:16px;align-items:baseline;margin:2px 0 12px">
       <div style="font-family:var(--font-display);font-size:30px">$${VAULT_PRICE}<span style="font-size:14px;color:var(--slate)">/month</span></div>
       <div class="muted" style="font-size:12.5px">Encrypted storage · cancel anytime · <a href="#" onclick="vaultWhyModal();return false" style="color:var(--brass)">why a fee?</a></div>
     </div>
     <div class="scard-actions">
-      <button class="btn btn-brass" onclick="startVaultSub()">Unlock — $${VAULT_PRICE}/mo</button>
+      <button class="btn btn-brass" onclick="startVaultSub()">Add more — $${VAULT_PRICE}/mo</button>
     </div>
   </div></div>`;
 }
@@ -1914,7 +1904,7 @@ function maybeShowVaultIntro(){
     </div>
     <div class="card" style="padding:14px 16px;margin-bottom:14px">
       <strong style="font-size:14px">After that — $${VAULT_PRICE}/month</strong>
-      <p class="muted" style="font-size:13px;margin:4px 0 0">Reach either limit and the vault locks until you start Vault Keeper. The fee covers the real cost of holding files safely for years: secure encrypted storage, protected hosting, and reliable access. If you ever cancel, you'll have <strong>${VAULT_GRACE_DAYS} days</strong> to download everything before it's removed. Cancel anytime — often reimbursable from the estate.</p>
+      <p class="muted" style="font-size:13px;margin:4px 0 0">Reach either limit and you'll need Vault Keeper to add more — everything you've already stored stays open to view and download. The fee covers the real cost of holding files safely for years: secure encrypted storage, protected hosting, and reliable access. If you ever cancel, you'll have <strong>${VAULT_GRACE_DAYS} days</strong> to download everything before it's removed. Cancel anytime — often reimbursable from the estate.</p>
     </div>
     <div class="scard-actions"><button class="btn btn-primary" onclick="closeModal()">Got it</button></div>
   </div></div>`;
@@ -1936,7 +1926,6 @@ async function uploadDoc(){
   }
 }
 async function openDoc(id){
-  if(!vaultReadable()){ return startVaultSub(); }
   const doc=S.docs.find(x=>x.id===id);
   const {data,error} = await sb.storage.from("estate-docs").createSignedUrl(doc.storage_path,300);
   if(error) return toast(error.message);

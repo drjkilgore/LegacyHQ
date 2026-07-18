@@ -51,10 +51,11 @@ Paste your two values. (The anon key is safe to ship in the frontend — RLS is 
 
 ⚠️ Before charging real customers: add Stripe webhook **signature verification** (`STRIPE_WEBHOOK_SECRET`) to `stripe-webhook.js` — v1 omits it to stay dependency-free.
 
-### Vault Keeper — freemium vault, hard lock, 45-day grace ($8/mo)
+### Vault Keeper — tiered vault, read-only at cap, 45-day grace ($8/mo)
 **Every** family is metered; the included allowance scales with the plan —
 **free 5 documents, Companion 10, Settle 20** (each with a matching storage cap,
-whichever is reached first). At the cap the vault **hard-locks**; only an active
+whichever is reached first). At the cap, existing documents stay **open to view
+and download** — only new uploads are blocked until an active
 Vault Keeper subscription ($8/mo) lifts it. A settlement purchase
 (Companion/Settle/Premium) unlocks the rest of the app but **not** the vault. A
 one-time explainer pops on the first upload. When a subscriber **cancels or a
