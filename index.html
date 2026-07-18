@@ -867,12 +867,17 @@ const FIRST_PARTY_HOSTS = ["homegoinghq.com","www.homegoinghq.com","app.homegoin
       if(hero){ hero.style.backgroundImage="linear-gradient(rgba(38,51,46,.55),rgba(38,51,46,.55)),url('"+b.hero_url+"')";
         hero.style.backgroundSize="cover"; hero.style.backgroundPosition="center"; hero.style.color="#F6F2EA"; }
     }
-    // Subtle attribution beneath the business name — on every tier.
+    // Co-brand / attribution beneath the business name — always visible.
+    // Funeral homes & churches get the "provided by [them], with HomegoingHQ"
+    // co-brand line; concierge white-label keeps the subtle "Powered by".
     document.querySelectorAll(".tenant-attr").forEach(e=>e.remove());
     const attr=document.createElement("div");
     attr.className="tenant-attr";
     attr.style.cssText="font-size:11px;letter-spacing:.04em;color:var(--ink-soft);opacity:.7;margin-top:2px";
-    attr.textContent="Powered by HomegoingHQ®";
+    const _bn=b.business_name||"this provider";
+    attr.textContent = b.tenant_type==="funeral_home" ? ("Aftercare provided by "+_bn+", with HomegoingHQ")
+                     : b.tenant_type==="church"       ? ("Aftercare from "+_bn+", with HomegoingHQ")
+                     : "Powered by HomegoingHQ®";
     const sub=document.querySelector(".auth-hero p"); if(sub && sub.parentNode) sub.parentNode.appendChild(attr);
     window.__tenant = b; // available to later chunks (client portal, contact block, etc.)
   }catch(e){ /* silent: default branding stays */ }
@@ -3851,22 +3856,24 @@ async function admProvPublish(id,pub){
 }
 
 
+function tenantLabel(t){ return t==="funeral_home"?"Funeral home":t==="church"?"Church":"Concierge"; }
+function tenantUnlimited(t){ return t==="funeral_home"||t==="church"; }
 async function admLoadAccounts(){
   const {data}=await sb.rpc("admin_list_accounts",{search:$("admAcctSearch").value.trim()});
   const rows=Array.isArray(data)?data:[];
   if(!rows.length){ $("admAccounts").innerHTML='<div class="muted">No white-label accounts yet. They\'re created automatically when a concierge subscribes to a tier.</div>'; return; }
   $("admAccounts").innerHTML=rows.map(a=>{
-    const overLimit=a.estates_used>=a.estate_limit;
+    const overLimit=!tenantUnlimited(a.tenant_type) && a.estates_used>=a.estate_limit;
     const statusPill=a.status==="active"?"":`<span class="pill urgent">${esc(a.status)}</span>`;
     return `<div style="padding:12px 0;border-bottom:1px solid var(--line)">
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
         <div>
           <strong>${esc(a.business_name)}</strong> ${statusPill}
-          <span class="pill" style="margin-left:4px">${a.tenant_type==="funeral_home"?"Funeral home":"Concierge"}</span>
+          <span class="pill" style="margin-left:4px">${tenantLabel(a.tenant_type)}</span>
           <div class="muted" style="font-size:12.5px;margin-top:2px">${esc(a.owner_email)} · joined ${fmtDate(String(a.created_at).slice(0,10))}
             ${a.subdomain?" · "+esc(a.subdomain)+".homegoinghq.com":""}${a.custom_domain?" · "+esc(a.custom_domain):""}</div>
           <div class="muted" style="font-size:12.5px;margin-top:2px">
-            <span style="${overLimit?"color:var(--clay);font-weight:600":""}">${a.estates_used}/${a.estate_limit} estates</span>
+            <span style="${overLimit?"color:var(--clay);font-weight:600":""}">${tenantUnlimited(a.tenant_type)?a.estates_used+" families · unlimited":a.estates_used+"/"+a.estate_limit+" estates"}</span>
             · ${fmtBytes(a.storage_bytes_used)} storage · ${Number(a.ai_tokens_used||0).toLocaleString()} AI tokens</div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
@@ -3899,13 +3906,15 @@ async function admAccountModal(id){
   $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:620px">
     <button class="close" onclick="closeModal()">×</button>
     <div class="eyebrow">White-label account</div><h3 style="margin-bottom:2px">${esc(acct.business_name)}</h3>
-    <div class="muted" style="font-size:12.5px">${acct.tenant_type==="funeral_home"?"Funeral home":"Concierge"} · account ${esc(acct.id.slice(0,8))}…</div>
+    <div class="muted" style="font-size:12.5px">${tenantLabel(acct.tenant_type)} · account ${esc(acct.id.slice(0,8))}…</div>
 
     <div class="eyebrow" style="margin-top:18px">Plan &amp; limits</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px">
       <div><label>Estate limit</label>
-        <div style="display:flex;gap:6px"><input id="acLimit" type="number" min="0" value="${acct.estate_limit}" style="flex:1">
-        <button class="btn btn-primary btn-sm" onclick="admSaveLimit('${id}')">Save</button></div></div>
+        ${tenantUnlimited(acct.tenant_type)
+          ? `<div class="muted" style="font-size:13px;padding-top:8px">Unlimited families (co-brand)</div>`
+          : `<div style="display:flex;gap:6px"><input id="acLimit" type="number" min="0" value="${acct.estate_limit}" style="flex:1">
+        <button class="btn btn-primary btn-sm" onclick="admSaveLimit('${id}')">Save</button></div>`}</div>
       <div><label>Usage</label>
         <div class="muted" style="font-size:13px;padding-top:8px">${fmtBytes(acct.storage_bytes_used)} · ${Number(acct.ai_tokens_used||0).toLocaleString()} tokens</div></div>
     </div>
