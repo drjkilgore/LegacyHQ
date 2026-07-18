@@ -881,7 +881,7 @@ const FIRST_PARTY_HOSTS = ["homegoinghq.com","www.homegoinghq.com","app.homegoin
     document.querySelectorAll(".logo").forEach(l=>{
       const mark = (b.business_name||"H").trim().charAt(0).toUpperCase() || "H";
       l.innerHTML = b.logo_url
-        ? '<span class="mark"></span><img src="'+b.logo_url+'" alt="" style="height:26px;width:auto">'
+        ? '<span class="mark"></span><img src="'+b.logo_url+'" alt="" style="height:44px;width:auto;max-height:44px;max-width:220px;object-fit:contain">'
         : '<span class="mark">'+mark+'</span>'+ (b.business_name||"");
       const m=l.querySelector(".mark"); if(m && !b.logo_url) m.textContent=mark; else if(m) m.style.display="none";
     });
