@@ -2019,12 +2019,78 @@ function renderDocs(){
     d.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
       <div><strong>${esc(doc.name)}</strong> <span class="pill">${esc((doc.doc_type||"other").replace("_"," "))}</span>
         <div class="muted" style="font-size:12.5px">${fmtDate(doc.created_at.slice(0,10))}${doc.size_bytes?" · "+fmtBytes(doc.size_bytes):""}</div></div>
-      <div style="display:flex;gap:6px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="analyzeDoc('${doc.id}')">✨ Ask the Guide to read this</button>
         <button class="btn btn-ghost btn-sm" onclick="openDoc('${doc.id}')">Open</button>
         <button class="btn btn-danger btn-sm" onclick="deleteDoc('${doc.id}')">Delete</button>
       </div></div>`;
     root.appendChild(d);
   });
+}
+async function analyzeDoc(docId){
+  var t=tier();
+  if(!(TIER_RANK[t]>=TIER_RANK.settle)){ upgradeModal("Have the Guide read your documents — part of Settle"); return; }
+  const token=S.session&&S.session.access_token; if(!token) return toast("Please sign in again.");
+  docInsightModal(docId,{loading:true});
+  try{
+    const r=await fetch("/.netlify/functions/analyze-document",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accessToken:token,documentId:docId})});
+    const d=await r.json();
+    if(d&&d.ok&&d.insight){ docInsightModal(docId,{insight:d.insight}); return; }
+    const e=d&&d.error;
+    const msg = e==="upgrade" ? "Having the Guide read documents is part of Settle."
+      : e==="unsupported" ? (d.message||"Please upload a PDF or image (JPG or PNG).")
+      : e==="too_large" ? "That file is large — try a smaller PDF or a photo of the key pages."
+      : e==="download_failed" ? "Couldn't open that file to read it."
+      : e==="parse" ? "The Guide couldn't read this clearly — a sharper scan or photo usually helps."
+      : e==="forbidden" ? "You don't have access to this document."
+      : "The Guide couldn't analyze this document. Please try again in a moment.";
+    docInsightModal(docId,{error:msg});
+  }catch(err){ docInsightModal(docId,{error:"The Guide couldn't analyze this document. Please try again in a moment."}); }
+}
+function docInsightModal(docId,st){
+  st=st||{}; const doc=(S.docs||[]).find(x=>x.id===docId)||{};
+  let body="";
+  if(st.loading){
+    body=`<div class="muted" style="padding:26px 10px;text-align:center">✨ The Guide is reading <strong>${esc(doc.name||"your document")}</strong>…<div style="font-size:12px;margin-top:6px">This can take a few moments.</div></div>`;
+  } else if(st.error){
+    body=`<div style="padding:14px 2px;color:#8B0000">${esc(st.error)}</div>`;
+  } else if(st.insight){
+    const ins=st.insight; window.__docInsight=ins;
+    const facts=(ins.key_facts||[]).map(f=>`<tr><td style="padding:4px 12px 4px 0;color:var(--muted);white-space:nowrap;vertical-align:top">${esc(f.label||"")}</td><td style="padding:4px 0">${esc(f.value||"")}</td></tr>`).join("");
+    const cautions=(ins.cautions||[]).map(c=>`<li style="margin:4px 0">${esc(c)}</li>`).join("");
+    const tasks=(ins.suggested_tasks||[]).map((t,i)=>`<div class="card" style="padding:12px 14px;margin-top:8px">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px"><strong>${esc(t.title||"")}</strong>${t.why?`<div class="muted" style="font-size:12.5px;margin-top:2px">${esc(t.why)}</div>`:""}${t.how?`<div style="font-size:12.5px;margin-top:4px;line-height:1.5">${esc(t.how)}</div>`:""}</div>
+        <button id="dtaddbtn${i}" class="btn btn-primary btn-sm" onclick="addSuggestedTask(${i})">Add to roadmap</button>
+      </div></div>`).join("");
+    body=`<div style="max-height:64vh;overflow:auto;padding-right:4px">
+      <div class="eyebrow">${esc((ins.doc_type||"document").replace(/_/g," "))}</div>
+      <p style="font-size:15px;line-height:1.55;margin:6px 0 4px">${esc(ins.summary||"")}</p>
+      ${facts?`<div class="eyebrow" style="margin-top:14px">Key details</div><table style="width:100%;font-size:13.5px;border-collapse:collapse;margin-top:2px">${facts}</table>`:""}
+      ${cautions?`<div class="eyebrow" style="margin-top:16px">Please note</div><ul style="font-size:13.5px;margin:4px 0 0;padding-left:18px;line-height:1.5">${cautions}</ul>`:""}
+      ${tasks?`<div class="eyebrow" style="margin-top:16px">Suggested next steps</div>${tasks}`:""}
+      <div class="muted" style="font-size:11.5px;margin-top:16px;border-top:1px solid var(--line);padding-top:10px;line-height:1.5">The Guide reads your document to help you understand it and plan next steps. This is general information, not legal, tax, or financial advice — for decisions about your situation, consult a licensed professional.</div>
+    </div>`;
+  }
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:600px">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Document insights</div><h3 style="margin-bottom:8px">${esc(doc.name||"Document")}</h3>
+    ${body}
+  </div></div>`;
+}
+async function addSuggestedTask(i){
+  const t=(window.__docInsight&&window.__docInsight.suggested_tasks||[])[i]; if(!t) return;
+  if(!S.estate){ return toast("Open an estate first."); }
+  const allowed=["first24","week1","month1","days90","longterm"];
+  const phase=allowed.indexOf(t.phase)>=0?t.phase:"week1";
+  const {data,error}=await sb.from("tasks").insert({estate_id:S.estate.id,phase,category:(t.category||"From a document").slice(0,40),title:(t.title||"Follow up").slice(0,140),why:t.why||null,how:t.how||null,custom:true,sort_order:900}).select().single();
+  if(error) return toast(error.message);
+  if(data){
+    if(!S.tasks) S.tasks=[]; S.tasks.push(data);
+    toast("Added to your roadmap.");
+    const b=document.getElementById("dtaddbtn"+i); if(b){ b.textContent="✓ Added"; b.disabled=true; }
+    try{ if(typeof renderNext==="function") renderNext(); if(typeof renderRoadmap==="function") renderRoadmap(); }catch(e){}
+  }
 }
 async function downloadAllDocs(){
   if(!S.docs.length) return toast("Nothing to download yet.");
@@ -2852,10 +2918,103 @@ async function loadFuneral(){
   F.budget=b.data||[]; F.options=o.data||[];
   renderFuneral();
 }
+function funeralBringModal(){
+  const e=S.estate||{}; const i=e.intake||{};
+  const name=e.decedent_name||"your loved one";
+  const isVet=(i.veteran==="yes");
+  const KEY="lhq_funeralbring_"+(e.id||"x");
+  const saved=JSON.parse(localStorage.getItem(KEY)||"{}");
+  const sections=[
+    {t:"Vital information (to file the death certificate)", items:[
+      {k:"name",   label:"Full legal name"+(e.decedent_name?" — "+esc(e.decedent_name):"")+" (and maiden name, if any)"},
+      {k:"dob",    label:"Date and place of birth"},
+      {k:"ssn",    label:"Social Security number"},
+      {k:"addr",   label:"Home address"},
+      {k:"marital",label:"Marital status and spouse's name (spouse's maiden name, if applicable)"},
+      {k:"father", label:"Father's full name"},
+      {k:"mother", label:"Mother's full maiden name"},
+      {k:"educ",   label:"Highest level of education"},
+      {k:"occ",    label:"Occupation and type of business / industry"},
+      {k:"mil",    label:"U.S. military service (yes / no)"+(isVet?" — recorded as a veteran":"")}
+    ]},
+    {t:"Documents to bring", items:[
+      {k:"iddec",  label:"Photo ID of the deceased"},
+      {k:"idyou",  label:"Your own photo ID (person making arrangements)"},
+      {k:"sscard", label:"Social Security card (or the number)"},
+      {k:"birth",  label:"Birth certificate"},
+      {k:"marr",   label:"Marriage certificate (if married)"},
+      {k:"dd214",  label:"Military discharge papers (DD-214)"+(isVet?" — needed for military honors, a burial flag, and VA benefits":" (if a veteran)"), hi:isVet},
+      {k:"preneed",label:"Prepaid / pre-need funeral contract or funeral insurance (if any)"},
+      {k:"lifeins",label:"Life insurance policy (if it will be used to pay for the funeral)"},
+      {k:"plot",   label:"Cemetery deed or proof of an owned burial plot (if any)"},
+      {k:"will",   label:"The will or any written funeral / burial wishes (if any)"}
+    ]},
+    {t:"For the service", items:[
+      {k:"clothes", label:"Clothing for the deceased (outfit, undergarments; shoes if wanted)"},
+      {k:"personal",label:"Eyeglasses, jewelry, or personal items to include"},
+      {k:"photo",   label:"A recent, clear photograph (for the obituary, the program, and to guide hair & cosmetics)"},
+      {k:"slides",  label:"Photos for a memorial slideshow (if wanted)"},
+      {k:"obit",    label:"Obituary details: survivors, life highlights, and service information"}
+    ]},
+    {t:"Decisions & payment (talk through before you go)", items:[
+      {k:"pay",     label:"How the funeral will be paid (insurance assignment, prepaid plan, or card / cash)"},
+      {k:"burial",  label:"Burial vs. cremation"},
+      {k:"service", label:"Type of service and clergy / officiant"},
+      {k:"copies",  label:"How many certified death-certificate copies to order — most families need 8–12", hi:true},
+      {k:"contacts",label:"Contacts: family, clergy, and pallbearers"}
+    ]}
+  ];
+  const row=(it)=>`<label style="display:flex;gap:9px;align-items:flex-start;padding:7px 0;cursor:pointer${it.hi?';font-weight:600':''}">
+     <input type="checkbox" ${saved[it.k]?"checked":""} onchange="fbToggle('${e.id}','${it.k}',this.checked)" style="width:auto;margin-top:3px">
+     <span style="font-size:13.5px;line-height:1.5">${it.label}</span></label>`;
+  const secHtml=sections.map(s=>`<div style="margin-top:14px"><div class="eyebrow">${s.t}</div>${s.items.map(row).join("")}</div>`).join("");
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:640px">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Before the arrangement meeting</div>
+    <h3 style="margin-bottom:2px">What to bring to the funeral home</h3>
+    <div class="muted" style="font-size:13px">For ${esc(name)}. Check items off as you gather them — your progress is saved on this device. Not every item applies to every family.</div>
+    <div style="max-height:60vh;overflow:auto;padding-right:4px;margin-top:6px">${secHtml}
+      <div class="muted" style="font-size:12px;margin-top:14px;background:var(--parch,#f6f2ea);border-radius:10px;padding:11px 13px;line-height:1.55">💡 <strong>Tip:</strong> The funeral home will ask how many certified death-certificate copies you want. Banks, insurers, the DMV, and benefit offices each want an original — most families need <strong>8–12</strong>, and ordering more later is slower and costs more.</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+      <button class="btn btn-brass" onclick="fbPrint()">🖨 Print this list</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+    </div>
+  </div></div>`;
+  window.__fbSections=sections; window.__fbName=name;
+}
+function fbToggle(estateId,key,checked){
+  const K="lhq_funeralbring_"+(estateId||"x");
+  const s=JSON.parse(localStorage.getItem(K)||"{}"); s[key]=checked; localStorage.setItem(K,JSON.stringify(s));
+}
+function fbPrint(){
+  const e=S.estate||{}; const KEY="lhq_funeralbring_"+(e.id||"x"); const saved=JSON.parse(localStorage.getItem(KEY)||"{}");
+  const secs=window.__fbSections||[]; const name=window.__fbName||"";
+  let body=`<h1>What to bring to the funeral home</h1><p class="sub">For ${esc(name)} &middot; ${new Date().toLocaleDateString()}</p>`;
+  secs.forEach(s=>{ body+=`<h2>${s.t}</h2>`; s.items.forEach(it=>{ body+=`<div class="it">${saved[it.k]?"&#9745;":"&#9744;"} <span>${it.label}</span></div>`; }); });
+  body+=`<p class="tip">Tip: most families order 8&ndash;12 certified death-certificate copies.</p>`;
+  const w=window.open("","_blank"); if(!w){ toast("Allow pop-ups to print the list."); return; }
+  w.document.write(`<!doctype html><html><head><title>What to bring to the funeral home</title><meta charset="utf-8">
+   <style>body{font-family:Georgia,serif;color:#26332E;max-width:720px;margin:24px auto;padding:0 20px;line-height:1.5}
+   h1{font-size:22px;margin:0 0 2px}.sub{color:#5B7183;margin:0 0 16px;font-size:13px}
+   h2{font-size:14px;margin:18px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px}
+   .it{font-size:13px;margin:5px 0}.it span{margin-left:4px}.tip{margin-top:20px;font-size:12px;color:#5B7183}
+   @media print{button{display:none}}</style></head><body>${body}
+   <p style="margin-top:24px"><button onclick="window.print()">Print</button></p></body></html>`);
+  w.document.close(); setTimeout(()=>{ try{ w.print(); }catch(e){} },300);
+}
 function renderFuneral(){
   const est=F.budget.reduce((s,r)=>s+Number(r.estimated||0),0);
   const act=F.budget.reduce((s,r)=>s+Number(r.actual||0),0);
-  let h=`<div class="card">
+  let h=`<div class="card" style="border-top:3px solid var(--brass)">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1;min-width:230px"><div class="eyebrow">Before the arrangement meeting</div>
+        <strong style="font-size:16px">🗂 What to bring to the funeral home</strong>
+        <div class="muted" style="font-size:13.5px;margin-top:3px">A complete, checkable list of the information, documents, and items the funeral home will ask for — so you walk in prepared and avoid a second trip.</div></div>
+      <button class="btn btn-brass btn-sm" onclick="funeralBringModal()">Open the checklist →</button>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px">
     <div class="eyebrow">Budget</div>
     <div style="display:flex;gap:26px;flex-wrap:wrap;margin-top:8px">
       <div><div class="muted" style="font-size:12px">Planned</div><div style="font-family:var(--font-display);font-size:26px">${money(est)}</div></div>
