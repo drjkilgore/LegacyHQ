@@ -4141,13 +4141,13 @@ async function admDeclinePartnerApp(id){
 function admInvitePartnerModal(){
   $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:460px">
     <button class="close" onclick="closeModal()">×</button>
-    <div class="eyebrow">Invite a co-brand partner</div>
+    <div class="eyebrow">Invite a partner or concierge</div>
     <h3 style="margin-bottom:4px">Send an application invite</h3>
-    <p class="muted" style="font-size:13px">They'll get an email with a link to apply. Their application lands right here for you to approve.</p>
-    <label>Partner type</label>
-    <select id="piType"><option value="funeral_home">Funeral home</option><option value="church">Church</option></select>
-    <label>Their email</label><input id="piEmail" type="email" placeholder="director@example.com">
-    <label>Business name <span class="muted" style="font-weight:400">(optional — pre-fills their form)</span></label><input id="piBiz" placeholder="Grace Funeral Home">
+    <p class="muted" style="font-size:13px">They'll get an email with a link to apply. Funeral-home &amp; church applications land here for you to approve; concierge invites link to the concierge program.</p>
+    <label>Type</label>
+    <select id="piType"><option value="funeral_home">Funeral home</option><option value="church">Church</option><option value="concierge">Concierge</option></select>
+    <label>Their email</label><input id="piEmail" type="email" placeholder="name@example.com">
+    <label>Business / name <span class="muted" style="font-weight:400">(optional — pre-fills their form)</span></label><input id="piBiz" placeholder="Grace Funeral Home">
     <div class="scard-actions" style="margin-top:16px"><button class="btn btn-primary" onclick="admInvitePartner()">Send invite</button></div>
   </div></div>`;
 }
