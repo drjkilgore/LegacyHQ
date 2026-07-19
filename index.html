@@ -7034,7 +7034,7 @@ function chooseDesigner(id,name){ FS.chosenDesigner = id?{id:id,name:name}:null;
     '<p style="margin-top:10px"><em>By typing your full legal name and signing below, you agree to the terms above.</em></p>'+
     '</div>';
 
-  function onboardComplete(d){ return !!(d && d.agreement_signed_at && d.w9_doc && d.payout_method); }
+  function onboardComplete(d){ return !!(d && d.agreement_signed_at && d.w9_doc && (d.payouts_enabled || d.payout_method)); }
 
   async function refreshDesigner(){
     try{ var q = await sb.from("designers").select("*").eq("user_id", S.session.user.id).maybeSingle();
@@ -7082,11 +7082,17 @@ function chooseDesigner(id,name){ FS.chosenDesigner = id?{id:id,name:name}:null;
       d.w9_doc ? '<div class="muted" style="font-size:12.5px">On file'+(d.w9_uploaded_at?(" ("+fd(d.w9_uploaded_at)+")"):"")+'. <label style="cursor:pointer;text-decoration:underline">Replace<input type="file" accept="application/pdf,image/*" style="display:none" onchange="uploadDesignerW9(this)"></label></div>'
       : '<label class="btn btn-primary btn-sm" style="cursor:pointer">Upload W-9 (PDF)<input type="file" accept="application/pdf,image/*" style="display:none" onchange="uploadDesignerW9(this)"></label>'+
         '<div class="muted" style="font-size:11.5px;margin-top:6px">Stored privately \u2014 only you and HomegoingHQ admins can open it.</div>');
-    var s3 = step(!!d.payout_method, 3, "How should we pay you?",
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select id="dsPayMethod" style="width:auto">'+
-      methods.map(function(m){ return '<option value="'+m+'" '+(d.payout_method===m?"selected":"")+'>'+m.toUpperCase()+'</option>'; }).join("")+'</select>'+
-      '<input id="dsPayHandle" placeholder="email / phone / account" value="'+(d.payout_handle?escAttr(d.payout_handle):"")+'" style="flex:1;min-width:200px">'+
-      '<button class="btn btn-primary btn-sm" onclick="saveDesignerPayout()">Save</button></div>');
+    var _connected = !!d.payouts_enabled, _hasAcct = !!d.stripe_account_id;
+    var s3body = _connected
+      ? '<div class="muted" style="font-size:12.5px">Stripe payouts connected \u2713 \u2014 your 70% is sent straight to your bank. <a href="#" onclick="dsStartConnect(event)" style="color:var(--brass,#8F6A24)">manage</a></div>'
+      : '<button class="btn btn-primary btn-sm" onclick="dsStartConnect(event)">'+(_hasAcct?"Finish Stripe verification":"Connect payouts with Stripe")+'</button>'+
+        '<div class="muted" style="font-size:11.5px;margin-top:6px">Recommended \u2014 secure bank payouts, sent automatically from the app.</div>'+
+        '<div class="muted" style="font-size:12px;margin-top:10px">Or give us a manual method (we\u2019ll send it by hand):</div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px"><select id="dsPayMethod" style="width:auto">'+
+        methods.map(function(m){ return '<option value="'+m+'" '+(d.payout_method===m?"selected":"")+'>'+m.toUpperCase()+'</option>'; }).join("")+'</select>'+
+        '<input id="dsPayHandle" placeholder="email / phone / account" value="'+(d.payout_handle?escAttr(d.payout_handle):"")+'" style="flex:1;min-width:180px">'+
+        '<button class="btn btn-ghost btn-sm" onclick="saveDesignerPayout()">Save</button></div>';
+    var s3 = step(_connected || !!d.payout_method, 3, "How should we pay you?", s3body);
     return '<div class="card" style="margin-top:14px;border-top:3px solid var(--brass,#8F6A24)">'+
       '<div class="eyebrow">Finish onboarding</div>'+
       '<p class="muted" style="font-size:13px;margin:8px 0 2px">A few one-time steps before you can take assignments.</p>'+
@@ -7198,6 +7204,22 @@ function chooseDesigner(id,name){ FS.chosenDesigner = id?{id:id,name:name}:null;
       if(window.goDesigner) goDesigner();
     }catch(e){ if(window.toast) toast("Couldn't save payout method."); }
   };
+  window.dsStartConnect = async function(ev){
+    if(ev&&ev.preventDefault) ev.preventDefault();
+    try{
+      if(window.toast) toast("Opening Stripe\u2026");
+      var tok=(S.session&&S.session.access_token)||"";
+      var r=await fetch("/.netlify/functions/connect-onboard",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:tok,action:"start"})});
+      var j=await r.json();
+      if(j&&j.url){ location.href=j.url; } else { if(window.toast) toast((j&&j.error)||"Couldn\u2019t start Stripe onboarding."); }
+    }catch(e){ if(window.toast) toast("Couldn\u2019t reach Stripe."); }
+  };
+  async function dsRefreshConnect(){
+    try{ var tok=(S.session&&S.session.access_token)||"";
+      await fetch("/.netlify/functions/connect-onboard",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:tok,action:"refresh"})});
+      await refreshDesigner();
+    }catch(e){}
+  }
   window.editDesignerPayout = function(ev){
     if(ev&&ev.preventDefault) ev.preventDefault();
     var methods=["zelle","paypal","venmo","ach","check"]; var d=S.designer;
@@ -7223,18 +7245,19 @@ function chooseDesigner(id,name){ FS.chosenDesigner = id?{id:id,name:name}:null;
     var box = document.getElementById("admPayouts");
     if(!box){ box=document.createElement("div"); box.id="admPayouts"; box.style.marginBottom="16px"; anchor.parentNode.insertBefore(box, anchor); }
     var rows=[];
-    try{ var q = await sb.from("designer_payouts").select("*, designers(full_name,payout_method,payout_handle)").order("created_at",{ascending:false}).limit(200);
+    try{ var q = await sb.from("designer_payouts").select("*, designers(full_name,payout_method,payout_handle,payouts_enabled,stripe_account_id)").order("created_at",{ascending:false}).limit(200);
       if(!q.error) rows=q.data||[]; }catch(e){}
     var owed = rows.filter(function(r){return r.status==="owed";});
     var owedTotal = owed.reduce(function(a,r){return a+Number(r.amount||0);},0);
     function row(r){
       var d=r.designers||{};
       var who=(d.full_name||"Designer")+(d.payout_method?(" \u00b7 "+d.payout_method.toUpperCase()+(d.payout_handle?(" "+escd(d.payout_handle)):"")):"");
+      var payS = (d.payouts_enabled && d.stripe_account_id) ? '<button class="btn btn-primary btn-sm" onclick="admPayNow(\''+r.id+'\')">Pay now (Stripe)</button> ' : '';
       var act = r.status==="owed"
-        ? '<button class="btn btn-primary btn-sm" onclick="admMarkPaid(\''+r.id+'\')">Mark paid</button>'
+        ? payS + '<button class="btn btn-ghost btn-sm" onclick="admMarkPaid(\''+r.id+'\')">Mark paid</button>'
         : '<span class="muted" style="font-size:12px">paid '+fd(r.paid_at)+(r.paid_ref?(" \u00b7 "+escd(r.paid_ref)):"")+' <a href="#" onclick="admUnmarkPaid(event,\''+r.id+'\')" style="color:#c0392b">undo</a></span>';
       return '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #EDE6D8;font-size:13px;flex-wrap:wrap">'+
-        '<span>'+escd(who)+'</span><span style="display:flex;gap:10px;align-items:center">'+money(r.amount)+' '+act+'</span></div>';
+        '<span>'+escd(who)+(d.payouts_enabled?' <span class="pill" style="background:#635bff;color:#fff;font-size:10px">Stripe</span>':'')+'</span><span style="display:flex;gap:10px;align-items:center">'+money(r.amount)+' '+act+'</span></div>';
     }
     box.className="card";
     box.innerHTML = '<div class="eyebrow">Designer payouts</div>'+
@@ -7255,11 +7278,35 @@ function chooseDesigner(id,name){ FS.chosenDesigner = id?{id:id,name:name}:null;
     try{ var r = await sb.rpc("mark_payout_unpaid", {p_payout:id}); if(r.error){ if(window.toast) toast(r.error.message); return; }
       renderAdminPayouts(); }catch(e){}
   };
+  window.admPayNow = async function(id){
+    if(!confirm("Send this designer their 70% now via Stripe? This moves real money to their bank.")) return;
+    try{
+      var tok=(S.session&&S.session.access_token)||"";
+      var r=await fetch("/.netlify/functions/pay-designer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:tok,payoutId:id})});
+      var j=await r.json();
+      if(!r.ok||(j&&j.error)){ if(window.toast) toast((j&&j.error)||"Payment failed."); return; }
+      if(window.toast) toast("Paid via Stripe."); renderAdminPayouts();
+    }catch(e){ if(window.toast) toast("Couldn\u2019t reach Stripe."); }
+  };
   if(window.admLoadDesigners && !window.__admPayoutsWrapped){
     window.__admPayoutsWrapped = true;
     var _admLoad = window.admLoadDesigners;
     window.admLoadDesigners = function(){ var r=_admLoad.apply(this,arguments); setTimeout(function(){ try{ renderAdminPayouts(); }catch(e){} },0); return r; };
   }
+  /* return from Stripe Connect onboarding */
+  (function(){
+    try{
+      var qs=new URLSearchParams(location.search), dc=qs.get("designer");
+      if(dc==="connect_return"||dc==="connect_refresh"){
+        history.replaceState(null,"",location.pathname+location.hash);
+        var tries=0, iv=setInterval(function(){
+          tries++;
+          if(window.S&&S.session){ clearInterval(iv); dsRefreshConnect().then(function(){ if(window.goDesigner) goDesigner(); }); }
+          else if(tries>50){ clearInterval(iv); }
+        },200);
+      }
+    }catch(e){}
+  })();
 })();
 
 </script>
