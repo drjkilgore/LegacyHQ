@@ -954,10 +954,11 @@ const FIRST_PARTY_HOSTS = ["homegoinghq.com","www.homegoinghq.com","app.homegoin
     document.querySelectorAll(".logo").forEach(l=>{
       const mark = (b.business_name||"H").trim().charAt(0).toUpperCase() || "H";
       l.innerHTML = b.logo_url
-        ? '<span class="mark"></span><img src="'+b.logo_url+'" alt="'+(b.business_name||"Provider")+' logo" style="height:44px;width:auto;max-height:44px;max-width:220px;object-fit:contain">'
+        ? '<span class="mark"></span><img src="'+b.logo_url+'" alt="'+(b.business_name||"Provider")+' logo" style="height:66px;width:auto;max-height:66px;max-width:300px;object-fit:contain">'
         : '<span class="mark">'+mark+'</span>'+ (b.business_name||"");
       const m=l.querySelector(".mark"); if(m && !b.logo_url) m.textContent=mark; else if(m) m.style.display="none";
     });
+    if(b.logo_url){ document.querySelectorAll(".topbar-inner").forEach(t=>{ t.style.height="86px"; }); }
     if(b.favicon_url){
       let ic=document.querySelector('link[rel="icon"]');
       if(!ic){ ic=document.createElement("link"); ic.rel="icon"; document.head.appendChild(ic); }
@@ -965,8 +966,16 @@ const FIRST_PARTY_HOSTS = ["homegoinghq.com","www.homegoinghq.com","app.homegoin
     }
     if(b.hero_url){
       const hero=document.querySelector(".auth-hero");
-      if(hero){ hero.style.backgroundImage="linear-gradient(rgba(38,51,46,.55),rgba(38,51,46,.55)),url('"+b.hero_url+"')";
-        hero.style.backgroundSize="cover"; hero.style.backgroundPosition="center"; hero.style.color="#F6F2EA"; }
+      if(hero && !hero.querySelector(".tenant-hero-img")){
+        hero.style.maxWidth="700px";
+        const img=document.createElement("img");
+        img.className="tenant-hero-img"; img.src=b.hero_url; img.alt=(b.business_name||"")+" ";
+        img.style.cssText="display:block;width:100%;height:auto;margin:0 auto 8px;border-radius:14px;box-shadow:0 10px 30px rgba(38,51,46,.15)";
+        hero.insertBefore(img, hero.firstChild);
+        // the partner's banner carries the message — hide the generic overlay text
+        const hh=hero.querySelector("h1"); if(hh) hh.style.display="none";
+        const hp=hero.querySelector("p"); if(hp) hp.style.display="none";
+      }
     }
     // Co-brand / attribution beneath the business name — always visible.
     // Funeral homes & churches get the "provided by [them], with HomegoingHQ"
