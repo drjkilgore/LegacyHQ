@@ -98,7 +98,7 @@ exports.handler = async (event) => {
         "business_profile[product_description]": "Memorial and funeral design services via HomegoingHQ",
         "metadata[designer_id]": designer.id,
         "metadata[platform]": "homegoinghq",
-      }), "acct-" + designer.id);
+      }), "acct-" + designer.id + "-" + Math.floor(Date.now()/60000));
       if (!created.ok) return { statusCode: 502, headers: H, body: JSON.stringify({ error: (created.data.error && created.data.error.message) || "could not create account" }) };
       acct = created.data.id;
       await fetch(SB + "/rest/v1/designers?id=eq." + encodeURIComponent(designer.id),
