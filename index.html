@@ -937,6 +937,17 @@ const $ = id => document.getElementById(id);
    On a concierge/funeral-home host, override accent colors, logo, hero, favicon,
    and show a subtle "Powered by HomegoingHQ®" attribution. First-party hosts skip
    the lookup; any other host degrades silently to default branding if unmatched. */
+function tenantVideoHTML(url){
+  url=(url||"").trim(); if(!url) return "";
+  let m;
+  if(m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/))([\w-]{6,})/)){
+    return '<div style="position:relative;padding-bottom:56.25%;height:0;border-radius:12px;overflow:hidden;background:#000"><iframe src="https://www.youtube.com/embed/'+m[1]+'" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe></div>';
+  }
+  if(m=url.match(/vimeo\.com\/(?:video\/)?(\d+)/)){
+    return '<div style="position:relative;padding-bottom:56.25%;height:0;border-radius:12px;overflow:hidden;background:#000"><iframe src="https://player.vimeo.com/video/'+m[1]+'" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" allow="autoplay;fullscreen;picture-in-picture" allowfullscreen></iframe></div>';
+  }
+  return '<video controls playsinline preload="metadata" style="width:100%;border-radius:12px;background:#000" src="'+url.replace(/"/g,"&quot;")+'"></video>';
+}
 const FIRST_PARTY_HOSTS = ["homegoinghq.com","www.homegoinghq.com","app.homegoinghq.com","localhost","127.0.0.1",""];
 (async function applyTenantBranding(){
   try{
@@ -974,8 +985,14 @@ const FIRST_PARTY_HOSTS = ["homegoinghq.com","www.homegoinghq.com","app.homegoin
     });
     if(b.logo_url){ const th=(lpx+20)+"px"; document.querySelectorAll(".topbar-inner").forEach(t=>{ t.style.height=th; }); }
     else if(htxt){ document.querySelectorAll(".topbar-inner").forEach(t=>{ t.style.height="72px"; }); }
-    // Concierge white-label: drop the HomegoingHQ seal below the hero; keep the small "Powered by" line.
-    if(b.tenant_type==="concierge"){ const seal=document.querySelector(".auth-hero .seal"); if(seal) seal.style.display="none"; }
+    // White-label: drop the HomegoingHQ seal below the hero (partner banner is the hero).
+    { const seal=document.querySelector(".auth-hero .seal"); if(seal) seal.style.display="none"; }
+    // Intro video: show the partner's own if set; otherwise hide (never the HomegoingHQ one).
+    (function(){
+      const slot=document.getElementById("introVideoSlot"); if(!slot) return;
+      const v=(b.intro_video_url||"").trim();
+      slot.innerHTML = v ? ('<div class="card" style="padding:10px">'+tenantVideoHTML(v)+'</div>') : "";
+    })();
     if(b.favicon_url){
       let ic=document.querySelector('link[rel="icon"]');
       if(!ic){ ic=document.createElement("link"); ic.rel="icon"; document.head.appendChild(ic); }
@@ -4229,10 +4246,11 @@ async function admSaveHeaderText(id){
     p_bold:$("acHdrBold").checked,
     p_italic:$("acHdrItalic").checked,
     p_size:$("acHdrSize").value,
-    p_logo_size:$("acLogoSize")?$("acLogoSize").value:"md"
+    p_logo_size:$("acLogoSize")?$("acLogoSize").value:"md",
+    p_intro_video:$("acIntroVid")?($("acIntroVid").value||"").trim():null
   });
   if(error) return toast(error.message);
-  toast(data===true?"Header saved.":"Couldn't save header.");
+  toast(data===true?"Saved.":"Couldn't save — is migration v31 applied?");
 }
 async function admSaveBusiness(id){
   const name=($("acBiz").value||"").trim();
@@ -4441,13 +4459,15 @@ async function admAccountModal(id){
         <input id="ac_${k}" value="${esc(cur)}" placeholder="https://…" oninput="admBrandPreview()" style="flex:1">
         <label class="btn btn-ghost btn-sm" style="margin:0;cursor:pointer">Upload<input type="file" accept="image/*" style="display:none" onchange="admUploadAsset('${id}','${k}',this)"></label>
       </div>`;}).join("")}
-    <div class="eyebrow" style="margin-top:16px">Header display</div>
-    <div class="muted" style="font-size:12px;margin:2px 0 6px">How big the logo shows, and optional text beside it (useful when the logo is small or icon-only).</div>
+    <div class="eyebrow" style="margin-top:16px">Header &amp; intro video</div>
+    <div class="muted" style="font-size:12px;margin:2px 0 6px">Logo size, optional text beside the logo, and an optional intro video (shown on the sign-in page). Leave the video blank to show none.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div><label>Logo size</label>
         <select id="acLogoSize" onchange="admBrandPreview()">${[["sm","Small"],["md","Medium"],["lg","Large"],["xl","Extra large"]].map(o=>`<option value="${o[0]}"${(b.logo_size||"md")===o[0]?" selected":""}>${o[1]}</option>`).join("")}</select></div>
       <div></div>
     </div>
+    <label style="margin-top:8px">Intro video URL <span class="muted" style="font-weight:400">(YouTube, Vimeo, or MP4 link — blank = no video)</span></label>
+    <input id="acIntroVid" value="${esc(b.intro_video_url||"")}" placeholder="https://youtu.be/… or https://…/welcome.mp4" autocapitalize="none" autocorrect="off" spellcheck="false">
     <label style="margin-top:8px">Wordmark text <span class="muted" style="font-weight:400">(next to the logo — blank to hide)</span></label>
     <input id="acHdrText" value="${esc(b.header_text||"")}" placeholder="e.g., Lifewise Funeral Concierge" oninput="admBrandPreview()">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
@@ -4459,7 +4479,7 @@ async function admAccountModal(id){
     <div style="display:flex;gap:16px;margin-top:10px;align-items:center;flex-wrap:wrap">
       <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="checkbox" id="acHdrBold" ${b.header_bold?"checked":""} style="width:auto" onchange="admBrandPreview()"> Bold</label>
       <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="checkbox" id="acHdrItalic" ${b.header_italic?"checked":""} style="width:auto" onchange="admBrandPreview()"> Italic</label>
-      <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="admSaveHeaderText('${id}')">Save header</button>
+      <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="admSaveHeaderText('${id}')">Save header &amp; video</button>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -5251,6 +5271,10 @@ async function sendConcierge(){
 const INTRO_VIDEO_URL = "intro.mp4";   // e.g. "/intro.mp4"  — leave "" to hide
 (function(){
   if(!INTRO_VIDEO_URL) return;
+  // Only the real HomegoingHQ site shows this video. On a white-label host, the
+  // branding loader fills this slot with the partner's own video (or hides it).
+  var host=(location.hostname||"").toLowerCase();
+  if(FIRST_PARTY_HOSTS.indexOf(host) === -1) return;
   const slot=$("introVideoSlot"); if(!slot) return;
   slot.innerHTML=`<div class="card" style="padding:10px">
     <video controls playsinline preload="metadata" style="width:100%;border-radius:12px;background:#000" src="${INTRO_VIDEO_URL}"></video>

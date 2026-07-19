@@ -1,40 +1,47 @@
--- HomegoingHQ — Migration v31: header display controls for white-label pages.
---  • header_text (+ font / bold / italic / size): a wordmark shown next to the logo
---    (useful when the logo is small or icon-only).
+-- HomegoingHQ — Migration v31: white-label header & media controls.
+--  • header_text (+ font / bold / italic / size): wordmark beside the logo.
 --  • logo_size: how large the header logo renders (sm / md / lg / xl).
+--  • intro_video_url: the partner's own intro video (YouTube / Vimeo / MP4).
+-- Safe to re-run — drops any earlier admin_set_header_text overload first.
 
-alter table public.tenant_branding add column if not exists header_text   text;
-alter table public.tenant_branding add column if not exists header_font   text;
-alter table public.tenant_branding add column if not exists header_bold   boolean not null default false;
-alter table public.tenant_branding add column if not exists header_italic boolean not null default false;
-alter table public.tenant_branding add column if not exists header_size   text not null default 'md';
-alter table public.tenant_branding add column if not exists logo_size     text not null default 'md';
+alter table public.tenant_branding add column if not exists header_text     text;
+alter table public.tenant_branding add column if not exists header_font     text;
+alter table public.tenant_branding add column if not exists header_bold     boolean not null default false;
+alter table public.tenant_branding add column if not exists header_italic   boolean not null default false;
+alter table public.tenant_branding add column if not exists header_size     text not null default 'md';
+alter table public.tenant_branding add column if not exists logo_size       text not null default 'md';
+alter table public.tenant_branding add column if not exists intro_video_url text;
+
+drop function if exists public.admin_set_header_text(uuid,text,text,boolean,boolean,text);
+drop function if exists public.admin_set_header_text(uuid,text,text,boolean,boolean,text,text);
 
 create or replace function public.admin_set_header_text(
   target uuid, p_text text, p_font text, p_bold boolean, p_italic boolean,
-  p_size text, p_logo_size text default 'md')
+  p_size text, p_logo_size text default 'md', p_intro_video text default null)
 returns boolean language plpgsql security definer set search_path = public as $$
 begin
   if not public.is_admin() then return false; end if;
   insert into public.tenant_branding
-      (account_id, header_text, header_font, header_bold, header_italic, header_size, logo_size, updated_at)
+      (account_id, header_text, header_font, header_bold, header_italic,
+       header_size, logo_size, intro_video_url, updated_at)
   values
       (target, nullif(trim(coalesce(p_text,'')),''), nullif(p_font,''),
        coalesce(p_bold,false), coalesce(p_italic,false),
-       coalesce(nullif(p_size,''),'md'), coalesce(nullif(p_logo_size,''),'md'), now())
+       coalesce(nullif(p_size,''),'md'), coalesce(nullif(p_logo_size,''),'md'),
+       nullif(trim(coalesce(p_intro_video,'')),''), now())
   on conflict (account_id) do update
-    set header_text   = excluded.header_text,
-        header_font   = excluded.header_font,
-        header_bold   = excluded.header_bold,
-        header_italic = excluded.header_italic,
-        header_size   = excluded.header_size,
-        logo_size     = excluded.logo_size,
-        updated_at    = now();
+    set header_text     = excluded.header_text,
+        header_font     = excluded.header_font,
+        header_bold     = excluded.header_bold,
+        header_italic   = excluded.header_italic,
+        header_size     = excluded.header_size,
+        logo_size       = excluded.logo_size,
+        intro_video_url = excluded.intro_video_url,
+        updated_at      = now();
   return true;
 end $$;
-grant execute on function public.admin_set_header_text(uuid,text,text,boolean,boolean,text,text) to authenticated;
+grant execute on function public.admin_set_header_text(uuid,text,text,boolean,boolean,text,text,text) to authenticated;
 
--- Recreate public_branding so branded pages receive the new display fields.
 create or replace function public.public_branding(host text)
 returns json language plpgsql stable security definer set search_path = public as $$
 declare a record; sub text;
@@ -45,7 +52,8 @@ begin
          tb.logo_url, tb.favicon_url, tb.hero_url,
          tb.color_ink, tb.color_accent, tb.color_accent_deep,
          tb.contact_name, tb.contact_email, tb.contact_phone, tb.footer_note,
-         tb.header_text, tb.header_font, tb.header_bold, tb.header_italic, tb.header_size, tb.logo_size
+         tb.header_text, tb.header_font, tb.header_bold, tb.header_italic,
+         tb.header_size, tb.logo_size, tb.intro_video_url
     into a
   from public.concierge_accounts ca
   left join public.tenant_branding tb on tb.account_id = ca.id
@@ -78,6 +86,7 @@ begin
     'header_bold',   coalesce(a.header_bold,false),
     'header_italic', coalesce(a.header_italic,false),
     'header_size',   coalesce(a.header_size,'md'),
-    'logo_size',     coalesce(a.logo_size,'md')
+    'logo_size',     coalesce(a.logo_size,'md'),
+    'intro_video_url', a.intro_video_url
   );
 end $$;
