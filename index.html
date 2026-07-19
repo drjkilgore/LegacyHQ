@@ -3746,9 +3746,9 @@ function renderMemories(){
   <div class="card" style="margin-top:14px">
     <div class="eyebrow">Add a memory</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <select id="memKind" style="width:auto"><option value="story">Story</option><option value="tribute">Tribute</option><option value="letter">Letter</option><option value="recipe">Recipe</option><option value="photo">Photo</option></select>
+      <select id="memKind" style="width:auto" onchange="memKindChanged()"><option value="story">Story</option><option value="tribute">Tribute</option><option value="letter">Letter</option><option value="recipe">Recipe</option><option value="photo">Photo</option></select>
       <input id="memTitle" placeholder="Title (e.g., The fishing trip of 1987)" style="flex:1;min-width:180px">
-      <button class="btn btn-primary btn-sm" onclick="memoryModal()">Write it</button>
+      <button class="btn btn-primary btn-sm" id="memGoBtn" onclick="memoryModal()">Write it</button>
     </div></div>
   <div class="grid" style="margin-top:14px">`;
   if(M.items.length===0) h+=`<div class="muted" style="padding:4px 6px">No memories yet. The first one is usually the hardest and the most healing.</div>`;
@@ -3767,6 +3767,11 @@ function renderMemories(){
   h+=`</div>`;
   $("tab-memories").innerHTML=h;
 }
+function memKindChanged(){
+  const k=$("memKind")?$("memKind").value:"story"; const b=$("memGoBtn");
+  if(b) b.textContent = k==="photo" ? "Add a photo →" : "Write it";
+  const ti=$("memTitle"); if(ti) ti.placeholder = k==="photo" ? "Caption or title (optional)" : "Title (e.g., The fishing trip of 1987)";
+}
 function memoryModal(){
   const kind=$("memKind").value, title=$("memTitle").value.trim();
   $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
@@ -3780,7 +3785,9 @@ function memoryModal(){
   </div></div>`;
 }
 async function saveMemory(kind,titlePre){
-  const title=titlePre||$("mmTitle")?.value.trim(); if(!title) return toast("Give it a title.");
+  let title=titlePre||($("mmTitle")?$("mmTitle").value.trim():"");
+  if(kind==="photo" && !title) title="Photo";
+  if(!title) return toast("Give it a title.");
   let media_path=null;
   const f=$("mmFile")?.files[0];
   if(kind==="photo"){
