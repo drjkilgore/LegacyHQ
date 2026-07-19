@@ -387,6 +387,7 @@ summary::-webkit-details-marker{display:none}
   <div id="tab-memories" class="hidden"></div>
 
   <div id="tab-family" class="hidden">
+    <div id="smsOptin"></div>
     <div class="card">
       <div class="eyebrow">Family & helpers</div>
       <p class="muted" style="margin:8px 0 14px">Invite the people helping settle this estate. They'll see the roadmap, claim tasks, and everything is logged.</p>
@@ -1742,7 +1743,7 @@ function setTab(t){
   if(t==="probate") renderProbate();
   if(t==="funding"){ const fr=$("fundFrame"); if(fr){ const q="locked="+(tier()==="free"?"1":"0"); if((fr.getAttribute("src")||"").indexOf(q)===-1) fr.src="fundinghub.html?"+q; } }
   if(t==="memories") loadMemories();
-  if(t==="family"){ renderMembers(); renderActivity(); }
+  if(t==="family"){ renderMembers(); renderActivity(); renderSmsOptin(); }
 }
 
 async function loadTasks(){
@@ -2194,6 +2195,56 @@ async function loadMembers(){
   S.members=(mem||[]).map(m=>{const p=profiles.find(x=>x.id===m.user_id)||{}; return {...m,name:p.full_name,email:p.email};});
   const {data:inv} = await sb.from("estate_invites").select("*").eq("estate_id",S.estate.id).eq("accepted",false);
   S.invites=inv||[];
+}
+async function renderSmsOptin(){
+  const root=$("smsOptin"); if(!root||!S.estate) return;
+  const uid=S.session&&S.session.user&&S.session.user.id;
+  let sub=null;
+  try{ const {data}=await sb.from("sms_subscriptions").select("*").eq("estate_id",S.estate.id).eq("user_id",uid).maybeSingle(); sub=data; }catch(e){}
+  const active=sub&&sub.consent&&!sub.opted_out;
+  if(active){
+    const masked=(sub.phone||"").replace(/.(?=.{4})/g,"•");
+    root.innerHTML=`<div class="card" style="border-left:3px solid var(--sage);margin-bottom:14px">
+      <div class="eyebrow">Text reminders</div>
+      <p style="font-size:14px;margin:6px 0 8px">You're receiving deadline reminders at <strong>${esc(masked)}</strong>.</p>
+      <button class="btn btn-ghost btn-sm" onclick="toggleSmsOptin(false)">Turn off text reminders</button>
+      <div class="muted" style="font-size:11.5px;margin-top:8px">You can also reply STOP to any text.</div></div>`;
+  } else {
+    root.innerHTML=`<div class="card" style="border-left:3px solid var(--brass);margin-bottom:14px">
+      <div class="eyebrow">Text reminders</div>
+      <p class="muted" style="font-size:13.5px;margin:6px 0 10px">Get a text when an important deadline is coming up — probate windows, creditor claims, tax dates — so nothing slips by.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="smsPhone" type="tel" placeholder="(313) 555-0100" value="${esc((sub&&sub.phone)||"")}" style="flex:1;min-width:180px">
+        <button class="btn btn-primary btn-sm" onclick="saveSmsOptin()">Text me reminders</button></div>
+      <label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-weight:400;font-size:12.5px;line-height:1.5">
+        <input type="checkbox" id="smsConsent" style="width:auto;margin-top:2px">
+        <span>I agree to receive text-message reminders from HomegoingHQ about this estate's tasks and deadlines. Message &amp; data rates may apply. Reply STOP to opt out at any time.</span></label></div>`;
+  }
+}
+function smsToE164(raw){
+  const d=String(raw||"").replace(/[^\d]/g,"");
+  if(d.length===10) return "+1"+d;
+  if(d.length===11&&d[0]==="1") return "+"+d;
+  if(String(raw||"").trim().charAt(0)==="+"&&d.length>=8) return "+"+d;
+  return null;
+}
+async function saveSmsOptin(){
+  const phone=smsToE164($("smsPhone")?$("smsPhone").value:"");
+  if(!phone) return toast("Enter a valid US mobile number.");
+  if(!$("smsConsent")||!$("smsConsent").checked) return toast("Please check the consent box to receive texts.");
+  const uid=S.session.user.id;
+  const {error}=await sb.from("sms_subscriptions").upsert({estate_id:S.estate.id,user_id:uid,phone,consent:true,opted_out:false,consent_at:new Date().toISOString(),updated_at:new Date().toISOString()},{onConflict:"estate_id,user_id"});
+  if(error) return toast(error.message);
+  toast("You're subscribed — sending a confirmation text.");
+  try{ await fetch("/.netlify/functions/sms-optin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accessToken:S.session.access_token,estateId:S.estate.id})}); }catch(e){}
+  renderSmsOptin();
+}
+async function toggleSmsOptin(on){
+  const uid=S.session.user.id;
+  const {error}=await sb.from("sms_subscriptions").update({opted_out:!on,updated_at:new Date().toISOString()}).eq("estate_id",S.estate.id).eq("user_id",uid);
+  if(error) return toast(error.message);
+  toast(on?"Text reminders on.":"Text reminders turned off.");
+  renderSmsOptin();
 }
 function renderMembers(){
   const root=$("memberList"); root.innerHTML="";

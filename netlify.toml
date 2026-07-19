@@ -16,3 +16,6 @@
 
 [functions."vault-sweep"]
   schedule = "@daily"
+
+[functions."sms-deadline-check"]
+  schedule = "0 15 * * *"
