@@ -953,8 +953,10 @@ const FIRST_PARTY_HOSTS = ["homegoinghq.com","www.homegoinghq.com","app.homegoin
     // Logo: image if provided, else the tenant business name; keep the square mark.
     const HDR_FONTS={display:"var(--font-display),Georgia,serif",serif:"Georgia,'Times New Roman',serif",sans:"system-ui,-apple-system,'Segoe UI',Roboto,sans-serif",trebuchet:"'Trebuchet MS',Verdana,sans-serif",times:"'Times New Roman',serif",garamond:"Garamond,'Times New Roman',serif"};
     const HDR_SIZES={sm:"18px",md:"24px",lg:"30px",xl:"38px"};
+    const LOGO_PX={sm:44,md:66,lg:90,xl:120};
     const _hesc=s=>String(s||"").replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]));
     const htxt=(b.header_text||"").trim();
+    const lpx=LOGO_PX[b.logo_size]||66;
     let wordmark="";
     if(htxt){
       const ff=HDR_FONTS[b.header_font]||HDR_FONTS.display, fs=HDR_SIZES[b.header_size]||HDR_SIZES.md;
@@ -963,15 +965,17 @@ const FIRST_PARTY_HOSTS = ["homegoinghq.com","www.homegoinghq.com","app.homegoin
     document.querySelectorAll(".logo").forEach(l=>{
       const mark = (b.business_name||"H").trim().charAt(0).toUpperCase() || "H";
       if(b.logo_url){
-        l.innerHTML='<span class="mark" style="display:none"></span><img src="'+b.logo_url+'" alt="'+_hesc(b.business_name||"Provider")+' logo" style="height:66px;width:auto;max-height:66px;max-width:300px;object-fit:contain">'+wordmark;
+        l.innerHTML='<span class="mark" style="display:none"></span><img src="'+b.logo_url+'" alt="'+_hesc(b.business_name||"Provider")+' logo" style="height:'+lpx+'px;width:auto;max-height:'+lpx+'px;max-width:360px;object-fit:contain">'+wordmark;
       } else if(htxt){
         l.innerHTML='<span class="mark" style="display:none"></span>'+wordmark;
       } else {
         l.innerHTML='<span class="mark">'+mark+'</span>'+ (b.business_name||"");
       }
     });
-    if(b.logo_url){ document.querySelectorAll(".topbar-inner").forEach(t=>{ t.style.height="86px"; }); }
+    if(b.logo_url){ const th=(lpx+20)+"px"; document.querySelectorAll(".topbar-inner").forEach(t=>{ t.style.height=th; }); }
     else if(htxt){ document.querySelectorAll(".topbar-inner").forEach(t=>{ t.style.height="72px"; }); }
+    // Concierge white-label: drop the HomegoingHQ seal below the hero; keep the small "Powered by" line.
+    if(b.tenant_type==="concierge"){ const seal=document.querySelector(".auth-hero .seal"); if(seal) seal.style.display="none"; }
     if(b.favicon_url){
       let ic=document.querySelector('link[rel="icon"]');
       if(!ic){ ic=document.createElement("link"); ic.rel="icon"; document.head.appendChild(ic); }
@@ -4224,10 +4228,11 @@ async function admSaveHeaderText(id){
     p_font:$("acHdrFont").value,
     p_bold:$("acHdrBold").checked,
     p_italic:$("acHdrItalic").checked,
-    p_size:$("acHdrSize").value
+    p_size:$("acHdrSize").value,
+    p_logo_size:$("acLogoSize")?$("acLogoSize").value:"md"
   });
   if(error) return toast(error.message);
-  toast(data===true?"Header wordmark saved.":"Couldn't save wordmark.");
+  toast(data===true?"Header saved.":"Couldn't save header.");
 }
 async function admSaveBusiness(id){
   const name=($("acBiz").value||"").trim();
@@ -4436,19 +4441,25 @@ async function admAccountModal(id){
         <input id="ac_${k}" value="${esc(cur)}" placeholder="https://…" oninput="admBrandPreview()" style="flex:1">
         <label class="btn btn-ghost btn-sm" style="margin:0;cursor:pointer">Upload<input type="file" accept="image/*" style="display:none" onchange="admUploadAsset('${id}','${k}',this)"></label>
       </div>`;}).join("")}
-    <div class="eyebrow" style="margin-top:16px">Header wordmark</div>
-    <div class="muted" style="font-size:12px;margin:2px 0 6px">Text shown next to the logo — useful when the logo is small or icon-only. Leave blank to show the logo alone.</div>
+    <div class="eyebrow" style="margin-top:16px">Header display</div>
+    <div class="muted" style="font-size:12px;margin:2px 0 6px">How big the logo shows, and optional text beside it (useful when the logo is small or icon-only).</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><label>Logo size</label>
+        <select id="acLogoSize" onchange="admBrandPreview()">${[["sm","Small"],["md","Medium"],["lg","Large"],["xl","Extra large"]].map(o=>`<option value="${o[0]}"${(b.logo_size||"md")===o[0]?" selected":""}>${o[1]}</option>`).join("")}</select></div>
+      <div></div>
+    </div>
+    <label style="margin-top:8px">Wordmark text <span class="muted" style="font-weight:400">(next to the logo — blank to hide)</span></label>
     <input id="acHdrText" value="${esc(b.header_text||"")}" placeholder="e.g., Lifewise Funeral Concierge" oninput="admBrandPreview()">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
       <div><label>Font</label>
         <select id="acHdrFont" onchange="admBrandPreview()">${[["display","Brand serif (default)"],["serif","Serif (Georgia)"],["sans","Sans-serif"],["trebuchet","Trebuchet"],["times","Times"],["garamond","Garamond"]].map(o=>`<option value="${o[0]}"${(b.header_font||"display")===o[0]?" selected":""}>${o[1]}</option>`).join("")}</select></div>
-      <div><label>Size</label>
+      <div><label>Text size</label>
         <select id="acHdrSize" onchange="admBrandPreview()">${[["sm","Small"],["md","Medium"],["lg","Large"],["xl","Extra large"]].map(o=>`<option value="${o[0]}"${(b.header_size||"md")===o[0]?" selected":""}>${o[1]}</option>`).join("")}</select></div>
     </div>
     <div style="display:flex;gap:16px;margin-top:10px;align-items:center;flex-wrap:wrap">
       <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="checkbox" id="acHdrBold" ${b.header_bold?"checked":""} style="width:auto" onchange="admBrandPreview()"> Bold</label>
       <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="checkbox" id="acHdrItalic" ${b.header_italic?"checked":""} style="width:auto" onchange="admBrandPreview()"> Italic</label>
-      <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="admSaveHeaderText('${id}')">Save wordmark</button>
+      <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="admSaveHeaderText('${id}')">Save header</button>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -4522,10 +4533,11 @@ function admBrandPreview(){
   const fi=($("acHdrItalic")&&$("acHdrItalic").checked)?"italic":"normal";
   const name = htxt || g("acCName") || "Your practice";
   const wordmark = `<span style="font-family:${ff};font-size:${fs};font-weight:${fb};font-style:${fi};color:#F6F2EA">${esc(name)}</span>`;
+  const PLOGO={sm:28,md:42,lg:54,xl:64}; const lph=PLOGO[$("acLogoSize")?$("acLogoSize").value:"md"]||42;
   const el=$("acPreview"); if(!el) return;
   el.innerHTML=`<div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">
     <div style="background:${esc(ink)};color:#F6F2EA;padding:14px 16px;display:flex;align-items:center;gap:10px;${hero?`background-image:linear-gradient(rgba(38,51,46,.55),rgba(38,51,46,.55)),url('${esc(hero)}');background-size:cover;background-position:center`:""}">
-      ${logo?`<img alt="" src="${esc(logo)}" style="height:42px;width:auto;max-width:180px;object-fit:contain" onerror="this.style.display='none'">`:(htxt?"":`<span style="width:26px;height:26px;border-radius:7px;background:#F6F2EA;color:${esc(ink)};display:grid;place-items:center;font-weight:600">${esc(name.trim().charAt(0).toUpperCase()||"H")}</span>`)}
+      ${logo?`<img alt="" src="${esc(logo)}" style="height:${lph}px;width:auto;max-width:200px;object-fit:contain" onerror="this.style.display='none'">`:(htxt?"":`<span style="width:26px;height:26px;border-radius:7px;background:#F6F2EA;color:${esc(ink)};display:grid;place-items:center;font-weight:600">${esc(name.trim().charAt(0).toUpperCase()||"H")}</span>`)}
       ${wordmark}</div>
     <div style="padding:14px 16px;background:var(--card)">
       <button onclick="admOpenLiveSite()" title="Open the live branded site" style="background:${esc(accent)};color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer">Begin</button>
