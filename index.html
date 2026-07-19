@@ -4098,7 +4098,7 @@ function admPartnerAppModal(id){
     ${a.status==="pending"?`
     <label style="margin-top:14px">Subdomain to assign <span class="muted" style="font-weight:400">(they'll live at name.homegoinghq.com)</span></label>
     <input id="paSub" value="${esc(a.desired_subdomain||"")}" placeholder="grace-funeral" autocapitalize="none" spellcheck="false" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,'')">
-    <div class="muted" style="font-size:12px;margin-top:8px">Approving provisions the co-brand account. The owner must already have a HomegoingHQ account with <b>${esc(a.owner_email||"this email")}</b> — if not, have them sign up first. Remember to add the subdomain as a Netlify domain alias.</div>
+    <div class="muted" style="font-size:12px;margin-top:8px">Approving provisions the co-brand account. If <b>${esc(a.owner_email||"this email")}</b> doesn't have a HomegoingHQ account yet, we'll create one and email them a set-password link. Remember to add the subdomain as a Netlify domain alias.</div>
     <div class="scard-actions" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary" onclick="admApprovePartnerApp('${a.id}')">Approve &amp; provision</button>
       <button class="btn btn-ghost" onclick="admDeclinePartnerApp('${a.id}')">Decline</button>
@@ -4108,21 +4108,31 @@ function admPartnerAppModal(id){
 }
 async function admApprovePartnerApp(id){
   const sub=($("paSub")?($("paSub").value||"").trim():"");
-  const {data,error}=await sb.rpc("admin_approve_partner_application",{p_id:id,p_subdomain:sub||null});
-  if(error) return toast(error.message);
-  if(data&&data.ok){
-    const a=PARTNER_APPS.find(x=>x.id===id);
-    toast("Approved & provisioned — sending welcome email.");
-    if(a&&a.owner_email) fetch("/.netlify/functions/send-partner-welcome",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:a.owner_email})}).catch(()=>{});
-    closeModal(); admLoadPartnerApps(); admLoadAccounts(); return;
-  }
-  const e=data&&data.error;
-  toast(e==="no_such_user"?"They need a HomegoingHQ account first — have them sign up (or send the apply link), then approve."
-      : e==="subdomain_taken"?"That subdomain is taken — try another."
-      : e==="subdomain_too_short"?"Subdomain needs at least 3 characters."
-      : e==="forbidden"?"Admin only."
-      : e==="not_found"?"Application not found."
-      : "Couldn't approve"+(e?" ("+e+")":"")+".");
+  const token=S.session&&S.session.access_token;
+  if(!token) return toast("Please sign in again.");
+  toast("Approving…");
+  try{
+    const r=await fetch("/.netlify/functions/partner-approve",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({accessToken:token,id,subdomain:sub||null})});
+    const d=await r.json();
+    if(d&&d.ok){
+      const a=PARTNER_APPS.find(x=>x.id===id);
+      if(d.created){ toast("Approved — account created & set-password email sent."); }
+      else{
+        toast("Approved & provisioned — sending welcome email.");
+        if(a&&a.owner_email) fetch("/.netlify/functions/send-partner-welcome",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:a.owner_email})}).catch(()=>{});
+      }
+      closeModal(); admLoadPartnerApps(); admLoadAccounts(); return;
+    }
+    const e=d&&d.error;
+    toast(e==="account_pending"?"Account created — give it a few seconds, then approve again."
+        : e==="subdomain_taken"?"That subdomain is taken — try another."
+        : e==="subdomain_too_short"?"Subdomain needs at least 3 characters."
+        : e==="admin only"||e==="forbidden"?"Admin only."
+        : e==="already_approved"?"Already approved."
+        : e==="not_found"?"Application not found."
+        : "Couldn't approve"+(e?" ("+e+")":"")+".");
+  }catch(err){ toast("Couldn't approve."); }
 }
 async function admDeclinePartnerApp(id){
   if(!confirm("Decline this application?")) return;
