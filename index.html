@@ -255,6 +255,7 @@ summary::-webkit-details-marker{display:none}
     <div class="eyebrow">Your plan</div>
     <h3 style="margin:6px 0">Free plan — 1 estate, core roadmap</h3>
     <p class="muted">Free covers the guided roadmap on what to do after a loss. <strong>Companion ($149)</strong> opens the full roadmap with 30 Guide conversations. <strong>Settle ($249)</strong> unlocks every phase and adds the court-ready reports, sealed recordings, all templates, and bank import.</p>
+    <div style="font-size:11px;color:var(--brass-deep,#75561D);font-weight:600;letter-spacing:.02em;margin-top:3px">✦ Limited-time introductory pricing</div>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary" id="btnBuyCompanion" onclick="startCheckout('companion')">Companion — $149</button>
       <button class="btn btn-brass" onclick="startCheckout('settle')">Settle — $249</button>
@@ -840,6 +841,7 @@ function upgradeModal(context){
         <div class="eyebrow">Companion</div>
         <div style="font-family:var(--font-display);font-size:28px;margin:4px 0">$149</div>
         <div class="muted" style="font-size:12px">once, per estate</div>
+        <div style="font-size:11px;color:var(--brass-deep,#75561D);font-weight:600;letter-spacing:.02em;margin-top:3px">✦ Limited-time introductory pricing</div>
         <ul style="list-style:none;font-size:13px;margin-top:10px;display:grid;gap:5px">
           <li>✓ The full roadmap, every phase</li><li>✓ 30 Guide conversations</li>
           <li>✓ ${VAULT_ALLOWANCE.companion.docs} documents · 10 ledger entries</li><li>✓ Core letter templates</li></ul>
@@ -849,6 +851,7 @@ function upgradeModal(context){
         <div class="eyebrow">Settle · <span style="color:var(--brass-deep)">best value</span></div>
         <div style="font-family:var(--font-display);font-size:28px;margin:4px 0">$249</div>
         <div class="muted" style="font-size:12px">once, per estate · often reimbursable from the estate</div>
+        <div style="font-size:11px;color:var(--brass-deep,#75561D);font-weight:600;letter-spacing:.02em;margin-top:3px">✦ Limited-time introductory pricing</div>
         <ul style="list-style:none;font-size:13px;margin-top:10px;display:grid;gap:5px">
           <li>✓ <strong>Unlimited</strong> ledger &amp; Guide · ${VAULT_ALLOWANCE.settle.docs} documents</li><li>✓ Court-ready inventory & accounting</li>
           <li>✓ Bank import · claim tracker · all templates</li><li>✓ Unlimited family · sealed recordings</li></ul>
