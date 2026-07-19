@@ -4239,6 +4239,7 @@ async function admRevokeFamilies(id){
   toast("Revoked "+((data&&data.revoked)||0)+" link(s)."); admAccountModal(id);
 }
 async function admSaveHeaderText(id){
+  const out=$("acHdrMsg");
   const payload={
     header_text:($("acHdrText").value||"").trim(),
     header_font:$("acHdrFont").value,
@@ -4248,9 +4249,18 @@ async function admSaveHeaderText(id){
     logo_size:$("acLogoSize")?$("acLogoSize").value:"md",
     intro_video_url:$("acIntroVid")?($("acIntroVid").value||"").trim():""
   };
-  const {data,error}=await sb.rpc("admin_set_branding_display",{target:id,p:payload});
-  if(error) return toast("Save failed: "+error.message);
-  toast(data===true?"Saved.":"Couldn't save — run migration v31 in Supabase.");
+  if(out) out.innerHTML="Saving…";
+  try{
+    const {data,error}=await sb.rpc("admin_set_branding_display",{target:id,p:payload});
+    if(error){
+      console.error("admin_set_branding_display error:",error);
+      const msg=(error.message||"")+(error.hint?(" — "+error.hint):"")+(error.code?(" ["+error.code+"]"):"");
+      if(out) out.innerHTML='<span style="color:#8B0000;font-weight:600">Save failed:</span> '+esc(msg||JSON.stringify(error));
+      return;
+    }
+    if(data===true){ if(out) out.innerHTML='<span style="color:#2E7D32;font-weight:600">Saved ✓</span>'; toast("Saved."); }
+    else { if(out) out.innerHTML='<span style="color:#8B0000">Returned false — the migration v31 function ran but is_admin() was false for your login.</span>'; }
+  }catch(e){ console.error(e); if(out) out.innerHTML='<span style="color:#8B0000">Error: '+esc(e.message||String(e))+'</span>'; }
 }
 async function admSaveBusiness(id){
   const name=($("acBiz").value||"").trim();
@@ -4481,6 +4491,7 @@ async function admAccountModal(id){
       <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="checkbox" id="acHdrItalic" ${b.header_italic?"checked":""} style="width:auto" onchange="admBrandPreview()"> Italic</label>
       <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="admSaveHeaderText('${id}')">Save header &amp; video</button>
     </div>
+    <div id="acHdrMsg" class="muted" style="font-size:12.5px;margin-top:6px"></div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div><label>Contact name</label><input id="acCName" value="${esc(b.contact_name||"")}"></div>
