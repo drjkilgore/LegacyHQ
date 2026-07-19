@@ -452,9 +452,13 @@ summary::-webkit-details-marker{display:none}
   <details class="card" style="margin-top:16px" open>
     <summary style="cursor:pointer;list-style:none;user-select:none"><span class="eyebrow">White-label accounts — Concierge, Funeral Home &amp; Church</span> <span style="color:var(--moss)">▾</span></summary>
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <button class="btn btn-brass btn-sm" onclick="admProvisionPartnerModal()">+ Provision partner</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-brass btn-sm" onclick="admProvisionPartnerModal()">+ Provision partner</button>
+        <button class="btn btn-ghost btn-sm" onclick="admInvitePartnerModal()">✉️ Invite a partner</button>
+      </div>
       <input id="admAcctSearch" placeholder="Search business or owner email" onkeydown="if(event.key==='Enter')admLoadAccounts()" style="width:auto;flex:1;min-width:200px;max-width:320px">
     </div>
+    <div id="admPartnerApps" style="margin-top:10px"></div>
     <div id="admAccounts" style="margin-top:10px"></div>
   </details>
   <details class="card" style="margin-top:16px" open>
@@ -3824,7 +3828,7 @@ async function openAdmin(){
   if(!stats||stats.error){ $("adminStats").innerHTML='<div class="muted">Not authorized.</div>'; return; }
   const cards=[["Users",stats.users],["New (7d)",stats.users_7d],["Paid",stats.paid_users],["Estates",stats.estates],["Plans",stats.plans],["Tasks done",stats.tasks_done],["Memorials live",stats.memorials_live]];
   $("adminStats").innerHTML=cards.map(([l,v])=>`<div class="card" style="padding:14px"><div class="eyebrow">${l}</div><div style="font-family:var(--font-display);font-size:28px;margin-top:2px">${v??0}</div></div>`).join("");
-  admLoadUsers(); admLoadAccounts(); admLoadPacks(); admLoadCounties(); admLoadApplications(); admLoadDesigners();
+  admLoadUsers(); admLoadAccounts(); admLoadPacks(); admLoadCounties(); admLoadApplications(); admLoadDesigners(); admLoadPartnerApps();
   const {data:act}=await sb.rpc("admin_recent_activity");
   $("admActivity").innerHTML=(Array.isArray(act)?act:[]).map(a=>{
     const when=new Date(a.created_at).toLocaleDateString(undefined,{month:"short",day:"numeric"})+" "+new Date(a.created_at).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
@@ -4059,6 +4063,101 @@ async function admProvisionPartner(){
       : e==="subdomain_too_short"?"Subdomain needs at least 3 characters."
       : e==="forbidden"?"Admin only."
       : "Couldn't provision.");
+}
+/* ---------- ADMIN: co-brand partner applications (migration v28) ---------- */
+let PARTNER_APPS=[];
+async function admLoadPartnerApps(){
+  const el=$("admPartnerApps"); if(!el) return;
+  const {data,error}=await sb.from("partner_applications").select("*").order("created_at",{ascending:false});
+  if(error){ el.innerHTML=`<p class="muted" style="font-size:13px">Couldn't load applications (${esc(error.message)}).</p>`; return; }
+  PARTNER_APPS=data||[];
+  if(!PARTNER_APPS.length){ el.innerHTML=""; return; }
+  const pending=PARTNER_APPS.filter(a=>a.status==="pending").length;
+  el.innerHTML=`<div class="eyebrow" style="margin:2px 0 4px">Partner applications${pending?` · <span style="color:var(--brass-deep)">${pending} pending</span>`:""}</div>`+
+    PARTNER_APPS.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
+      <div style="flex:1;min-width:0">
+        <strong>${esc(a.business_name||"—")}</strong> <span class="pill">${a.tenant_type==="church"?"Church":"Funeral home"}</span>
+        <div class="muted" style="font-size:12px">${esc(a.contact_name||"")}${a.owner_email?" · "+esc(a.owner_email):""}${a.desired_subdomain?" · "+esc(a.desired_subdomain)+".homegoinghq.com":""}</div>
+      </div>
+      <span class="pill" style="background:${provStatusColor(a.status)};color:#fff;white-space:nowrap">${esc(a.status)}</span>
+      <button class="btn btn-ghost btn-sm" onclick="admPartnerAppModal('${a.id}')">Review</button>
+    </div>`).join("");
+}
+function admPartnerAppModal(id){
+  const a=PARTNER_APPS.find(x=>x.id===id); if(!a) return toast("Not found.");
+  const rows=[["Type",a.tenant_type==="church"?"Church":"Funeral home"],["Contact",a.contact_name],["Owner email",a.owner_email],["Phone",a.phone],["Website",a.website],["Requested subdomain",a.desired_subdomain]];
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:560px">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Partner application · ${esc(a.status)}</div>
+    <h3 style="margin-bottom:2px">${esc(a.business_name||"—")}</h3>
+    <div class="muted" style="font-size:12.5px">Submitted ${new Date(a.created_at).toLocaleDateString()}</div>
+    <table style="width:100%;font-size:13.5px;border-collapse:collapse;margin-top:12px">
+      ${rows.map(r=>`<tr><td style="padding:4px 10px 4px 0;color:var(--muted);white-space:nowrap;vertical-align:top">${r[0]}</td><td style="padding:4px 0">${esc(r[1]||"—")}</td></tr>`).join("")}
+    </table>
+    ${a.message?`<div class="eyebrow" style="margin-top:12px">Message</div><p style="font-size:13.5px;white-space:pre-wrap;margin:4px 0">${esc(a.message)}</p>`:""}
+    ${a.status==="pending"?`
+    <label style="margin-top:14px">Subdomain to assign <span class="muted" style="font-weight:400">(they'll live at name.homegoinghq.com)</span></label>
+    <input id="paSub" value="${esc(a.desired_subdomain||"")}" placeholder="grace-funeral" autocapitalize="none" spellcheck="false" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,'')">
+    <div class="muted" style="font-size:12px;margin-top:8px">Approving provisions the co-brand account. The owner must already have a HomegoingHQ account with <b>${esc(a.owner_email||"this email")}</b> — if not, have them sign up first. Remember to add the subdomain as a Netlify domain alias.</div>
+    <div class="scard-actions" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="admApprovePartnerApp('${a.id}')">Approve &amp; provision</button>
+      <button class="btn btn-ghost" onclick="admDeclinePartnerApp('${a.id}')">Decline</button>
+    </div>`:`
+    <div class="muted" style="font-size:12.5px;margin-top:14px">${a.status==="approved"?"Approved and provisioned.":"Declined."}${a.reviewed_at?" · "+new Date(a.reviewed_at).toLocaleDateString():""}</div>`}
+  </div></div>`;
+}
+async function admApprovePartnerApp(id){
+  const sub=($("paSub")?($("paSub").value||"").trim():"");
+  const {data,error}=await sb.rpc("admin_approve_partner_application",{p_id:id,p_subdomain:sub||null});
+  if(error) return toast(error.message);
+  if(data&&data.ok){
+    const a=PARTNER_APPS.find(x=>x.id===id);
+    toast("Approved & provisioned — sending welcome email.");
+    if(a&&a.owner_email) fetch("/.netlify/functions/send-partner-welcome",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:a.owner_email})}).catch(()=>{});
+    closeModal(); admLoadPartnerApps(); admLoadAccounts(); return;
+  }
+  const e=data&&data.error;
+  toast(e==="no_such_user"?"They need a HomegoingHQ account first — have them sign up (or send the apply link), then approve."
+      : e==="subdomain_taken"?"That subdomain is taken — try another."
+      : e==="subdomain_too_short"?"Subdomain needs at least 3 characters."
+      : e==="forbidden"?"Admin only."
+      : e==="not_found"?"Application not found."
+      : "Couldn't approve"+(e?" ("+e+")":"")+".");
+}
+async function admDeclinePartnerApp(id){
+  if(!confirm("Decline this application?")) return;
+  const {data,error}=await sb.rpc("admin_decline_partner_application",{p_id:id,p_reason:null});
+  if(error) return toast(error.message);
+  toast("Application declined."); closeModal(); admLoadPartnerApps();
+}
+function admInvitePartnerModal(){
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:460px">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow">Invite a co-brand partner</div>
+    <h3 style="margin-bottom:4px">Send an application invite</h3>
+    <p class="muted" style="font-size:13px">They'll get an email with a link to apply. Their application lands right here for you to approve.</p>
+    <label>Partner type</label>
+    <select id="piType"><option value="funeral_home">Funeral home</option><option value="church">Church</option></select>
+    <label>Their email</label><input id="piEmail" type="email" placeholder="director@example.com">
+    <label>Business name <span class="muted" style="font-weight:400">(optional — pre-fills their form)</span></label><input id="piBiz" placeholder="Grace Funeral Home">
+    <div class="scard-actions" style="margin-top:16px"><button class="btn btn-primary" onclick="admInvitePartner()">Send invite</button></div>
+  </div></div>`;
+}
+async function admInvitePartner(){
+  const email=($("piEmail").value||"").trim().toLowerCase();
+  const biz=($("piBiz").value||"").trim();
+  const type=$("piType").value;
+  if(!email||!email.includes("@")) return toast("Enter their email.");
+  const token=S.session&&S.session.access_token;
+  if(!token) return toast("Please sign in again.");
+  toast("Sending invite…");
+  try{
+    const r=await fetch("/.netlify/functions/partner-invite",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({accessToken:token,email,business:biz,tenant_type:type})});
+    const d=await r.json();
+    if(d&&d.ok){ toast("Invite sent to "+email+"."); closeModal(); }
+    else toast((d&&d.error)||"Couldn't send invite.");
+  }catch(e){ toast("Couldn't send invite."); }
 }
 async function admLoadAccounts(){
   const {data}=await sb.rpc("admin_list_accounts",{search:$("admAcctSearch").value.trim()});

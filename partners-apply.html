@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bring HomegoingHQ to your families — Partner application</title>
+<meta name="description" content="Offer HomegoingHQ's guided aftercare to the families you serve, under your own name." />
+<style>
+  :root{ --ink:#26332E; --paper:#F5F3EE; --card:#FFFDF9; --line:#E4DDCE; --brass:#8F6A24; --muted:#5B7183; }
+  *{box-sizing:border-box}
+  body{font-family:Georgia,'Times New Roman',serif;margin:0;color:var(--ink);background:var(--paper);line-height:1.6}
+  .wrap{max-width:620px;margin:0 auto;padding:34px 20px 60px}
+  .ui{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .mark{width:44px;height:44px;border-radius:50%;background:var(--ink);color:#E8DFb5;display:grid;place-items:center;font-weight:700;font-family:Georgia,serif;font-size:22px;margin:0 auto 14px}
+  h1{font-size:clamp(1.6rem,4vw,2.1rem);text-align:center;margin:0 0 8px;font-weight:600}
+  .lede{text-align:center;color:var(--muted);margin:0 auto 8px;max-width:52ch}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;margin-top:22px;box-shadow:0 10px 30px rgba(38,51,46,.06)}
+  label{display:block;font-weight:700;font-size:.82rem;margin:14px 0 5px}
+  .ui label{font-family:inherit}
+  input,select,textarea{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;font-family:system-ui,sans-serif;font-size:1rem;background:#fff;color:var(--ink)}
+  textarea{min-height:90px;resize:vertical}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row>div{flex:1;min-width:220px}
+  .hint{color:var(--muted);font-weight:400;font-size:.8em}
+  button{background:var(--ink);color:#fff;border:0;border-radius:10px;padding:13px 22px;font-weight:800;font-size:1rem;cursor:pointer;font-family:system-ui,sans-serif;width:100%;margin-top:20px}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .note{background:#EFEAE0;border:1px solid var(--line);border-radius:10px;padding:13px;font-size:.86rem;margin-top:16px}
+  ul.perks{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:7px;font-size:.95rem}
+  ul.perks li::before{content:"✓ ";color:var(--brass);font-weight:700}
+  #msg{margin-top:14px;font-weight:700}
+  #done{display:none;text-align:center;padding:20px}
+  .foot{text-align:center;color:var(--muted);font-size:.8rem;margin-top:22px}
+  a{color:var(--brass)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="mark">H</div>
+  <h1>Bring HomegoingHQ to your families</h1>
+  <p class="lede">Offer the full guided aftercare platform — the roadmap, letters, documents, and memorial tools — to the families you serve, under your own name.</p>
+
+  <div class="card">
+    <ul class="perks ui">
+      <li>Your own branded space at <b>yourname.homegoinghq.com</b></li>
+      <li>Families see “Aftercare provided by <em>[your name]</em>, with HomegoingHQ”</li>
+      <li>Unlimited families · no per-family cost to you</li>
+      <li>Families choose their own plan directly — you simply provide the door</li>
+    </ul>
+  </div>
+
+  <div class="card ui" id="formCard">
+    <div style="font-weight:800;font-size:1.05rem;margin-bottom:2px">Apply to co-brand</div>
+    <div class="hint">We review each application personally. This takes about two minutes.</div>
+
+    <label>Organization type</label>
+    <select id="type"><option value="funeral_home">Funeral home</option><option value="church">Church / place of worship</option></select>
+
+    <label>Business or organization name</label>
+    <input id="biz" placeholder="e.g., Grace Funeral Home" />
+
+    <div class="row">
+      <div><label>Your name</label><input id="name" placeholder="First Last" /></div>
+      <div><label>Phone <span class="hint">(optional)</span></label><input id="phone" placeholder="(555) 555-5555" /></div>
+    </div>
+
+    <label>Owner email <span class="hint">(this becomes the login for your portal)</span></label>
+    <input id="email" type="email" placeholder="director@example.com" />
+
+    <div class="row">
+      <div><label>Website <span class="hint">(optional)</span></label><input id="website" placeholder="https://" /></div>
+      <div><label>Preferred subdomain <span class="hint">(optional)</span></label><input id="sub" placeholder="grace-funeral" autocapitalize="none" spellcheck="false" /></div>
+    </div>
+
+    <label>Anything you'd like us to know? <span class="hint">(optional)</span></label>
+    <textarea id="message" placeholder="Tell us about your organization and the families you serve."></textarea>
+
+    <div class="note">To activate quickly after we approve you, please create a free HomegoingHQ account using this same owner email at <a href="https://app.homegoinghq.com" target="_blank" rel="noopener">app.homegoinghq.com</a>. We link your portal to that login.</div>
+
+    <button id="go">Submit application</button>
+    <div id="msg"></div>
+  </div>
+
+  <div class="card ui" id="done">
+    <div style="font-size:2rem">✓</div>
+    <h2 style="font-family:Georgia,serif;font-weight:600">Application received</h2>
+    <p>Thank you. We review each partner personally and will reach out to <b id="doneEmail"></b> soon. If you haven't yet, create your free account at <a href="https://app.homegoinghq.com">app.homegoinghq.com</a> with that same email so we can activate your portal the moment you're approved.</p>
+  </div>
+
+  <p class="foot ui">HomegoingHQ provides organizational tools and general information, not legal, tax, or financial advice.<br><a href="https://homegoinghq.com">homegoinghq.com</a></p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL="https://vohqgmnurnkgbwpvrakp.supabase.co";
+const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvaHFnbW51cm5rZ2J3cHZyYWtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNjc0NTYsImV4cCI6MjA5ODk0MzQ1Nn0.fXDBbljOS_p49FS9vU4smAWxyn4STYuLRGFf9rJgp-Q";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $=id=>document.getElementById(id);
+
+// prefill from an invite link (?type=&biz=&email=&name=)
+(function(){ const q=new URLSearchParams(location.search);
+  if(q.get("type")) $("type").value = q.get("type")==="church"?"church":"funeral_home";
+  if(q.get("biz")) $("biz").value=q.get("biz");
+  if(q.get("email")) $("email").value=q.get("email");
+  if(q.get("name")) $("name").value=q.get("name");
+})();
+$("sub").addEventListener("input",e=>{ e.target.value=e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,""); });
+
+$("go").onclick=async ()=>{
+  const email=($("email").value||"").trim().toLowerCase();
+  const biz=($("biz").value||"").trim();
+  if(!biz){ $("msg").textContent="Please enter your organization name."; return; }
+  if(!email||!email.includes("@")){ $("msg").textContent="Please enter a valid owner email."; return; }
+  $("go").disabled=true; $("msg").textContent="Submitting…";
+  const row={
+    tenant_type: $("type").value==="church"?"church":"funeral_home",
+    business_name: biz,
+    owner_email: email,
+    contact_name: ($("name").value||"").trim()||null,
+    phone: ($("phone").value||"").trim()||null,
+    website: ($("website").value||"").trim()||null,
+    desired_subdomain: ($("sub").value||"").trim()||null,
+    message: ($("message").value||"").trim()||null,
+    status: "pending"
+  };
+  const { error } = await sb.from("partner_applications").insert([row]);
+  if(error){ $("go").disabled=false; $("msg").textContent="Something went wrong: "+error.message; return; }
+  $("doneEmail").textContent=email;
+  $("formCard").style.display="none"; $("done").style.display="block";
+  window.scrollTo(0,0);
+};
+</script>
+</body>
+</html>
