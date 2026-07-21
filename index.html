@@ -4257,19 +4257,53 @@ async function openAdmin(){
     return `<div style="padding:6px 0;border-bottom:1px solid var(--line)"><strong>${esc(a.email||"?")}</strong> ${esc(a.action)}${a.detail?" — "+esc(a.detail):""}${a.decedent_name?" · estate of "+esc(a.decedent_name):""} <span style="opacity:.7">· ${when}</span></div>`;
   }).join("")||"No activity yet.";
 }
+let ADM_USERS=[];
 async function admLoadUsers(){
   const {data}=await sb.rpc("admin_list_users",{search:$("admSearch").value.trim()});
-  const users=Array.isArray(data)?data:[];
+  const users=Array.isArray(data)?data:[]; ADM_USERS=users;
   $("admUsers").innerHTML=users.map(u=>`
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap">
       <div><strong>${esc(u.full_name||u.email)}</strong><div class="muted" style="font-size:12.5px">${esc(u.email)} · joined ${fmtDate(u.created_at.slice(0,10))} · ${u.estates} estate(s), ${u.plans} plan(s)</div></div>
-      <select onchange="admSetTier('${u.id}',this.value)" style="width:auto;padding:7px 10px;font-size:13px">
-        ${["free","companion","settle","premium"].map(t=>`<option ${u.plan_tier===t?"selected":""}>${t}</option>`).join("")}</select>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select onchange="admSetTier('${u.id}',this.value)" style="width:auto;padding:7px 10px;font-size:13px">
+          ${["free","companion","settle","premium"].map(t=>`<option ${u.plan_tier===t?"selected":""}>${t}</option>`).join("")}</select>
+        <button class="btn btn-ghost btn-sm" style="color:#8B0000" onclick="admDeleteUserModal('${u.id}')">Delete</button>
+      </div>
     </div>`).join("")||'<div class="muted">No users found.</div>';
 }
 async function admSetTier(id,tier){
   const {data}=await sb.rpc("admin_set_tier",{target:id,new_tier:tier});
   toast(data===true?"Tier updated.":"Couldn't update tier.");
+}
+function admDeleteUserModal(id){
+  const u=(ADM_USERS||[]).find(x=>x.id===id); if(!u) return;
+  $("modalRoot").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:480px">
+    <button class="close" onclick="closeModal()">×</button>
+    <div class="eyebrow" style="color:#8B0000">Delete account</div>
+    <h3 style="margin-bottom:6px">Permanently delete this user?</h3>
+    <p style="font-size:14px;line-height:1.5"><strong>${esc(u.email)}</strong><br><span class="muted" style="font-size:12.5px">${esc(u.plan_tier)} · ${u.estates} estate(s) they created will be removed</span></p>
+    <p style="font-size:13px;color:var(--ink-soft);line-height:1.55">This deletes their login and every estate they created — all tasks, documents, ledger entries, and memories in those estates. Estates they only joined as a member are not affected. This cannot be undone.</p>
+    <label style="font-size:12.5px;font-weight:600;display:block;margin-top:12px">Type the email to confirm</label>
+    <input id="admDelConfirm" placeholder="${esc(u.email)}" style="width:100%;margin-top:5px">
+    <div class="scard-actions" style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn" style="background:#8B0000;color:#fff" onclick="admDeleteUserConfirm('${id}')">Delete permanently</button>
+    </div></div></div>`;
+}
+async function admDeleteUserConfirm(id){
+  const u=(ADM_USERS||[]).find(x=>x.id===id); if(!u) return;
+  const typed=$("admDelConfirm")?$("admDelConfirm").value.trim():"";
+  if(typed!==(u.email||"")){ toast("Type the email exactly to confirm."); return; }
+  const btn=event&&event.target; if(btn){ btn.disabled=true; btn.textContent="Deleting…"; }
+  let res={};
+  try{
+    const r=await fetch("/.netlify/functions/admin-delete-user",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accessToken:S.session.access_token,target:id})});
+    res=await r.json();
+  }catch(e){ toast(e.message); if(btn){btn.disabled=false;btn.textContent="Delete permanently";} return; }
+  if(res.error){ const m={target_is_admin:"Can't delete another admin.",cannot_delete_self:"You can't delete your own account here.",not_admin:"Admins only.",session_invalid:"Session expired — sign in again."}; toast(m[res.error]||res.error); if(btn){btn.disabled=false;btn.textContent="Delete permanently";} return; }
+  closeModal();
+  toast("Account deleted"+(res.estates_deleted?` · ${res.estates_deleted} estate(s)`:"")+(res.files_removed?` · ${res.files_removed} file(s) removed`:""));
+  admLoadUsers();
 }
 
 /* ---------- ADMIN: WHITE-LABEL ACCOUNTS (migration v13) ---------- */
@@ -4386,7 +4420,7 @@ function provAcceptEmail(a){
   const who=a.contact_name||a.business_name||"there";
   const biz=a.business_name||"your business";
   return { subject:"You're approved — HomegoingHQ Preferred Provider Network",
-    body:"Dear "+who+",\n\nCongratulations — your application to the HomegoingHQ Preferred Provider Network has been approved. We're glad to welcome "+biz+" into a network families can trust.\n\nActivate your listing by choosing the term that fits:\n\n\u2022 Full year \u2014 $899:\n"+PROV_PAY_LINK+"\n\n\u2022 Six months \u2014 $599:\n"+PROV_PAY_LINK_6MO+"\n\nYour position is locked in your category once you enroll. No commissions on your work \u2014 families and concierges pay you directly; the network fee is all we charge.\n\nBy enrolling you agree to the Preferred Provider Network terms:\nhttps://providers.homegoinghq.com/terms.html\n\nOnce your enrollment is complete, we'll publish your listing with the Preferred mark in the tools families and certified concierges use to find and book providers.\n\nWelcome aboard,\nThe HomegoingHQ Team\ncare@homegoinghq.com" };
+    body:"Dear "+who+",\n\nCongratulations — your application to the HomegoingHQ Preferred Provider Network has been approved. We're glad to welcome "+biz+" into a network families can trust.\n\nActivate your listing by choosing the term that fits. As one of our first 50 founding providers, use your founding code at checkout \u2014 click \"Add a discount code\" (just above where you enter your name):\n\n\u2022 Full year \u2014 $499 your first year (regular $899), code: 12MONTHPROVIDER50\n"+PROV_PAY_LINK+"\n\n\u2022 Six months \u2014 $399 your first 6 months (regular $599), code: 6MONTHPROVIDER50\n"+PROV_PAY_LINK_6MO+"\n\nYour founding position is locked in your category; the listing renews at the regular rate after your founding term. No commissions on your work \u2014 families and concierges pay you directly; the network fee is all we charge.\n\nBy enrolling you agree to the Preferred Provider Network terms:\nhttps://providers.homegoinghq.com/terms.html\n\nOnce your enrollment is complete, we'll publish your listing with the Preferred mark in the tools families and certified concierges use to find and book providers.\n\nWelcome aboard,\nThe HomegoingHQ Team\ncare@homegoinghq.com" };
 }
 function provDenyEmail(a){
   const who=a.contact_name||a.business_name||"there";
