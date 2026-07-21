@@ -11,7 +11,14 @@ exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, headers, body: JSON.stringify({ error: "POST only" }) };
 
   try {
-    const { messages, estateContext } = JSON.parse(event.body || "{}");
+    const { messages, estateContext, accessToken } = JSON.parse(event.body || "{}");
+    // Require a signed-in user so the AI endpoint can't be hammered anonymously (cost abuse).
+    const SB_URL = process.env.SUPABASE_URL, SB_ANON = process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvaHFnbW51cm5rZ2J3cHZyYWtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNjc0NTYsImV4cCI6MjA5ODk0MzQ1Nn0.fXDBbljOS_p49FS9vU4smAWxyn4STYuLRGFf9rJgp-Q";
+    if (SB_URL) {
+      if (!accessToken) return { statusCode: 401, headers, body: JSON.stringify({ error: "not signed in" }) };
+      const who = await fetch(SB_URL + "/auth/v1/user", { headers: { apikey: SB_ANON, Authorization: "Bearer " + accessToken } });
+      if (!who.ok) return { statusCode: 401, headers, body: JSON.stringify({ error: "session invalid" }) };
+    }
     if (!Array.isArray(messages) || messages.length === 0) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "messages required" }) };
     }

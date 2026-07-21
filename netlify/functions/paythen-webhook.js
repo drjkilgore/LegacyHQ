@@ -44,11 +44,15 @@ exports.handler = async (event) => {
 
   // ---- shared-secret check (skip only if secret is unset, for first-run testing) ----
   const secret = process.env.PAYTHEN_WEBHOOK_SECRET;
-  if (secret) {
-    const given = (event.headers["x-webhook-secret"] || event.headers["X-Webhook-Secret"] ||
-      (event.queryStringParameters && event.queryStringParameters.secret) || "");
-    if (given !== secret) return { statusCode: 401, headers, body: JSON.stringify({ error: "bad secret" }) };
+  // Fail CLOSED: without the shared secret configured, refuse.
+  if (!secret) { console.error("[paythen-webhook] REJECT: PAYTHEN_WEBHOOK_SECRET is not set in Netlify"); return { statusCode: 401, headers, body: JSON.stringify({ error: "secret not configured" }) }; }
+  const given = (event.headers["x-webhook-secret"] || event.headers["X-Webhook-Secret"] ||
+    (event.queryStringParameters && event.queryStringParameters.secret) || "");
+  if (given !== secret) {
+    console.error(`[paythen-webhook] REJECT: secret mismatch -- env_secret_len=${secret.length} incoming_present=${!!given} incoming_len=${given.length}. If incoming_present=false, Zapier is not sending the x-webhook-secret header; if lengths differ, the Zapier value does not match Netlify.`);
+    return { statusCode: 401, headers, body: JSON.stringify({ error: "bad secret" }) };
   }
+  console.log("[paythen-webhook] secret verified \u2713");
 
   // ---- parse body (JSON, or form-encoded fallback) ----
   let body = {};

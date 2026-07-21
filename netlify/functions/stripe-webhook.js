@@ -21,12 +21,19 @@ function verifyStripeSignature(payload, sigHeader, secret) {
 exports.handler = async (event) => {
   try {
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (secret) {
-      const ok = verifyStripeSignature(event.body, event.headers["stripe-signature"], secret);
-      if (!ok) return { statusCode: 400, body: "invalid signature" };
-    } // if secret unset (test phase), events are accepted unverified — set it before real sales
+    // Fail CLOSED: without the signing secret we cannot trust the event, so refuse it.
+    if (!secret) { console.error("[stripe-webhook] REJECT: STRIPE_WEBHOOK_SECRET is not set in Netlify"); return { statusCode: 400, body: "webhook secret not configured" }; }
+    const sigHeader = event.headers["stripe-signature"];
+    if (!sigHeader) { console.error("[stripe-webhook] REJECT: no stripe-signature header (is this really Stripe calling this URL?)"); return { statusCode: 400, body: "missing signature header" }; }
+    const ok = verifyStripeSignature(event.body, sigHeader, secret);
+    if (!ok) {
+      console.error(`[stripe-webhook] REJECT: invalid signature -- starts_with_whsec=${secret.startsWith("whsec_")} secret_len=${secret.length}. If starts_with_whsec is false, the wrong Stripe value was copied (need the endpoint Signing secret, not an API key). For live sales, use the LIVE endpoint's secret.`);
+      return { statusCode: 400, body: "invalid signature" };
+    }
+    console.log("[stripe-webhook] signature verified \u2713");
 
     const body = JSON.parse(event.body || "{}");
+    console.log("[stripe-webhook] event:", body.type);
 
     // ---- VAULT KEEPER lifecycle: keep vault_status / vault_grace_until in sync ----
     // Matched strictly by vault_subscription_id, so concierge subs are never touched.
