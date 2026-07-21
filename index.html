@@ -1239,7 +1239,7 @@ async function dsAiAssist(orderId){
     const {data:o}=await sb.from("fullservice_requests").select("*").eq("id",orderId).maybeSingle();
     const c=(o&&o.details&&o.details.content)||{};
     const prompt="You are a funeral program designer's assistant. Suggest a tasteful, respectful design direction for a homegoing/memorial program. Give: (1) a color palette of 3-4 colors with hex codes, (2) a font pairing (a heading font and a body font), (3) a one-line cover/layout idea, and (4) two short scripture or verse suggestions. Keep it brief, warm, and dignified.\n\nDetails:\nName: "+(c.name||"\u2014")+"\nDates: "+(c.dates||"\u2014")+"\nNotes: "+(c.notes||"\u2014")+"\nService: "+((o&&o.quote&&o.quote.tierName)||"\u2014");
-    const r=await fetch("/.netlify/functions/ai-guide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:prompt}]})});
+    const r=await fetch("/.netlify/functions/ai-guide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accessToken:(S.session&&S.session.access_token),messages:[{role:"user",content:prompt}]})});
     const d=await r.json();
     const out=document.getElementById("aiOut");
     if(out) out.innerHTML=String(d.text||d.reply||"No suggestions right now.").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/\n/g,"<br>");
@@ -2474,7 +2474,7 @@ async function sendGuide(){
   } : null;
   try{
     const r=await fetch("/.netlify/functions/ai-guide",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({messages:S.guide,estateContext})});
+      body:JSON.stringify({accessToken:(S.session&&S.session.access_token),messages:S.guide,estateContext})});
     const d=await r.json();
     thinking.textContent = d.text || d.error || "I couldn't reach the Guide just now. Please try again.";
     if(d.text) S.guide.push({role:"assistant",content:d.text});
@@ -3669,7 +3669,7 @@ async function casketAnalyze(){
   const prompt=`You are helping a grieving family compare CASKET prices. Analyze these casket quotes and reply in short, warm, plain language with these sections: BEST VALUE (which and why \u2014 quality and value, not just lowest price), PRICE SPREAD (the difference and estimated savings between highest and lowest), WATCH FOR (over-priced "protective"/"sealed" upsells that do not preserve the body, whether a funeral-home price looks marked up versus online sellers like Titan or Costco, and any missing details), and ASK THEM (3-4 specific questions to ask each seller \u2014 material, gauge/thickness, delivery to the funeral home, return policy). Note: by the FTC Funeral Rule the funeral home must accept an outside casket with no handling fee. Under 240 words. Quotes:\n${lines.join("\n")}`;
   try{
     const r=await fetch("/.netlify/functions/ai-guide",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({messages:[{role:"user",content:prompt}],estateContext:"casket price comparison"})});
+      body:JSON.stringify({accessToken:(S.session&&S.session.access_token),messages:[{role:"user",content:prompt}],estateContext:"casket price comparison"})});
     const d=await r.json();
     const text=d.text||d.error||"Analysis unavailable right now.";
     CK.analysis=`<div class="card" style="margin:8px 0;border-top:3px solid var(--brass)"><div class="eyebrow">\u2728 Casket cost analysis</div>
@@ -3900,7 +3900,7 @@ async function pgDraftObit(btn){
   const prompt=`Please write a complete obituary (350-450 words) for ${S.estate.decedent_name}, who passed on ${S.estate.date_of_death||"(date)"}. Tone: ${tone}. Use graceful general language where details are unknown. Do not include an exact birth date or any street address. Return only the obituary text.`;
   try{
     const r=await fetch("/.netlify/functions/ai-guide",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({messages:[{role:"user",content:prompt}]})});
+      body:JSON.stringify({accessToken:(S.session&&S.session.access_token),messages:[{role:"user",content:prompt}]})});
     const d=await r.json();
     if(d.text){ PG.obituary=d.text.trim(); pgSave(); renderProgram(); toast("Draft ready — edit it freely below."); }
     else toast(d.error||"Couldn\u2019t draft just now — try again.");
@@ -3925,7 +3925,7 @@ Service details: ${$("obService").value||"(omit)"}.
 Do not include an exact birth date or any street address. Return only the obituary text.`;
   try{
     const r=await fetch("/.netlify/functions/ai-guide",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({messages:[{role:"user",content:prompt}]})});
+      body:JSON.stringify({accessToken:(S.session&&S.session.access_token),messages:[{role:"user",content:prompt}]})});
     const d=await r.json();
     if(d.text){$("obOut").classList.remove("hidden");$("obText").value=d.text;}
     else toast(d.error||"Couldn't draft just now — try again.");
@@ -5258,13 +5258,13 @@ async function sweepRecurring(){
   try{
     await loadPlaidScript();
     const r=await fetch("/.netlify/functions/plaid",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({action:"link_token",userId:S.session.user.id,products:["transactions"]})});
+      body:JSON.stringify({accessToken:(S.session&&S.session.access_token),action:"link_token",userId:S.session.user.id,products:["transactions"]})});
     const d=await r.json();
     if(!d.link_token) return toast(d.error||"Plaid isn't configured yet.");
     const handler=Plaid.create({token:d.link_token,onSuccess:async(public_token)=>{
       recurringModal({loading:true});
       const r2=await fetch("/.netlify/functions/plaid",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({action:"recurring",public_token})});
+        body:JSON.stringify({accessToken:(S.session&&S.session.access_token),action:"recurring",public_token})});
       const d2=await r2.json();
       if(d2.error){ recurringModal({error:d2.error}); return; }
       if(d2.status==="gathering"){ recurringModal({gathering:true}); return; }
@@ -5316,13 +5316,13 @@ async function plaidDiscover(){
   try{
     await loadPlaidScript();
     const r=await fetch("/.netlify/functions/plaid",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({action:"link_token",userId:S.session.user.id,products:["transactions"]})});
+      body:JSON.stringify({accessToken:(S.session&&S.session.access_token),action:"link_token",userId:S.session.user.id,products:["transactions"]})});
     const d=await r.json();
     if(!d.link_token) return toast(d.error||"Plaid isn't configured yet.");
     const handler=Plaid.create({token:d.link_token,onSuccess:async(public_token)=>{
       toast("Reading account balances…");
       const r2=await fetch("/.netlify/functions/plaid",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({action:"discover",public_token})});
+        body:JSON.stringify({accessToken:(S.session&&S.session.access_token),action:"discover",public_token})});
       const d2=await r2.json();
       if(d2.error) return toast(d2.error);
       const rows=(d2.accounts||[]).map(a=>({estate_id:S.estate.id,name:a.name,category:"bank",titling:"unknown",
@@ -6651,7 +6651,7 @@ async function pvAnalyze(){
   const prompt=`You are helping a grieving family compare funeral-related service quotes. Analyze these quotes and reply in short, warm, plain language with these sections: BEST VALUE (which and why — value, not just lowest price), PRICE SPREAD (differences and estimated savings), WATCH FOR (missing services, likely add-on fees, duplicate charges), and ASK THEM (3-4 specific follow-up questions for the providers). Under 250 words. Quotes:\n${lines.join("\n")}`;
   try{
     const r=await fetch("/.netlify/functions/ai-guide",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({messages:[{role:"user",content:prompt}],estateContext:"provider quote comparison"})});
+      body:JSON.stringify({accessToken:(S.session&&S.session.access_token),messages:[{role:"user",content:prompt}],estateContext:"provider quote comparison"})});
     const d=await r.json();
     const text=d.text||d.error||"Analysis unavailable right now.";
     el.innerHTML=`<div class="card" style="margin:8px 0;border-top:3px solid var(--brass)"><div class="eyebrow">✨ Cost analysis</div>
